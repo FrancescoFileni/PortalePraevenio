@@ -1,0 +1,18 @@
+﻿# Ignora la cartella .vs (Visual Studio)
+.vs/
+
+# Ignora le cartelle di build
+bin/
+obj/
+
+# Ignora i file temporanei creati dall'IDE
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignora i file di log
+*.log
+
+# Ignora i file di backup
+*~

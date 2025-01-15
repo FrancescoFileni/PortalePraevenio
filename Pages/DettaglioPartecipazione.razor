@@ -1,0 +1,439 @@
+﻿@page "/dettagliopartecipazione/id={id}&idCorso{idCorso}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using MudBlazor
+@using System.Text
+@using System.Net.Http;
+@using System.Threading.Tasks;
+@using System.Web;
+@inject IJSRuntime JSRuntime
+@inject IJSRuntime iJSRuntime
+@inject IJSRuntime JS
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<FetchSedi> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject NavigationManager Navigation
+
+
+@if (partecipazioni?.value?.Length > 0)
+{
+
+    <div class="folder-container">
+        <!-- Linguetta della cartella -->
+        <div class="folder-tab">
+            Dettaglio partecipazione lavoratore @partecipazioni.value[0].cr4f9_cognome @partecipazioni.value[0].cr4f9_nome
+        </div>
+
+        <!-- Contenuto della cartella -->
+        <div class="course-info">
+            <MudDateRangePicker Margin="Margin.Dense" ReadOnly="true" Clearable="false"
+                                PlaceholderStart="@(partecipazioni.value[0].dataInizio == "01/01/0001" ? partecipazioni.value[0].dataInizioCorsoString : partecipazioni.value[0].dataInizio)"
+                                PlaceholderEnd="@(partecipazioni.value[0].dataFine == "01/01/0001" ? partecipazioni.value[0].dataFineCorsoString : partecipazioni.value[0].dataFine)" />
+
+        </div>
+        <!-- Seconda scheda: informazioni corso e pulsante -->
+        <div class="folder-section">
+            <div class="course-info">
+                <span>Tipo corso: @partecipazioni.value[0].tipoCorso</span>
+            </div>
+            <div class="course-info">
+                <span>Corso sostenuto: @partecipazioni.value[0].titoloCorso</span>
+            </div>
+            <div class="course-info">
+                <span>Corso superato: @((partecipazioni.value[0].cr4f9_superato) ? "Sì" : "No")</span>
+            </div>
+
+           <MudButton Variant="Variant.Filled" Disabled="partecipazioni.value[0].cr4f9_superato ? false : true" Color="Color.Error"
+            OnClick="() => GeneratePdf(partecipazioni.value[0].titoloCorso, 
+                                       partecipazioni.value[0].idCorso, 
+                                       partecipazioni.value[0].tipoCorso, 
+                                       partecipazioni.value[0].cr4f9_cognome, 
+                                       partecipazioni.value[0].cr4f9_nome,
+                                       partecipazioni.value[0].intestazioneUno,
+                                       partecipazioni.value[0].intestazioneDue,
+                                       partecipazioni.value[0].titoloAttestato,
+                                       partecipazioni.value[0].normative,
+                                       partecipazioni.value[0].testoTre,
+                                       partecipazioni.value[0].cr4f9_codicefiscale,
+                                       partecipazioni.value[0].dataNascita,
+                                       partecipazioni.value[0].luogonascita,
+                                       partecipazioni.value[0].provinciaNascita,
+                                       partecipazioni.value[0].cr4f9_azienda,
+                                       partecipazioni.value[0].testoQuattro,
+                                       partecipazioni.value[0].testoCinque,
+                                       partecipazioni.value[0].dataInizio,
+                                       partecipazioni.value[0].dataFine,
+                                       partecipazioni.value[0].durataInOre,
+                                       partecipazioni.value[0].sedeDelCorso,
+                                       partecipazioni.value[0].sedeTeoricaDelCorso,
+                                       partecipazioni.value[0].sedePraticaDelCorso,
+                                       partecipazioni.value[0].indicareSede,
+                                       partecipazioni.value[0].indicareSedeTeorica,
+                                       partecipazioni.value[0].indicareSedePratica,
+                                       partecipazioni.value[0].indirizzoDue,
+                                       partecipazioni.value[0].indirizzoTre,
+                                       partecipazioni.value[0].sedeP,
+                                       partecipazioni.value[0].sedeT,
+                                       partecipazioni.value[0].docenteCognome,
+                                       partecipazioni.value[0].docenteNome,
+                                       partecipazioni.value[0].dataInizioCorsoString,
+                                       partecipazioni.value[0].dataFineCorsoString,
+                                       partecipazioni.value[0].pieDiPagina)">
+                Scarica Attestato
+            </MudButton>
+        </div>
+    </div>
+
+
+}
+else if (!string.IsNullOrEmpty(message))
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+} 
+else
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+
+
+@code {
+    [Parameter]
+    public string id { get; set; }
+    [Parameter]
+    public string idCorso { get; set; }
+
+    private string message = "Loading...";
+    private string userName;
+    private string userEmail;
+    private string fetchXmlQuery;
+
+    private PartecipazioneCollection partecipazioni = new PartecipazioneCollection { value = Array.Empty<Partecipazione>() };
+
+    /* Select values */
+    string _value;
+    Margin _margin;
+    bool _dense;
+    bool _disabled;
+    bool _readonly = true;
+    bool _placeholder;
+    bool _helperText;
+    bool _helperTextOnFocus;
+    bool _clearable;
+    bool _isEditing = false;
+    private string Icon => _isEditing ? Icons.Material.Filled.Save : Icons.Material.Filled.Edit;
+
+    private async Task GeneratePdf(string titolocorso, 
+                                    string corsoId, 
+                                    string corsoTipo, 
+                                    string cognome, 
+                                    string nome, 
+                                    string intestazione1, 
+                                    string intestazione2,
+                                    string titoloAttestato,
+                                    string normative,
+                                    string testo3,
+                                    string codiceFiscale,
+                                    string dataNascita,
+                                    string luogoNascita,
+                                    string provinciaNascita,
+                                    string azienda, 
+                                    string testo4,
+                                    string testo5,
+                                    string dataInizio,
+                                    string dataFine,
+                                    string durata,
+                                    string sedeDelCorso,
+                                    string sedeTeoricaDelCorso,
+                                    string sedePraticaDelCorso,
+                                    string indicareSede,
+                                    string indicareSedeTeorica,
+                                    string indicareSedePratica,
+                                    string indirizzoDue,
+                                    string indirizzoTre,
+                                    string sedeP,
+                                    string sedeT,
+                                    string docenteCognome,
+                                    string docenteNome,
+                                    string dataInizioCorso,
+                                    string dataFineCorso,
+                                    string pieDiPagina)
+    {
+        // Contenuto del PDF
+        string content = titolocorso + corsoId;
+
+        // Chiamata alla funzione JavaScript per generare il PDF
+        await JS.InvokeVoidAsync("generatePDF", content, corsoId, corsoTipo, cognome, nome, intestazione1, intestazione2, titoloAttestato, normative, testo3, codiceFiscale,
+                                 dataNascita, luogoNascita, provinciaNascita, azienda, testo4, testo5, dataInizio, dataFine, durata, sedeDelCorso, sedeTeoricaDelCorso, sedePraticaDelCorso,
+                                 indicareSede, indicareSedeTeorica, indicareSedePratica, indirizzoDue, indirizzoTre, sedeP, sedeT, docenteCognome, docenteNome, dataInizioCorso, dataFineCorso, pieDiPagina);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation(); 
+
+        // Costruisci dinamicamente la query FetchXML
+        fetchXmlQuery = $@"
+                        <fetch>
+                            <entity name='new_partecipazionecorsoprv'>
+                            <attribute name='cr4f9_cognome' />
+                            <attribute name='cr4f9_nome' />
+                            <attribute name='cr4f9_corsotipo' />
+                            <attribute name='cr4f9_azienda' />
+                            <attribute name='cr4f9_codicefiscale' />
+                            <attribute name='cr4f9_datadinascita' />
+                            <attribute name='cr4f9_superato' />
+                            <attribute name='cr4f9_datadiinizio' />
+                            <attribute name='new_dataconclusione' />
+                            <filter>
+                                <condition attribute='new_partecipazionecorsoprvid' operator='eq' value='{id}' />
+                            </filter>
+                            <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' alias='corso'>
+                                <attribute name='cr4f9_titolocorso' alias='titoloCorso'/>
+                                <attribute name='cr4f9_idcorso' alias='corsoId'/>
+                                <attribute name='cr4f9_intestazione1' alias='intestazioneUno'/>
+                                <attribute name='cr4f9_intestazione2' alias='intestazioneDue'/>
+                                <attribute name='cr4f9_titoloattestato' alias='titoloAttestato'/>
+                                <attribute name='cr4f9_normative' alias='normative'/>
+                                <attribute name='cr4f9_testo3' alias='testoTre'/>
+                                <attribute name='cr4f9_testo4' alias='testoQuattro'/>
+                                <attribute name='cr4f9_testo5' alias='testoCinque'/>
+                                <attribute name='cr4f9_duratacomplessivainore' alias='durata'/>
+                                <attribute name='new_sedecorso' alias='sedeCorso'/>
+                                <attribute name='new_sedeteorica' alias='sedeTeorica'/>
+                                <attribute name='new_sedepratica' alias='sedePratica'/>
+                                <attribute name='new_indicaresede' alias='indicareSede'/>
+                                <attribute name='new_indicaresedeteorica' alias='indicareSedeTeorica'/>
+                                <attribute name='new_indicaresedepratica' alias='indicareSedePratica'/>
+                                <attribute name='cr4f9_indirizzo2' alias='indirizzoDue'/>
+                                <attribute name='cr4f9_indirizzo3' alias='indirizzoTre'/>
+                                <attribute name='cr4f9_sedep' alias='sedeP'/>
+                                <attribute name='cr4f9_sedet' alias='sedeT'/>
+                                <attribute name='cr4f9_docentecognome' alias='docenteCognome'/>
+                                <attribute name='cr4f9_docentenome' alias='docenteNome'/>
+                                <attribute name='cr4f9_datadiinizio' alias='dataInizioCorso'/>
+                                <attribute name='cr4f9_datadifine' alias='dataFineCorso'/>
+                                <attribute name='new_piedipaginaattestato' alias='pieDiPagina'/>
+                                  <link-entity name='cr4f9_corsotipoprv' from='cr4f9_corsotipoprvid' to='cr4f9_corsotipo' alias='tipoCorso'>
+                                    <attribute name='cr4f9_codicecorsotipo' alias='tipoCorso'/>
+                                  </link-entity>
+                            </link-entity>
+                            <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='new_lavoratore' alias='lavoratore'>
+                              <attribute name='cr4f9_luogodinascita' alias='luogonascita'/>
+                              <attribute name='cr4f9_provinciadinascita' alias='provinciaNascita'/>
+                            </link-entity>
+                            </entity>
+                        </fetch>";
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+                };
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                partecipazioni = await response.Content.ReadFromJsonAsync<PartecipazioneCollection>();
+            }
+            else
+            {
+                message = "An error occurred.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+    }
+
+    // Metodo per caricare le informazioni sull'utente
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+    }
+
+    public class Partecipazione
+    {
+        public string cr4f9_cognome { get; set; }
+        public string cr4f9_nome { get; set; }
+        public string cr4f9_codicefiscale { get; set; }
+        public string cr4f9_azienda { get; set; }
+        public DateTime cr4f9_datadiinizio { get; set; }
+        public DateTime new_dataconclusione { get; set; }
+        public DateTime dataFineCorso { get; set; }
+        public DateTime dataInizioCorso { get; set; }
+        public double durata { get; set; }
+        public DateTime cr4f9_datadinascita { get; set; }
+        public string cr4f9_corsotipo { get; set; }
+        public string intestazioneUno { get; set; }
+        public string intestazioneDue { get; set; }
+        public string titoloAttestato { get; set; }
+        public string normative { get; set; }
+        public string testoTre { get; set; }
+        public string testoQuattro { get; set; }
+        public string testoCinque { get; set; }
+        public string luogonascita { get; set; }
+        public string provinciaNascita { get; set; }
+        public bool cr4f9_superato { get; set; }
+        public int corsoId { get; set; }
+        public string tipoCorso { get; set; }
+        public string titoloCorso { get; set; }
+        public int sedeCorso { get; set; }
+        public int sedeTeorica { get; set; }
+        public int sedePratica { get; set; }
+        public string indicareSede { get; set; }
+        public string indicareSedeTeorica { get; set; }
+        public string indicareSedePratica { get; set; }
+        public string indirizzoDue { get; set; }
+        public string indirizzoTre { get; set; }
+        public string docenteCognome { get; set; }
+        public string docenteNome { get; set; }
+        public string pieDiPagina { get; set; }
+
+        public string sedeP { get; set; }
+        public string sedeT { get; set; }
+
+        public string dataInizio => cr4f9_datadiinizio.ToString("dd/MM/yyyy");
+        public string dataFine => new_dataconclusione.ToString("dd/MM/yyyy");
+        public string dataNascita => cr4f9_datadinascita.ToString("dd/MM/yyyy");
+        public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
+        public string dataInizioCorsoString => dataInizioCorso.ToString("dd/MM/yyyy");
+        public string idCorso => corsoId.ToString();
+        public string durataInOre => durata.ToString();
+
+        public string sedeDelCorso => sedeCorso.ToString();
+        public string sedeTeoricaDelCorso => sedeTeorica.ToString();
+        public string sedePraticaDelCorso => sedePratica.ToString();
+    }
+
+    public class PartecipazioneCollection
+    {
+        public Partecipazione[] value { get; set; }
+    }
+
+}
+
+<style>
+
+    /* Contenitore a forma di cartella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+    }
+
+    /* Linguetta in alto a sinistra */
+    .folder-tab {
+        position: absolute;
+        top: -25px; /* Altezza sopra il contenitore */
+        left: 20px; /* Regola la posizione più verso sinistra */
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+    }
+
+    /* Stile per la sezione aggiuntiva */
+    .folder-section {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+    }
+
+    /* Stile per le informazioni del corso */
+    .course-info {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    /* Pulsante di azione */
+    button {
+        font-size: 1rem;
+        background-color: #E53935; /* Stesso colore della linguetta */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        button:hover {
+            background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+        }
+
+    /* Contenitore delle informazioni del corso */
+    .course-info {
+        display: flex;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 12px 0;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stile generale per lo stato */
+    .course-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        /* Stile per stato positivo */
+        .course-status.success {
+            color: #2e7d32; /* Verde scuro */
+            background-color: #e8f5e9; /* Verde chiaro */
+            border-left: 4px solid #2e7d32;
+            padding-left: 12px;
+        }
+
+        /* Stile per stato negativo */
+        .course-status.failure {
+            color: #d32f2f; /* Rosso scuro */
+            background-color: #ffebee; /* Rosso chiaro */
+            border-left: 4px solid #d32f2f;
+            padding-left: 12px;
+        }
+
+        /* Icone */
+        .course-status .mud-icon {
+            font-size: 1.5rem;
+        }
+
+
+
+</style>

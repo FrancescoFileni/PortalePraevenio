@@ -1,0 +1,406 @@
+﻿@page "/dettagliovisita/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using MudBlazor
+@using System.Text
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<FetchSedi> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject NavigationManager Navigation
+
+
+    @if (visite?.value?.Length > 0)
+    {
+    <MudText Typo="Typo.h4" FontWeight="FontWeight.Bold" Align="Align.Center" Style="background-color: #f4f4f4; padding: 16px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); margin-bottom: 24px; color: #333; display: flex; align-items: center; justify-content: center; gap: 12px;">
+        <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Style="margin-right: 8px; color: #E53935;" />
+        <span>Riepilogo visita</span>
+        <span style="color: #E53935;">@visite.value[0].TipologiaDescrizione</span>
+        <span>per</span>
+        <span>@visite.value[0].Cognome @visite.value[0].Nome</span>
+    </MudText>
+
+
+
+    <div class="folder-container">
+        <div class="folder-tab">Dettaglio visita medica lavoratore @visite.value[0].Cognome @visite.value[0].Nome</div>
+        <MudCard>
+            <MudTimeline TimelineOrientation=TimelineOrientation.Horizontal Style="margin-top: 16px; margin-bottom: 24px;">
+                <MudTimelineItem Color="Color.Success" Variant="Variant.Filled">
+                    <ItemContent>
+                        <MudAlert Severity="Severity.Success" ContentAlignment="HorizontalAlignment.Center">Visita effettuata</MudAlert>
+                    </ItemContent>
+                    <ItemOpposite>
+                        <MudText Color="Color.Success">@visite.value[0].checkDate</MudText>
+                    </ItemOpposite>
+                </MudTimelineItem>
+                <MudTimelineItem Color="Color.Info" Variant="Variant.Filled">
+                    <ItemContent>
+                        <MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">Prossima visita</MudAlert>
+                    </ItemContent>
+                    <ItemOpposite>
+                        <MudText Color="Color.Info">
+                            @(visite.value[0].nextCheckDate == "01/01/0001" ? "Non definita" : visite.value[0].nextCheckDate)
+                        </MudText>
+                    </ItemOpposite>
+                </MudTimelineItem>
+            </MudTimeline>
+
+            <MudCardContent Style="margin-top: 24px; padding: 20px; background-color: #f9f9f9; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+                <!-- Campo di testo per gli accertamenti con un bordo più morbido -->
+                <MudTextField T="string"
+                              Label="Accertamenti"
+                              Variant="Variant.Outlined"
+                              Text="@visite.value[0].cr4f9_accertamenti"
+                              ReadOnly="_readonly"
+                              Lines="5"
+                              Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+
+                <!-- Campo numerico per la periodicità del controllo -->
+                <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+                                 Label="Periodicità del controllo (mesi)"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="400"
+                                 @bind-Value="@visite.value[0].cr4f9_periodicita"
+                                 ReadOnly="_readonly"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+
+                <!-- Campo numerico per la durata del controllo -->
+                <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+                                 Label="Durata del controllo (minuti)"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="400"
+                                 @bind-Value="@visite.value[0].cr4f9_duratavisita"
+                                 ReadOnly="_readonly"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Timer" />
+
+                <MudSelect Variant="Variant.Outlined" T="string"
+                AdornmentIcon="@getEsitoVisita()" 
+                Label="@visite.value[0].EsitoDescrizione" MultiSelection="false" @bind-Value="_value"
+                           ReadOnly="_readonly">
+                    @foreach (var esito in _esiti)
+                    {
+                        <MudSelectItem 
+                           Value="@esito">@esito</MudSelectItem>
+                    }
+                </MudSelect>
+
+            </MudCardContent>
+
+        </MudCard>
+
+        <div style="display: flex; justify-content: flex-end;">
+            <MudButton Variant="Variant.Filled" StartIcon="@Icon" Color="Color.Error" Size="Size.Small"
+                       Style="margin-top: 20px;" @onclick="editVisitaMedica">
+                @(_isEditing ? "Salva" : "Modifica")
+            </MudButton>
+        </div>
+
+    </div>
+    }
+    else if (!string.IsNullOrEmpty(message))
+    {
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+    }
+    else
+    {
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+    }
+
+
+@code {
+    [Parameter]
+    public string id { get; set; }
+
+    private string message = "Loading...";
+    private string userName;
+    private string userEmail;
+    private string fetchXmlQuery;
+
+    private VisitaCollection visite = new VisitaCollection { value = Array.Empty<Visita>() };
+
+    private string[] _esiti = ["Idoneo", "Idoneo con limitazioni", "Idoneo con prescrizioni", "Non idoneo temporaneamente", "Non idoneo permanentemente"];
+
+    /* Select values */
+    string _value;
+    Margin _margin;
+    bool _dense;
+    bool _disabled;
+    bool _readonly = true;
+    bool _placeholder;
+    bool _helperText;
+    bool _helperTextOnFocus;
+    bool _clearable;
+    bool _isEditing = false;
+    private string Icon => _isEditing ? Icons.Material.Filled.Save : Icons.Material.Filled.Edit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation(); // Chiama il metodo per caricare le informazioni dell'utente
+
+        // Costruisci dinamicamente la query FetchXML
+        fetchXmlQuery = $@"
+        <fetch>
+            <entity name='cr4f9_visitamedicadellavoratore'>
+                <attribute name='cr4f9_riepilogovisita' />
+                <attribute name='cr4f9_datavisita' />
+                <attribute name='cr4f9_dataprossimavisita' />
+                <attribute name='cr4f9_tipologiadivisita' />
+                <attribute name='cr4f9_esitodellavisita' />
+                <attribute name='cr4f9_accertamenti' />
+                <attribute name='cr4f9_periodicita' />
+                <attribute name='cr4f9_duratavisita' />
+                <attribute name='cr4f9_notedelmedico' />
+                <attribute name='cr4f9_sedevisita' />
+                <filter>
+                    <condition attribute='cr4f9_visitamedicadellavoratoreid' operator='eq' value='{id}' />
+                </filter>
+                <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' alias='lavoratore'>
+                      <attribute name='cr4f9_cognome' alias='Cognome'/>
+                      <attribute name='cr4f9_nome' alias='Nome'/>
+                </link-entity>
+            </entity>
+        </fetch>";
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+                    // RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?$top=100")
+                };
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
+            }
+            else
+            {
+                message = "An error occurred.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+    }
+
+    // Metodo per caricare le informazioni sull'utente
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+    }
+
+    private string getEsitoVisita()
+    {
+        return visite.value[0].EsitoDescrizione switch
+        {
+            var esito when esito.Contains("Idoneo") => Icons.Material.Outlined.CheckCircle,
+            var esito when esito.Contains("Idoneo con prescrizioni") => Icons.Material.Outlined.CheckCircle,
+            var esito when esito.Contains("Idoneo con limitazioni") => Icons.Material.Outlined.CheckCircle,
+            var esito when esito.Contains("Non idoneo temporaneamente") => Icons.Material.Outlined.Warning,
+            var esito when esito.Contains("Non idoneo permanentemente") => Icons.Material.Outlined.Cancel,
+        };
+    }
+
+    private void editVisitaMedica()
+    {
+        if (_isEditing)
+        {
+            _readonly = true;
+            SaveChanges();
+        }
+        else
+        {
+            _readonly = false;
+        }
+
+        _isEditing = !_isEditing; 
+    }
+
+    public async Task SaveChanges()
+    {
+        logger.LogInformation("Save changes...");
+    }
+
+
+    public class Visita
+    {
+        public Guid cr4f9_visitamedicadellavoratoreid { get; set; }
+        public string cr4f9_riepilogovisita { get; set; }
+        public DateTime cr4f9_datavisita { get; set; }
+        public DateTime cr4f9_dataprossimavisita { get; set; }
+        public string cr4f9_accertamenti { get; set; }
+        public int cr4f9_periodicita { get; set; }
+        public int cr4f9_duratavisita { get; set; }
+        public string Cognome { get; set; }
+        public string Nome { get; set; }
+
+        public int cr4f9_tipologiadivisita { get; set; }
+
+        public int cr4f9_esitodellavisita { get; set; }
+
+        public TipologiaVisita Tipologia
+        {
+            get => (TipologiaVisita)cr4f9_tipologiadivisita;
+            set => cr4f9_tipologiadivisita = (int)value;
+        }
+
+        public string TipologiaDescrizione => Tipologia switch
+        {
+            TipologiaVisita.Preassuntiva => "Preassuntiva",
+            TipologiaVisita.Periodica => "Periodica",
+            TipologiaVisita.SuRichiesta => "Su Richiesta",
+            TipologiaVisita.Rientro => "Rientro da Malattia/Infortunio",
+            TipologiaVisita.Fine => "Fine Rapporto",
+            _ => "Sconosciuto"
+        };
+
+        public EsitoVisita Esito
+        {
+            get => (EsitoVisita)cr4f9_esitodellavisita;
+            set => cr4f9_esitodellavisita = (int)value;
+        }
+
+        public string EsitoDescrizione => Esito switch
+        {
+            EsitoVisita.Idoneo => "Idoneo",
+            EsitoVisita.IdoneoConPrescrizioni => "Idoneo con prescrizioni",
+            EsitoVisita.IdoneoConLimitazioni => "Idoneo con limitazioni",
+            EsitoVisita.NonIdoneoTemporanemante => "Non idoneo temporaneamente",
+            EsitoVisita.NonIdoneoPermanentemente => "Non idoneo permanentemente"
+        };
+
+        public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
+        public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
+    }
+
+
+    public class VisitaCollection
+    {
+        public Visita[] value { get; set; }
+    }
+
+    public enum TipologiaVisita
+    {
+        Preassuntiva = 644840000,
+        Fine = 644840004,
+        Periodica = 644840001,
+        SuRichiesta = 644840002,
+        Rientro = 644840003
+    }
+
+    public enum EsitoVisita
+    {
+        Idoneo = 644840000,
+        IdoneoConPrescrizioni = 644840004,
+        IdoneoConLimitazioni = 644840001,
+        NonIdoneoTemporanemante = 644840002,
+        NonIdoneoPermanentemente = 644840003
+    }
+}
+
+<style>
+
+    /* Contenitore principale della tabella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px;
+        margin-bottom: 50px;
+    }
+
+    /* Tabella principale */
+    .mud-table {
+        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
+        border-radius: 8px;
+        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+    .mud-table-header .mud-table-cell {
+        color: white !important;
+        font-weight: bold; /* Grassetto per l'intestazione */
+    }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+    /* Hover sui link */
+    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+        color: red !important;
+        cursor: pointer;
+    }
+
+    /* Contenitore della tabella */
+    .folder-tab {
+        position: absolute;
+        top: -25px;
+        left: 20px;
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+    }
+
+    /* Nascondi informazioni di paginazione */
+    .mud-table-pagination-information {
+        display: none;
+    }
+
+</style>

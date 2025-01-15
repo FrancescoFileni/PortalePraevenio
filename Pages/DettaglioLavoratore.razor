@@ -1,0 +1,533 @@
+﻿@page "/dettagliolavoratore/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using MudBlazor
+@using System.Text
+@using System.Net.Http;
+@using System.Threading.Tasks;
+@using System.Web;
+@inject IJSRuntime JSRuntime
+@inject IJSRuntime iJSRuntime
+@inject IJSRuntime JS
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<FetchSedi> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject NavigationManager Navigation
+
+@if (contatti?.value?.Length > 0)
+{
+    
+    <MudTabs Elevation="2" Rounded="true" Class="my-6">
+
+    <MudTabPanel Icon="@Icons.Material.Filled.Person" Text="Anagrafica">
+        <div class="folder-container">
+            <!-- Linguetta della cartella -->
+            <div class="folder-tab">
+                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+            </div>
+
+            <div class="folder-section">
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_codicefiscale" Label="Codice Fiscale" Variant="Variant.Outlined"></MudTextField>
+                </div>
+
+                <div class="course-info">
+                    <MudDatePicker @bind-Date="SelectedDate" Label="Data di nascita" Format="dd/MM/yyyy" ReadOnly="true"/>
+                </div>
+
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_luogodinascita" Label="Luogo di nascita" Variant="Variant.Outlined"></MudTextField>
+                </div>
+
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_provinciadinascita" Label="Provincia di nascita" Variant="Variant.Outlined"></MudTextField>
+                </div>
+
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_nazionalita" Label="Nazionalità" Variant="Variant.Outlined"></MudTextField>
+                </div>
+
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_telefonoprincipale" Label="Telefono principale" Variant="Variant.Outlined"></MudTextField>
+                </div>
+
+                <div class="course-info">
+                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_emailprincipale" Label="Email principale" Variant="Variant.Outlined"></MudTextField>
+                </div>
+            </div>
+        </div>
+    </MudTabPanel>
+
+    <MudTabPanel Icon="@Icons.Material.Filled.Place" Text="Mansioni e Sedi">
+
+        <div class="folder-container">
+            <!-- Linguetta della cartella -->
+            <div class="folder-tab">
+                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+            </div>
+        </div>
+
+    </MudTabPanel>
+
+    <MudTabPanel Icon="@Icons.Material.Filled.School" Text="Corsi sostenuti">
+
+        <div class="folder-container">
+            <!-- Linguetta della cartella -->
+            <div class="folder-tab">
+                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+            </div>
+
+            <MudTable Items="partecipazioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">Partecipazioni interne a Praevenio</MudText>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.cr4f9_corsotipo)">Tipo Corso</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.dataFineCorso)">Data Conclusione</MudTableSortLabel></MudTh>
+                <MudTh>Superato</MudTh>
+                <MudTh>Scarica Attestato</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="partecipazioni">
+                <MudTd DataLabel="corsoTipo">@partecipazioni.cr4f9_corsotipo</MudTd>
+                <MudTd DataLabel="dataFine">@partecipazioni.dataFineCorsoString</MudTd>
+                <MudTd DataLabel="superato">@((partecipazioni.cr4f9_superato) ? "Sì" : "No")</MudTd>
+                <MudTd DataLabel="attestato">
+                     <MudButton Variant="Variant.Filled" Color="Color.Error">
+                        Scarica
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+            </PagerContent>
+        </MudTable>
+        </div>
+
+    </MudTabPanel>
+    <MudTabPanel Icon="@Icons.Material.Filled.WorkOutline" Text="Consegne DPI"></MudTabPanel>
+    <MudTabPanel Icon="@Icons.Material.Filled.MedicalServices" Text="Visite Mediche"></MudTabPanel>
+    <MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze"></MudTabPanel>
+    </MudTabs>
+
+}
+else if (!string.IsNullOrEmpty(message))
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+else
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+
+@code {
+    [Parameter]
+    public string id { get; set; }
+
+    private string message = "Loading...";
+    private string userName;
+    private string userEmail;
+    private string fetchXmlQuery;
+    private string fetchXmlQueryPartecipazioni;
+
+    // Mansioni e sedi.
+    private string fetchXmlQueryMansioniESedi;
+
+    private ContattoCollection contatti = new ContattoCollection { value = Array.Empty<Contatto>() };
+    private PartecipazioneCollection partecipazioni = new PartecipazioneCollection { value = Array.Empty<Partecipazione>() };
+    private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
+
+    protected override async Task OnInitializedAsync() {
+
+        await LoadUserInformation();
+
+        // Prima query FetchXML
+        fetchXmlQuery = $@"
+                    <fetch>
+                      <entity name='cr4f9_contattoprv'>
+                        <attribute name='cr4f9_cognome' />
+                        <attribute name='cr4f9_nome' />
+                        <attribute name='cr4f9_codicefiscale' />
+                        <attribute name='cr4f9_datadinascita' />
+                        <attribute name='cr4f9_luogodinascita' />
+                        <attribute name='cr4f9_provinciadinascita' />
+                        <attribute name='cr4f9_nazionalita' />
+                        <attribute name='cr4f9_telefonoprincipale' />
+                        <attribute name='cr4f9_emailprincipale' />
+                        <filter>
+                          <condition attribute='cr4f9_contattoprvid' operator='eq' value='{id}' />
+                        </filter>
+                      </entity>
+                    </fetch>";
+
+        fetchXmlQueryPartecipazioni = $@"
+                        <fetch>
+                            <entity name='new_partecipazionecorsoprv'>
+                            <attribute name='cr4f9_corsotipo' />
+                            <attribute name='cr4f9_superato' />
+                            <filter>
+                                <condition attribute='new_lavoratore' operator='eq' value='{id}' />
+                            </filter>
+                            <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' alias='corso'>
+                              <attribute name='cr4f9_datadifine' alias='dataFineCorso'/>
+                            </link-entity>
+                            </entity>
+                        </fetch>";
+
+        fetchXmlQueryMansioniESedi = $@"
+                        <fetch>
+                          <entity name='cr4f9_contattoprv'>
+                            <filter>
+                              <condition attribute='cr4f9_contattoprvid' operator='eq' value='{id}' />
+                            </filter>
+                            <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' link-type='inner' alias='lavoraPresso'>
+                              <attribute name='cr4f9_inforza' alias='inForza' />
+                              <link-entity name='new_sedeprv' from='new_sedeprvid' to='new_sede' link-type='inner' alias='sede'>
+                                <attribute name='new_localita' alias='localita'/>
+                                <link-entity name='new_emailsediprv' from='new_sede' to='new_sedeprvid' link-type='inner' alias='emailsedi'>
+                                  <link-entity name='new_emailautorizzazioniprv' from='new_emailautorizzazioniprvid' to='new_email' link-type='inner' alias='emailauth'>
+                                    <filter>
+                                      <condition attribute='new_email' operator='eq' value='{userEmail}' />
+                                    </filter>
+                                  </link-entity>
+                                </link-entity>
+                                <link-entity name='cr4f9_new_sedeprv_new_mansionetabellamaster' from='new_sedeprvid' to='new_sedeprvid' alias='mansioneMaster' intersect='true'>
+                                  <attribute name='new_mansionetabellamasterid' />
+                                  <link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='new_mansionetabellamasterid' alias='mans' intersect='true'>
+                                    <attribute name='new_mansione' alias='mansione'/>
+                                  </link-entity>
+                                </link-entity>
+                              </link-entity>
+                            </link-entity>
+                          </entity>
+                        </fetch>";
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+        {
+            Method = HttpMethod.Get,
+            RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+        };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                contatti = await response.Content.ReadFromJsonAsync<ContattoCollection>();
+            }
+            else
+            {
+                message = "An error occurred in the first request.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+                return; // Termina se la prima richiesta fallisce
+            }     
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+
+        // Seconda richiesta.
+
+        var tokenResultPartecipazioni = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultPartecipazioni.TryGetToken(out var tokenPart)) {
+            logger.LogInformation("FETCH PARTECIPAZIONI: " + fetchXmlQueryPartecipazioni);
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+        {
+            Method = HttpMethod.Get,
+            RequestUri = new Uri($"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryPartecipazioni)}")
+        };
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenPart.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                partecipazioni = await response.Content.ReadFromJsonAsync<PartecipazioneCollection>();
+            }
+            else
+            {
+                message = "An error occurred in the first request.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+                return; // Termina se la prima richiesta fallisce
+            }    
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+
+        // Terza richiesta per mansioni e sedi.
+
+        var tokenResultMansioni = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultMansioni.TryGetToken(out var tokenMans))
+        {
+            logger.LogInformation("FETCH MANSIONI: " + fetchXmlQueryMansioniESedi);
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryMansioniESedi)}")
+                };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenMans.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                mansioni = await response.Content.ReadFromJsonAsync<MansioneCollection>();
+            }
+            else
+            {
+                message = "An error occurred in the first request.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+                return;
+            }
+            }
+            else
+            {
+                message = "There was a problem authenticating.";
+            }
+
+
+    }
+    // Metodo per caricare le informazioni sull'utente
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+    }
+
+    public class Contatto
+    {
+        public string cr4f9_cognome { get; set; }
+        public string cr4f9_nome { get; set; }
+        public string cr4f9_codicefiscale { get; set; }
+        public DateTime cr4f9_datadinascita { get; set; }
+        public string cr4f9_luogodinascita { get; set; }
+        public string cr4f9_provinciadinascita { get; set; }
+        public string cr4f9_nazionalita { get; set; }
+        public string cr4f9_telefonoprincipale { get; set; }
+        public string cr4f9_emailprincipale { get; set; }
+
+        public string dataNascita => cr4f9_datadinascita.ToString("dd/MM/yyyy");
+    }
+
+    public class ContattoCollection
+    {
+        public Contatto[] value { get; set; }
+    }
+
+    public class Partecipazione {
+
+        public string cr4f9_corsotipo { get; set; }
+        public DateTime dataFineCorso { get; set; }
+        public bool cr4f9_superato { get; set; }
+
+        public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
+    
+    }
+
+    public class PartecipazioneCollection {
+    
+        public Partecipazione[] value { get; set; }
+    }
+
+    public class Mansione {
+
+        public string localita { get; set; }
+        public string mansione { get; set; }
+        public bool inForza { get; set; }
+    
+    }
+
+    public class MansioneCollection {
+    
+        public Mansione[] value { get; set; }
+    }
+
+    private DateTime? SelectedDate
+    {
+        get => contatti.value[0].cr4f9_datadinascita;
+        set
+        {
+            if (value.HasValue)
+            {
+                contatti.value[0].cr4f9_datadinascita = value.Value;
+            }
+        }
+    }
+
+}
+
+<style>
+
+    /* Contenitore a forma di cartella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+        margin-bottom: 100px;
+    }
+
+    /* Linguetta in alto a sinistra */
+    .folder-tab {
+        position: absolute;
+        top: -25px; /* Altezza sopra il contenitore */
+        left: 20px; /* Regola la posizione più verso sinistra */
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+    }
+
+    /* Stile per la sezione aggiuntiva */
+    .folder-section {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+    }
+
+    /* Stile per le informazioni del corso */
+    .course-info {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    /* Pulsante di azione */
+    button {
+        font-size: 1rem;
+        background-color: #E53935; /* Stesso colore della linguetta */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        button:hover {
+            background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+        }
+
+    /* Contenitore delle informazioni del corso */
+    .course-info {
+        display: flex;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 12px 0;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stile generale per lo stato */
+    .course-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Stile per stato positivo */
+    .course-status.success {
+        color: #2e7d32; /* Verde scuro */
+        background-color: #e8f5e9; /* Verde chiaro */
+        border-left: 4px solid #2e7d32;
+        padding-left: 12px;
+    }
+
+    /* Stile per stato negativo */
+    .course-status.failure {
+        color: #d32f2f; /* Rosso scuro */
+        background-color: #ffebee; /* Rosso chiaro */
+        border-left: 4px solid #d32f2f;
+        padding-left: 12px;
+    }
+
+    /* Icone */
+    .course-status .mud-icon {
+        font-size: 1.5rem;
+    }
+
+    .mud-tab-slider {
+    position: absolute;
+    background: #A9A9A9;
+    }
+
+    .mud-tab.mud-tab-active {
+    color: currentColor;
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+    .mud-table-header .mud-table-cell {
+        color: white !important;
+        font-weight: bold; /* Grassetto per l'intestazione */
+    }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+    /* Hover sui link */
+    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+        color: red !important;
+        cursor: pointer;
+    }
+
+</style>

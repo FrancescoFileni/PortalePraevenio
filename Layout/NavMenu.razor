@@ -1,0 +1,100 @@
+﻿<link href="https://use.fontawesome.com/releases/v5.14.0/css/all.css" rel="stylesheet">
+
+<!-- Logo centrato -->
+<div class="menu-header">
+    <MudImage Src="images/praevenio_logo.png" Alt="Praevenio Logo" Elevation="25" Class="logo-img" />
+</div>
+
+    <MudNavLink Href="" Icon=@Icons.Material.Filled.Dashboard IconColor="Color.Dark">Dashboard</MudNavLink>
+    <MudNavGroup Title="Sedi" Icon=@Icons.Material.Filled.Place IconColor="Color.Dark" Expanded="false" Match="NavLinkMatch.Prefix" Class="custom-navgroup">
+        <MudNavLink Href="/fetchsedi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Sedi</MudNavLink>
+    </MudNavGroup>
+    <MudNavGroup Title="Lavoratori" Icon=@Icons.Material.Filled.PeopleAlt Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
+    <MudNavLink Href="/elencolavoratori" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Lavoratori</MudNavLink>
+    <MudNavLink Href="/addlavoratore" Icon=@Icons.Material.Filled.PersonAddAlt1 IconColor="Color.Dark" Class="custom-navlink">Inserisci Lavoratore</MudNavLink>
+    </MudNavGroup>
+    <MudNavGroup Title="Visite Mediche" Icon=@Icons.Material.Filled.MonitorHeart Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
+    <MudNavLink Href="/visitemediche" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco visite mediche</MudNavLink>
+    </MudNavGroup>
+    <MudNavGroup Title="DPI" Icon=@Icons.Material.Filled.WorkOutline Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
+        <MudNavLink Href="/fetchsedi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco DPI</MudNavLink>
+    </MudNavGroup>
+    <MudNavGroup Title="Formazione" Icon=@Icons.Material.Filled.School Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
+        <MudNavLink Href="/elencocorsi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Partecipazioni</MudNavLink>
+    </MudNavGroup>
+
+<style>
+    /* Header del menu */
+    .menu-header {
+        text-align: center;
+        margin-bottom: 1rem;
+        padding: 1rem 0;
+    }
+
+    .logo-img {
+        width: auto;
+        height: 3.5rem; 
+        border-radius: 15px; 
+        overflow: hidden; 
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); 
+    }
+
+    .custom-navmenu {
+        background-color: #f8f8f8; 
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .custom-navlink {
+        color: #505050;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        transition: background-color 0.3s ease, color 0.3s ease;
+        border-radius: 5px;
+    }
+
+
+    .custom-navlink:hover {
+        background-color: #f0f0f0 !important; /* Mantieni lo sfondo chiaro o trasparente */
+        color: #808080 !important; /* Colore del testo su argento durante l'hover */
+    }
+
+    .custom-navgroup {
+        margin-bottom: 0.5rem;
+    }
+
+    .mud-navmenu .mud-nav-group .mud-nav-group-title {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #404040;
+    }
+
+    .divider-style {
+        border-color: #c0c0c0;
+        margin: 1rem 0;
+    }
+
+    .mud-navmenu .mud-nav-group-items {
+        transition: max-height 0.3s ease, opacity 0.3s ease;
+        overflow: hidden;
+    }
+
+    .mud-navmenu .mud-nav-group.expanded .mud-nav-group-items {
+        max-height: 100vh;
+        opacity: 1;
+    }
+
+    .mud-navmenu .mud-nav-group:not(.expanded) .mud-nav-group-items {
+        max-height: 0;
+        opacity: 0;
+    }
+
+    .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
+        color: #404040;
+    }
+
+    .mud-navmenu.mud-navmenu-default .mud-nav-link-expand-icon.mud-transform {
+        fill: #404040;
+    }
+</style>

@@ -1,0 +1,230 @@
+﻿@page "/elencolavoratori"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<FetchSedi> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<AuthorizeView>
+    <Authorized>
+
+        <h3>Elenco Lavoratori</h3>
+
+        @if (lavoratori != null)
+        {
+            <div class="folder-container">
+                <div class="folder-tab">Elenco Lavoratori</div>
+                <MudTable Items="lavoratori.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratori, object>(x=>x.cr4f9_cognome)">Cognome</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratori, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
+                        <MudTh>Codice Fiscale</MudTh>
+                        <MudTh>In Forza</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="lavoratore">
+                        <MudLink Href="@($"/dettagliolavoratore/id={lavoratore.cr4f9_contattoprvid}")">@lavoratore.cr4f9_cognome</MudLink>
+                        <MudTd DataLabel="nome">@lavoratore.cr4f9_nome</MudTd>
+                        <MudTd DataLabel="codiceFiscale">@lavoratore.cr4f9_codicefiscale</MudTd>
+                        <MudTd DataLabel="inForza">
+                            @(lavoratore.inForza ? "Sì" : "No")
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        }
+        else
+        {
+            <p><em>@message</em></p>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h3>Authentication Failure!</h3>
+        <p>You're not signed in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private LavoratoriCollection lavoratori;
+    private string message = "Loading...";
+
+    // Variabili per le informazioni dell'utente autenticato
+    private string userName;
+    private string userEmail;
+
+    // Definire la query FetchXML, ma senza email statica
+    private string fetchXmlQuery;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation(); // Chiama il metodo per caricare le informazioni dell'utente
+
+        // Costruisci dinamicamente la query FetchXML
+        fetchXmlQuery = $@"
+        <fetch>
+            <entity name='cr4f9_contattoprv'>
+                <attribute name='cr4f9_cognome' />
+                <attribute name='cr4f9_nome' />
+                <attribute name='cr4f9_codicefiscale' />
+                <order attribute='cr4f9_cognome' />
+                <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' link-type='inner' alias='lavoraPresso'>
+                    <attribute name='cr4f9_inforza' alias='inForza'/>
+                    <link-entity name='new_sedeprv' from='new_sedeprvid' to='new_sede' link-type='inner' alias='sede'>
+                        <link-entity name='new_emailsediprv' from='new_sede' to='new_sedeprvid' link-type='inner' alias='emailsedi'>
+                            <link-entity name='new_emailautorizzazioniprv' from='new_emailautorizzazioniprvid' to='new_email' link-type='inner' alias='emailauth'>
+                                <filter>
+                                    <condition attribute='new_email' operator='eq' value='{userEmail}' />
+                                </filter>
+                            </link-entity>
+                        </link-entity>
+                    </link-entity>
+                </link-entity>
+            </entity>
+        </fetch>";
+
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+                    // RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?$top=100")
+                };
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                lavoratori = await response.Content.ReadFromJsonAsync<LavoratoriCollection>();
+            }
+            else
+            {
+                message = "An error occurred.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+    }
+
+    // Metodo per caricare le informazioni sull'utente
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+    }
+
+    public class Lavoratori
+    {
+        public Guid cr4f9_contattoprvid { get; set; }
+        public string cr4f9_cognome { get; set; }
+        public string cr4f9_nome { get; set; }
+        public string cr4f9_codicefiscale { get; set; }
+        public bool inForza { get; set; }
+    }
+
+    public class LavoratoriCollection
+    {
+        public Lavoratori[] value { get; set; }
+    }
+}
+
+<style>
+    /* Contenitore principale della tabella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px;
+    }
+
+    /* Tabella principale */
+    .mud-table {
+        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
+        border-radius: 8px;
+        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+        .mud-table-header .mud-table-cell {
+            color: white !important;
+            font-weight: bold; /* Grassetto per l'intestazione */
+        }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+        /* Hover sui link */
+        .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+            color: red !important;
+            cursor: pointer;
+        }
+
+    /* Contenitore della tabella */
+    .folder-tab {
+        position: absolute;
+        top: -25px;
+        left: 20px;
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+    }
+
+    /* Nascondi informazioni di paginazione */
+    .mud-table-pagination-information {
+        display: none;
+    }
+
+</style>
+
