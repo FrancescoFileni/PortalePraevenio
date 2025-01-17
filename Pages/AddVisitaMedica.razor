@@ -5,9 +5,10 @@
 @using System.Text.Json.Serialization
 @using MudBlazor
 @using System.Text
+@using System.Text.Json
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
-@inject ILogger<AddVisitaMedica> logger
+@inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
@@ -24,10 +25,10 @@
     <DialogContent>
         <MudPaper Class="content-area-red-gray" Elevation="1">
             <!-- Selettore Lavoratori -->
-            <MudSelect Variant="Variant.Outlined" T="string" Label="Lavoratore" MultiSelection="false">
+            <MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false" @bind-Value="selectedLavoratore" @onchange="OnLavoratoreChanged">
                 @foreach (var lavoratore in lavoratori.value)
                 {
-                    <MudSelectItem Value="@lavoratore.cr4f9_calcolonomeecognome">
+                    <MudSelectItem Value="@lavoratore">
                         @lavoratore.cr4f9_calcolonomeecognome
                     </MudSelectItem>
                 }
@@ -42,56 +43,58 @@
             </MudSelect>
 
             <MudTextField T="string"
-                          Label="Accertamenti"
-                          Variant="Variant.Outlined"
-                          Lines="5"
-                          Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+            Label="Accertamenti"
+            Variant="Variant.Outlined"
+            Lines="5"
+            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
 
             <!-- Campo numerico per la periodicità del controllo -->
             <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                             Label="Periodicità del controllo (mesi)"
-                             Variant="Variant.Outlined"
-                             Min="0"
-                             Max="400"
-                             Adornment="Adornment.Start"
-                             AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+            Label="Periodicità del controllo (mesi)"
+            Variant="Variant.Outlined"
+            Min="0"
+            Max="400"
+            Adornment="Adornment.Start"
+            AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
 
             <!-- Campo numerico per la durata del controllo -->
             <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                             Label="Durata del controllo (minuti)"
-                             Variant="Variant.Outlined"
-                             Min="0"
-                             Max="400"
-                             Adornment="Adornment.Start"
-                             AdornmentIcon="@Icons.Material.Filled.Timer" />
+            Label="Durata del controllo (minuti)"
+            Variant="Variant.Outlined"
+            Min="0"
+            Max="400"
+            Adornment="Adornment.Start"
+            AdornmentIcon="@Icons.Material.Filled.Timer" />
             <MudDatePicker Label="Data visita" Orientation="Orientation.Landscape" Color="Color.Error" />
             <MudDatePicker Label="Data prossima visita" Orientation="Orientation.Landscape" Color="Color.Error" />
 
             <MudSelect Variant="Variant.Outlined" T="string" Label="Esito visita" MultiSelection="false">
+
                 <MudSelectItem T="string">Idoneo</MudSelectItem>
                 <MudSelectItem T="string">Idoneo con prescrizioni</MudSelectItem>
                 <MudSelectItem T="string">Idoneo con limitazioni</MudSelectItem>
                 <MudSelectItem T="string">Non idoneo temporaneamente</MudSelectItem>
                 <MudSelectItem T="string">Non idoneo permanentemente</MudSelectItem>
+
             </MudSelect>
 
             <MudTextField T="string"
-                          Label="Note del medico"
-                          Variant="Variant.Outlined"
-                          Lines="5"
-                          Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+            Label="Note del medico"
+            Variant="Variant.Outlined"
+            Lines="5"
+            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
 
             <MudTextField T="string"
-                          Label="Sede della visita"
-                          Variant="Variant.Outlined"
-                          Lines="5"
-                          Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+            Label="Sede della visita"
+            Variant="Variant.Outlined"
+            Lines="5"
+            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
 
             <MudFileUpload T="IBrowserFile">
                 <ActivatorContent>
                     <MudButton Variant="Variant.Filled"
-                               Color="Color.Error"
-                               StartIcon="@Icons.Material.Filled.CloudUpload">
+                    Color="Color.Error"
+                    StartIcon="@Icons.Material.Filled.CloudUpload">
                         Carica certificato
                     </MudButton>
                 </ActivatorContent>
@@ -113,12 +116,21 @@
     [CascadingParameter]
     private MudDialogInstance MudDialog { get; set; }
 
+    private Lavoratore selectedLavoratore;  // Variabile per il lavoratore selezionato
+    private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+    private List<Mansione> mansioni = new List<Mansione>();
+    private List<FattoreDiRischio> fattori = new List<FattoreDiRischio>();
+    private List<Accertamenti> accertamenti = new List<Accertamenti>();
+
+
     private string message = "Loading...";
     private string userName;
     private string userEmail;
     private string fetchXmlQuery;
-
-    private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+    private Guid? azienda;
+    private string clienteId;
+    private string elencopuntato;
+    private int periodicitaMinima;
 
     protected override async Task OnInitializedAsync()
     {
@@ -129,6 +141,7 @@
         <fetch>
             <entity name='cr4f9_contattoprv'>
                 <attribute name='cr4f9_calcolonomeecognome' />
+                <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
                 <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
                     <filter>
                         <condition attribute='cr4f9_inforza' operator='eq' value='1' />
@@ -153,7 +166,6 @@
                 {
                     Method = HttpMethod.Get,
                     RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
-                    // RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?$top=100")
                 };
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
@@ -188,22 +200,547 @@
             userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
 
             logger.LogInformation("USER EMAIL: " + userEmail);
+
+            await CaricaClienteAssociato(userEmail);
         }
     }
 
-    // Metodo per chiudere il dialogo
-    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = JsonSerializer.Serialize(entity, new JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private async Task CaricaMansioniAssociato(Lavoratore selectedLavoratore, string azienda)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var fetchXml = BuildMansioniFetchXml(selectedLavoratore, azienda);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var jsonDocument = JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        mansioni.Clear(); // Pulisci la lista prima di popolarla
+                        foreach (var entity in entities.EnumerateArray())
+                        {
+                            if (entity.TryGetProperty("Mansione", out var mansioneProperty))
+                            {
+                                var mansione = new Mansione
+                                    {
+                                        cr4f9_mansione = mansioneProperty.GetString()
+                                    };
+
+                                mansioni.Add(mansione);
+                                logger.LogInformation($"Mansione trovata: {mansione.cr4f9_mansione}");
+                            }
+                            else
+                            {
+                                logger.LogWarning("Il campo 'Mansione' non è presente nel record.");
+                            }
+                        }
+                        if (mansioni.Count > 0)
+                        {
+                            logger.LogInformation("Lista delle mansioni:");
+                            foreach (var mansione in mansioni)
+                            {
+                                logger.LogInformation($"- {mansione.cr4f9_mansione}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per il lavoratore e l'azienda forniti.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero delle mansioni: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento delle mansioni.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento delle mansioni: {ex.Message}");
+        }
+    }
+
+    private async Task CaricaFattoriDiRischio(List<Mansione> mansioni)
+    {
+        try
+        {
+
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                foreach (var mansione in mansioni)
+                {
+                    logger.LogInformation($"Mansione inserita nella fetch: {mansione.cr4f9_mansione}");
+                    var fetchXml = BuildFattoriDiRischioFetchXml(mansione); // Costruzione della query
+
+                    var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_fattoredirischios?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                    var response = await client.SendAsync(request);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseBody = await response.Content.ReadAsStringAsync();
+                        var jsonDocument = JsonDocument.Parse(responseBody);
+                        var entities = jsonDocument.RootElement.GetProperty("value");
+
+                        logger.LogInformation("FETCH: " + fetchXml);
+
+                        if (entities.GetArrayLength() > 0)
+                        {
+                            foreach (var entity in entities.EnumerateArray())
+                            {
+                                if (entity.TryGetProperty("cr4f9_fattoredirischio", out var fattoreProperty) &&
+                                            entity.TryGetProperty("cr4f9_fattoredirischioid", out var fattoreIdProperty))
+                                {
+                                    var fattore = new FattoreDiRischio
+                                        {
+                                            cr4f9_fattoredirischio = fattoreProperty.GetString(),
+                                            cr4f9_fattoredirischioid = fattoreIdProperty.GetString()
+                                        };
+
+                                    logger.LogInformation($"- {fattore.cr4f9_fattoredirischio}");
+                                    logger.LogInformation($"- {fattore.cr4f9_fattoredirischioid}");
+
+                                    fattori.Add(fattore);
+                                    logger.LogInformation($"Fattore di rischio trovato: {fattore.cr4f9_fattoredirischioid}");
+                                }
+                                else
+                                {
+                                    logger.LogWarning("Almeno una delle proprietà 'cr4f9_fattoredirischio' o 'cr4f9_fattoredirischioid' non è presente nel record.");
+                                }
+
+
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning($"Nessun fattore di rischio trovato per la mansione: {mansione.cr4f9_mansione}");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogError($"Errore durante il caricamento dei fattori di rischio per la mansione {mansione.cr4f9_mansione}: {response.ReasonPhrase}");
+                    }
+                }
+
+                // Stampa i fattori di rischio trovati
+                if (fattori.Count > 0)
+                {
+                    logger.LogInformation("Lista dei fattori di rischio:");
+                    foreach (var fattore in fattori)
+                    {
+                        logger.LogInformation($"- {fattore.cr4f9_fattoredirischioid}");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("Nessun fattore di rischio trovato.");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento dei fattori di rischio.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento dei fattori di rischio: {ex.Message}");
+        }
+    }
+
+    private async Task CaricaAccertamenti(List<FattoreDiRischio> fattori)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                foreach (var fattore in fattori)
+                {
+                    logger.LogInformation($"Fattore di rischio inserito nella fetch: {fattore.cr4f9_fattoredirischio}");
+
+                    var fetchXml = BuildAccertamentiFetchXml(fattore);
+
+                    var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_accertamentos?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                    var response = await client.SendAsync(request);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseBody = await response.Content.ReadAsStringAsync();
+                        var jsonDocument = JsonDocument.Parse(responseBody);
+                        var entities = jsonDocument.RootElement.GetProperty("value");
+
+                        logger.LogInformation("FETCH: " + fetchXml);
+
+                        if (entities.GetArrayLength() > 0)
+                        {
+                            foreach (var entity in entities.EnumerateArray())
+                            {
+                                if (entity.TryGetProperty("cr4f9_accertamento", out var accertamentoProperty) &&
+                                    entity.TryGetProperty("cr4f9_accertamentoid", out var accertamentoIdProperty) &&
+                                    entity.TryGetProperty("cr4f9_periodicitaunder50", out var periodicitaProperty))
+                                {
+                                    var accertamento = new Accertamenti
+                                        {
+                                            cr4f9_accertamento = accertamentoProperty.GetString(),
+                                            cr4f9_accertamentoid = accertamentoIdProperty.GetString(),
+                                            cr4f9_periodicitaunder50 = periodicitaProperty.GetInt32(), // Aggiungiamo la periodicità
+                                        };
+
+                                    logger.LogInformation($"- {accertamento.cr4f9_accertamento}");
+                                    logger.LogInformation($"- {accertamento.cr4f9_accertamentoid}");
+                                    logger.LogInformation($"- {accertamento.cr4f9_periodicitaunder50}"); // Log della periodicità
+
+                                    accertamenti.Add(accertamento);
+                                    logger.LogInformation($"Accertamento trovato: {accertamento.cr4f9_accertamentoid}");
+                                }
+                                else
+                                {
+                                    logger.LogWarning("Almeno una delle proprietà 'cr4f9_accertamento', 'cr4f9_accertamentoid' o 'cr4f9_periodicitaunder50' non è presente nel record.");
+                                }
+                            }
+                            AggiornaPeriodicitaMinima(accertamenti,periodicitaMinima);
+                            CreaElencoPuntatoAccertamenti(accertamenti, elencopuntato);
+                        }
+                        else
+                        {
+                            logger.LogWarning($"Nessun accertamento trovato per il fattore di rischio: {fattore.cr4f9_fattoredirischio}");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogError($"Errore durante il caricamento degli accertamenti per il fattore di rischio {fattore.cr4f9_fattoredirischio}: {response.ReasonPhrase}");
+                    }
+                }
+
+                // Stampa gli accertamenti trovati
+                if (accertamenti.Count > 0)
+                {
+                    logger.LogInformation("Lista degli accertamenti:");
+                    foreach (var accertamento in accertamenti)
+                    {
+                        logger.LogInformation($"- {accertamento.cr4f9_accertamentoid}");
+                        logger.LogInformation($"- Periodicità: {accertamento.cr4f9_periodicitaunder50}");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("Nessun accertamento trovato.");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento degli accertamenti.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento degli accertamenti: {ex.Message}");
+        }
+    }
+
+    private void CreaElencoPuntatoAccertamenti(List<Accertamenti> accertamenti, string elencoAccertamenti)
+    {
+        var elencoPuntato = new StringBuilder();
+        var accertamentiAggiunti = new HashSet<string>();  // HashSet per evitare duplicati
+
+        elencoPuntato.AppendLine("Elenco degli accertamenti:");
+
+        foreach (var accertamento in accertamenti)
+        {
+            // Aggiungi l'accertamento all'HashSet se non è già presente
+            if (accertamentiAggiunti.Add(accertamento.cr4f9_accertamento))
+            {
+                elencoPuntato.AppendLine($"• {accertamento.cr4f9_accertamento}");
+            }
+        }
+
+        elencoAccertamenti = elencoPuntato.ToString();
+
+        logger.LogInformation(elencoAccertamenti);
+    }
+
+
+    private void AggiornaPeriodicitaMinima(List<Accertamenti> accertamenti, int periodicita)
+    {
+        
+        if (accertamenti == null || accertamenti.Count == 0)
+        {
+            logger.LogWarning("La lista degli accertamenti è vuota.");
+            return;  // Se la lista è vuota, non fare nulla
+        }
+
+        
+        int periodicitaMinima = int.MaxValue;
+
+        
+        foreach (var accertamento in accertamenti)
+        {
+            
+            if (accertamento.cr4f9_periodicitaunder50 < periodicitaMinima)
+            {
+                periodicitaMinima = accertamento.cr4f9_periodicitaunder50;
+            }
+        }
+
+        
+        if (periodicitaMinima != int.MaxValue)
+        {
+            periodicita = periodicitaMinima;
+            logger.LogInformation($"Periodicità aggiornata a {periodicita}.");
+        }
+        else
+        {
+            logger.LogWarning("Non è stato possibile trovare una periodicità valida.");
+        }
+    }
+
+
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private string BuildMansioniFetchXml(Lavoratore selectedLavoratore, string azienda) {
+        return $@"
+        <fetch>
+          <entity name='new_lavorapressoprv'>
+            <attribute name='cr4f9_mansione' alias='Mansione' />
+              <filter>
+                <condition attribute='new_lavoratore' operator='eq' value='{selectedLavoratore.cr4f9_contattoprvid}' uitype='cr4f9_contattoprv' />
+                <condition attribute='new_azienda' operator='eq' value='{azienda}' uiname='0.3 S.R.L.' uitype='cr4f9_clienteprv' />
+              </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private string BuildFattoriDiRischioFetchXml(Mansione mansione)
+    {
+        return $@"
+    <fetch>
+      <entity name='cr4f9_fattoredirischio'>
+        <attribute name='cr4f9_fattoredirischio' />
+        <attribute name='cr4f9_fattoredirischioid' />
+        <link-entity name='cr4f9_new_mansionetabellamaster_cr4f9_fattore' from='cr4f9_fattoredirischioid' to='cr4f9_fattoredirischioid' link-type='inner'>
+          <filter>
+            <condition attribute='new_mansionetabellamasterid' operator='eq' value='{mansione.cr4f9_mansione}' />
+          </filter>
+        </link-entity>
+      </entity>
+    </fetch>";
+    }
+
+    public string BuildAccertamentiFetchXml(FattoreDiRischio fattore)
+    {
+        return $@"
+    <fetch>
+      <entity name='cr4f9_accertamento'>
+        <attribute name='cr4f9_accertamento'/>
+        <attribute name='cr4f9_periodicitaunder50' />
+        <link-entity name='cr4f9_accertamento_cr4f9_fattoredirisch' from='cr4f9_accertamentoid' to='cr4f9_accertamentoid' link-type='inner'>
+          <attribute name='cr4f9_fattoredirischioid' />
+          <attribute name='cr4f9_accertamentoid' />
+          <filter>
+            <condition attribute='cr4f9_fattoredirischioid' operator='eq' value='{fattore.cr4f9_fattoredirischioid}' />
+          </filter>
+        </link-entity>
+      </entity>
+    </fetch>";
+    }
+
+    // Nuovo metodo per gestire la selezione del lavoratore
+    private void OnLavoratoreChanged()
+    {
+        if (selectedLavoratore != null)
+        {
+            var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+            logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+        }
+    }
+
+    private async void Submit()
+    {
+        if (selectedLavoratore != null)
+        {
+            var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+            logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+
+            MudDialog.Close(DialogResult.Ok(true));
+
+            await CaricaMansioniAssociato(selectedLavoratore, clienteId);
+
+            await CaricaFattoriDiRischio(mansioni);
+
+            await CaricaAccertamenti(fattori);
+
+            
+
+
+        }
+        else
+        {
+            logger.LogWarning("Nessun lavoratore selezionato.");
+        }
+    }
+
     private void Cancel() => MudDialog.Cancel();
 
     public class Lavoratore
     {
         public string cr4f9_calcolonomeecognome { get; set; }
+        public string cr4f9_contattoprvid { get; set; }
     }
 
     public class LavoratoreCollection
     {
         public Lavoratore[] value { get; set; }
     }
+
+    public class LavoratorePresso
+    {
+        public string new_lavoratore { get; set; }
+        public string new_azienda { get; set; }
+        public string cr4f9_mansione { get; set; }
+        public string new_lavorapressoprvid { get; set; }
+    }
+
+    public class Mansione
+    {
+        public string cr4f9_mansione { get; set; }
+    }
+
+    public class FattoreDiRischio
+    {
+        public string cr4f9_fattoredirischio { get; set; }
+        public string cr4f9_fattoredirischioid { get; set; }
+    }
+
+    public class Accertamenti
+    {
+        public string cr4f9_accertamentoid { get; set; }
+        public string cr4f9_accertamento { get; set; }
+        public int cr4f9_periodicitaunder50 { get; set; }
+
+    }
+
+
+
 }
 
 <style>
