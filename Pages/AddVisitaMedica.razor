@@ -1,4 +1,5 @@
-﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+﻿
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.Extensions.Logging
@@ -6,14 +7,17 @@
 @using MudBlazor
 @using System.Text
 @using System.Text.Json
+@using Newtonsoft.Json;
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
-<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true" Class="custom-dialog-red-gray">
+<MudDialog FullWidth="true" Class="custom-dialog-red-gray">
     <TitleContent>
         <MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Color="Color.Error" />
@@ -24,82 +28,114 @@
     </TitleContent>
     <DialogContent>
         <MudPaper Class="content-area-red-gray" Elevation="1">
-            <!-- Selettore Lavoratori -->
-            <MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false" @bind-Value="selectedLavoratore" @onchange="OnLavoratoreChanged">
-                @foreach (var lavoratore in lavoratori.value)
-                {
-                    <MudSelectItem Value="@lavoratore">
-                        @lavoratore.cr4f9_calcolonomeecognome
-                    </MudSelectItem>
-                }
-            </MudSelect>
+            <!-- MudForm per la validazione -->
+            <MudForm @ref="form" Valid="isFormValid">
+                <!-- Prima riga: Lavoratore -->
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false"
+                        @bind-Value="@selectedLavoratore" @onchange="OnLavoratoreChanged" Required="true"
+                        Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona lavoratore">
+                            @foreach (var lavoratore in lavoratoriOrdinati.value)
+                            {
+                                <MudSelectItem Value="@lavoratore">
+                                    @lavoratore.cr4f9_calcolonomeecognome
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
 
-            <MudSelect Variant="Variant.Outlined" T="string" Label="Tipologia visita" MultiSelection="false">
-                <MudSelectItem T="string">Preassuntiva</MudSelectItem>
-                <MudSelectItem T="string">Periodica</MudSelectItem>
-                <MudSelectItem T="string">Su richiesta</MudSelectItem>
-                <MudSelectItem T="string">Rientro da malattia/infortunio</MudSelectItem>
-                <MudSelectItem T="string">Fine rapporto</MudSelectItem>
-            </MudSelect>
+                <!-- Seconda riga: Tipologia visita e Carica dati visita -->
+                <MudGrid>
+                    <MudItem xs="6">
+                        <MudSelect @bind-Value="@tipologiaVisita" Variant="Variant.Outlined" T="int?" Label="Tipologia visita" MultiSelection="false" Required="true" Placeholder="Seleziona tipologia visita" AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem T="int?" Value="preassuntiva">Preassuntiva</MudSelectItem>
+                            <MudSelectItem T="int?" Value="periodica">Periodica</MudSelectItem>
+                            <MudSelectItem T="int?" Value="suRichiesta">Su richiesta</MudSelectItem>
+                            <MudSelectItem T="int?" Value="rientro">Rientro da malattia/infortunio</MudSelectItem>
+                            <MudSelectItem T="int?" Value="fineRapporto">Fine rapporto</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" class="d-flex align-items-center">
+                        <MudButton Class="mud-button" OnClick="CaricaDatiVisita" Variant="Variant.Filled" Color="Color.Error" Style="height: 40px; margin-left: 16px;">
+                            Carica dati visita medica
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
 
-            <MudTextField T="string"
-            Label="Accertamenti"
-            Variant="Variant.Outlined"
-            Lines="5"
-            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+                <!-- Terza riga: Accertamenti, Periodicità e Durata visita -->
+                <MudGrid>
+                    <!-- Accertamenti occupa metà della riga -->
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" Label="Accertamenti" @bind-Value="@elencopuntato" Variant="Variant.Outlined" Lines="5"
+                        Class="form-field" Required="true" />
+                    </MudItem>
+                    <!-- Periodicità e Durata occupano la seconda metà -->
+                    <MudItem xs="12" md="6">
+                        <!-- Periodicità -->
+                        <MudTextField T="string" @bind-Value="@periodicitaStringa" Label="Periodicità" Variant="Variant.Outlined"
+                        Class="form-field" Lines="1" Required="true" />
+                        <!-- Spaziatura verticale -->
+                        <div style="margin-top: 16px;"></div>
+                        <!-- Durata del controllo -->
 
-            <!-- Campo numerico per la periodicità del controllo -->
-            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-            Label="Periodicità del controllo (mesi)"
-            Variant="Variant.Outlined"
-            Min="0"
-            Max="400"
-            Adornment="Adornment.Start"
-            AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+                        <MudNumericField @bind-Value="durataControllo" Label="Durata del controllo (minuti)" Variant="Variant.Outlined" Min="0" Max="400"
+                        Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Timer"
+                        Class="form-field" Required="true" />
+                    </MudItem>
+                </MudGrid>
 
-            <!-- Campo numerico per la durata del controllo -->
-            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-            Label="Durata del controllo (minuti)"
-            Variant="Variant.Outlined"
-            Min="0"
-            Max="400"
-            Adornment="Adornment.Start"
-            AdornmentIcon="@Icons.Material.Filled.Timer" />
-            <MudDatePicker Label="Data visita" Orientation="Orientation.Landscape" Color="Color.Error" />
-            <MudDatePicker Label="Data prossima visita" Orientation="Orientation.Landscape" Color="Color.Error" />
 
-            <MudSelect Variant="Variant.Outlined" T="string" Label="Esito visita" MultiSelection="false">
 
-                <MudSelectItem T="string">Idoneo</MudSelectItem>
-                <MudSelectItem T="string">Idoneo con prescrizioni</MudSelectItem>
-                <MudSelectItem T="string">Idoneo con limitazioni</MudSelectItem>
-                <MudSelectItem T="string">Non idoneo temporaneamente</MudSelectItem>
-                <MudSelectItem T="string">Non idoneo permanentemente</MudSelectItem>
+                <!-- Quarta riga: Data visita e Data prossima visita -->
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudDatePicker Label="Data visita" @bind-Date="dataVisita" Orientation="Orientation.Landscape"
+                        Color="Color.Error" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudDatePicker Label="Data prossima visita" @bind-Date="dataProssimaVisita" Orientation="Orientation.Landscape"
+                        Color="Color.Error" Required="true" />
+                    </MudItem>
+                </MudGrid>
 
-            </MudSelect>
+                <!-- Quinta riga: Esito visita e Carica certificato -->
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudSelect Variant="Variant.Outlined" @bind-Value="@esitoVisita" T="int?" Label="Esito visita" MultiSelection="false" PlaceHolder="Seleziona esito visita" Required="true" AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem T="int?" Value="idoneo">Idoneo</MudSelectItem>
+                            <MudSelectItem T="int?" Value="idoneoPrescrizioni">Idoneo con prescrizioni</MudSelectItem>
+                            <MudSelectItem T="int?" Value="idoneoLimitazioni">Idoneo con limitazioni</MudSelectItem>
+                            <MudSelectItem T="int?" Value="nonidoneoTemp">Non idoneo temporaneamente</MudSelectItem>
+                            <MudSelectItem T="int?" Value="nonIdoneoPerm">Non idoneo permanentemente</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="6" class="d-flex align-items-center">
+                        <MudFileUpload T="IBrowserFile" >
+                            <ActivatorContent>
+                                <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CloudUpload"
+                                Style="height: 40px; margin-left: 16px;">
+                                    Carica certificato
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    </MudItem>
+                </MudGrid>
 
-            <MudTextField T="string"
-            Label="Note del medico"
-            Variant="Variant.Outlined"
-            Lines="5"
-            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+                <!-- Sesta riga: Note del medico e Sede visita -->
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="noteMedico" Label="Note del medico" Variant="Variant.Outlined" Lines="5"
+                        Class="form-field" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="sedeVisita" Label="Sede della visita" Variant="Variant.Outlined" Lines="5"
+                        Class="form-field" />
+                    </MudItem>
+                </MudGrid>
 
-            <MudTextField T="string"
-            Label="Sede della visita"
-            Variant="Variant.Outlined"
-            Lines="5"
-            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
-
-            <MudFileUpload T="IBrowserFile">
-                <ActivatorContent>
-                    <MudButton Variant="Variant.Filled"
-                    Color="Color.Error"
-                    StartIcon="@Icons.Material.Filled.CloudUpload">
-                        Carica certificato
-                    </MudButton>
-                </ActivatorContent>
-            </MudFileUpload>
-
+            </MudForm>
         </MudPaper>
     </DialogContent>
     <DialogActions>
@@ -112,15 +148,24 @@
     </DialogActions>
 </MudDialog>
 
+
+
+
+
+
 @code {
     [CascadingParameter]
     private MudDialogInstance MudDialog { get; set; }
+    private MudForm form;
 
-    private Lavoratore selectedLavoratore;  // Variabile per il lavoratore selezionato
+    private Lavoratore selectedLavoratore;
     private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+    private LavoratoreCollection lavoratoriOrdinati = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
     private List<Mansione> mansioni = new List<Mansione>();
     private List<FattoreDiRischio> fattori = new List<FattoreDiRischio>();
     private List<Accertamenti> accertamenti = new List<Accertamenti>();
+    private bool isLoading = false;
+    //IList<IBrowserFile> _files = new List<IBrowserFile>();
 
 
     private string message = "Loading...";
@@ -129,8 +174,30 @@
     private string fetchXmlQuery;
     private Guid? azienda;
     private string clienteId;
+    private int? tipologiaVisita;
+
+
     private string elencopuntato;
+    private int preassuntiva = 644840000;
+    private int periodica = 644840001;
+    private int suRichiesta = 644840002;
+    private int rientro = 644840003;
+    private int fineRapporto = 644840004;
+    private int? esitoVisita;
+    private int idoneo = 644840000;
+    private int idoneoPrescrizioni = 644840001;
+    private int idoneoLimitazioni = 644840002;
+    private int nonidoneoTemp = 644840003;
+    private int nonIdoneoPerm = 644840004;
     private int periodicitaMinima;
+    private string periodicitaStringa;
+    private int durataControllo;
+    private DateTime? dataVisita;
+    private DateTime? dataProssimaVisita;
+    private string noteMedico;
+    private string sedeVisita;
+    private IBrowserFile fileCertificato;
+    private Task<byte[]> file;
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +242,8 @@
             if (response.IsSuccessStatusCode)
             {
                 lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+                lavoratoriOrdinati.value = lavoratori.value.OrderBy(l => l.cr4f9_calcolonomeecognome).ToArray();
+                logger.LogInformation($"Lista lavoratori caricata");
             }
             else
             {
@@ -234,7 +303,7 @@
                     {
                         var entity = entities[0];
 
-                        string entitiesJson = JsonSerializer.Serialize(entity, new JsonSerializerOptions
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
                             {
                                 WriteIndented = true // Per una visualizzazione leggibile
                             });
@@ -506,8 +575,12 @@
                                     logger.LogWarning("Almeno una delle proprietà 'cr4f9_accertamento', 'cr4f9_accertamentoid' o 'cr4f9_periodicitaunder50' non è presente nel record.");
                                 }
                             }
-                            AggiornaPeriodicitaMinima(accertamenti,periodicitaMinima);
-                            CreaElencoPuntatoAccertamenti(accertamenti, elencopuntato);
+                            periodicitaMinima = AggiornaPeriodicitaMinima(accertamenti,periodicitaMinima);
+                            periodicitaStringa = periodicitaMinima.ToString();
+                            elencopuntato = CreaElencoPuntatoAccertamenti(accertamenti);
+                            durataControllo = 20;
+                            dataVisita = DateTime.Today;
+                            dataProssimaVisita = dataVisita.Value.AddMonths(periodicitaMinima);
                         }
                         else
                         {
@@ -546,51 +619,55 @@
         }
     }
 
-    private void CreaElencoPuntatoAccertamenti(List<Accertamenti> accertamenti, string elencoAccertamenti)
+    private string CreaElencoPuntatoAccertamenti(List<Accertamenti> accertamenti)
     {
         var elencoPuntato = new StringBuilder();
         var accertamentiAggiunti = new HashSet<string>();  // HashSet per evitare duplicati
+        string elencoAccertamenti = "";
 
-        elencoPuntato.AppendLine("Elenco degli accertamenti:");
+        elencopuntato = "";
+        elencoPuntato.AppendLine("");
 
         foreach (var accertamento in accertamenti)
         {
             // Aggiungi l'accertamento all'HashSet se non è già presente
             if (accertamentiAggiunti.Add(accertamento.cr4f9_accertamento))
             {
-                elencoPuntato.AppendLine($"• {accertamento.cr4f9_accertamento}");
+                elencoPuntato.AppendLine($"• {accertamento.cr4f9_accertamento} \n");
             }
         }
 
         elencoAccertamenti = elencoPuntato.ToString();
 
         logger.LogInformation(elencoAccertamenti);
+
+        return elencoAccertamenti;
     }
 
 
-    private void AggiornaPeriodicitaMinima(List<Accertamenti> accertamenti, int periodicita)
+    private int AggiornaPeriodicitaMinima(List<Accertamenti> accertamenti, int periodicita)
     {
-        
+
         if (accertamenti == null || accertamenti.Count == 0)
         {
             logger.LogWarning("La lista degli accertamenti è vuota.");
-            return;  // Se la lista è vuota, non fare nulla
+            return periodicita = 0;
         }
 
-        
+
         int periodicitaMinima = int.MaxValue;
 
-        
+
         foreach (var accertamento in accertamenti)
         {
-            
+
             if (accertamento.cr4f9_periodicitaunder50 < periodicitaMinima)
             {
                 periodicitaMinima = accertamento.cr4f9_periodicitaunder50;
             }
         }
 
-        
+
         if (periodicitaMinima != int.MaxValue)
         {
             periodicita = periodicitaMinima;
@@ -600,9 +677,36 @@
         {
             logger.LogWarning("Non è stato possibile trovare una periodicità valida.");
         }
+        return periodicita;
     }
 
+    private async Task CaricaDatiVisita()
+    {
+        try
+        {
+            if (selectedLavoratore != null)
+            {
+                logger.LogInformation($"Caricamento dei dati per il lavoratore: {selectedLavoratore}");
 
+                // Carica i dati necessari
+                await CaricaMansioniAssociato(selectedLavoratore, clienteId);
+                await CaricaFattoriDiRischio(mansioni);
+                await CaricaAccertamenti(fattori);
+
+                logger.LogInformation($"{elencopuntato}");
+                StateHasChanged();
+
+            }
+            else
+            {
+                logger.LogWarning("Nessun lavoratore selezionato.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Errore durante l'aggiornamento degli accertamenti: {ex.Message}");
+        }
+    }
 
     private string BuildAziendaFetchXml(string email)
     {
@@ -664,7 +768,93 @@
     </fetch>";
     }
 
-    // Nuovo metodo per gestire la selezione del lavoratore
+    // private void UploadFiles(IBrowserFile file)
+    // {
+    //     _files.Clear();
+    //     _files.Add(file);
+    //     logger.LogInformation($"file caricato: {file}");
+    // }
+
+
+
+    private async Task CreaVisitaMedica(VisitaMedica visitaMedica)
+    {
+        try
+        {
+            isLoading = true;
+            logger.LogInformation($"Azienda reference: {azienda.ToString()}");
+
+            var dizionario = new Dictionary<string, object>
+            {
+                { "cr4f9_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({visitaMedica.Lavoratore})" },
+                { "cr4f9_tipologiadivisita", visitaMedica.TipologiaVisita },
+                { "cr4f9_accertamenti", visitaMedica.Accertamenti },
+                { "cr4f9_periodicita", visitaMedica.Periodicita },
+                { "cr4f9_duratavisita", visitaMedica.DurataVisita },
+                { "cr4f9_datavisita", visitaMedica.DataVisita },
+                { "cr4f9_dataprossimavisita", visitaMedica.DataProssimaVisita },
+                { "cr4f9_esitodellavisita", visitaMedica.EsitoVisita },
+                { "cr4f9_notedelmedico", visitaMedica.NoteMedico },
+                { "cr4f9_sedevisita", visitaMedica.SedeVisita },
+                //{ "cr4f9_certificato", visitaMedica.File }
+            };
+
+            string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+            logger.LogInformation($"Contenuto : {contenuto}");
+
+            await form.Validate();
+
+            if (!form.IsValid)
+            {
+                message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+                isLoading = false;
+                return;
+            }
+            // Ottieni il token di accesso
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_visitamedicadellavoratores")
+                    {
+                        Content = JsonContent.Create(contenuto)
+                    };
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+                var responseBody = await response.Content.ReadAsStringAsync();
+                logger.LogInformation("Payload inviato: {@contenuto}");
+
+
+                if (response.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("Record della visita medica creato con successo.");
+
+                    visitaMedica = new();
+                }
+                else
+                {
+                    message = $"Errore nell'invio: {response.ReasonPhrase}";
+                    logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+                    logger.LogError($"Dettagli risposta: {responseBody}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante la creazione del record.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Errore durante la creazione del record della visita medica: {ex.Message}");
+        }
+        isLoading = false;
+    }
+
+
     private void OnLavoratoreChanged()
     {
         if (selectedLavoratore != null)
@@ -674,23 +864,47 @@
         }
     }
 
-    private async void Submit()
+    // private async Task<byte[]> ConvertFileToByteArray(IBrowserFile file)
+    // {
+    //     using (var memoryStream = new MemoryStream())
+    //     {
+    //         await file.OpenReadStream().CopyToAsync(memoryStream);
+    //         var files = memoryStream.ToArray();
+    //         return files;
+    //     }
+    // }
+
+    private async Task Submit()
     {
         if (selectedLavoratore != null)
         {
             var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+             //file = ConvertFileToByteArray(_files[0]);
+
             logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
 
+            var visitaMedica = new VisitaMedica
+                {
+                    Lavoratore = contattoId,
+                    TipologiaVisita = tipologiaVisita,
+                    Accertamenti = elencopuntato,
+                    Periodicita = periodicitaStringa,
+                    DurataVisita = durataControllo,
+                    DataVisita = DateTime.Today.AddDays(1),
+                    DataProssimaVisita = DateTime.Today.AddMonths(periodicitaMinima).AddDays(1),
+                    EsitoVisita = esitoVisita,
+                    NoteMedico = noteMedico,
+                    SedeVisita = sedeVisita,
+                    //File = file
+                };
+
+            await CreaVisitaMedica(visitaMedica);
+
             MudDialog.Close(DialogResult.Ok(true));
+            await JSRuntime.InvokeVoidAsync("alert", "VISITA MEDICA AGGIUNTA CORRETTAMENTE");
 
-            await CaricaMansioniAssociato(selectedLavoratore, clienteId);
 
-            await CaricaFattoriDiRischio(mansioni);
-
-            await CaricaAccertamenti(fattori);
-
-            
-
+            Navigation.NavigateTo("/visitemediche", forceLoad: true);
 
         }
         else
@@ -739,6 +953,21 @@
 
     }
 
+    public class VisitaMedica
+    {
+        public string Lavoratore { get; set; }
+        public int? TipologiaVisita { get; set; }
+        public string Accertamenti { get; set; }
+        public string Periodicita { get; set; }
+        public int DurataVisita { get; set; }
+        public DateTime DataVisita { get; set; }
+        public DateTime DataProssimaVisita { get; set; }
+        public int? EsitoVisita { get; set; }
+        public string NoteMedico { get; set; }
+        public string SedeVisita { get; set; }
+        //public Task<byte[]> File { get; set; }
+    }
+
 
 
 }
@@ -748,6 +977,12 @@
         padding: 16px;
         border-radius: 8px;
         background-color: #f2f2f2; /* Grigio chiaro */
+        width: 100vw; /* Larghezza del 90% della viewport */
+        height: 100vh; /* Altezza del 90% della viewport */
+        max-width: none; /* Disabilita il limite massimo della larghezza predefinita */
+        max-height: none; /* Disabilita il limite massimo dell'altezza predefinita */
+        display: flex; /* Garantisce un comportamento flessibile */
+        flex-direction: column; /* Imposta il layout a colonna */
     }
 
     .content-area-red-gray {
@@ -756,6 +991,8 @@
         background-color: #ffffff; /* Bianco */
         border: 1px solid #e0e0e0; /* Bordo grigio */
         border-radius: 4px;
+        flex-grow: 1; /* Permette alla sezione del contenuto di espandersi */
+        overflow-y: auto; /* Abilita lo scorrimento verticale se necessario */
     }
 
     .mud-dialog-actions {
@@ -765,4 +1002,5 @@
     .mud-button {
         margin: 0 8px; /* Spaziatura tra i bottoni */
     }
+    
 </style>
