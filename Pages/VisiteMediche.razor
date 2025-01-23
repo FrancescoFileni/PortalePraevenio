@@ -107,6 +107,7 @@
             if (response.IsSuccessStatusCode)
             {
                 visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
+                logger.LogInformation($"Visita: {visite.value}");
             }
             else
             {

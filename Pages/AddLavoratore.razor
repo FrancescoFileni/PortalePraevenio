@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Microsoft.Extensions.Logging
 @using Microsoft.Xrm.Sdk 
+@using Newtonsoft.Json
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<AddLavoratore> logger
@@ -77,17 +78,18 @@
         logger.LogInformation($"Azienda reference: {azienda.ToString()}");
 
         // Preparazione del payload
-        var contenuto = new
+        var dizionario = new Dictionary<string, object>
         {
-            cr4f9_nome = lavoratore.Nome,
-            cr4f9_cognome = lavoratore.Cognome,
-            cr4f9_codicefiscale = lavoratore.CodiceFiscale,
-            cr4f9_datadinascita = lavoratore.DataDiNascita?.ToString("yyyy/MM/dd"),
-            cr4f9_luogodinascita = lavoratore.LuogoDiNascita,
-            cr4f9_provinciadinascita = lavoratore.ProvinciaDiNascita,
-            cr4f9_nazionalita = lavoratore.Nazionalita,
-            //todo --> AGGIUNGERE AZIENDA
+            { "cr4f9_nome", lavoratore.Nome},
+            { "cr4f9_cognome", lavoratore.Cognome},
+            { "cr4f9_codicefiscale", lavoratore.CodiceFiscale},
+            { "cr4f9_datadinascita", lavoratore.DataDiNascita?.ToString("yyyy/MM/dd") },
+            { "cr4f9_luogodinascita", lavoratore.LuogoDiNascita},
+            { "cr4f9_provinciadinascita", lavoratore.ProvinciaDiNascita},
+            { "cr4f9_nazionalita", lavoratore.Nazionalita ?? string.Empty },
+            {"new_AziendaPrinciaple@odata.bind", $"/cr4f9_clienteprvs({azienda})"}
         };
+        string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
 
         await form.Validate();
 
@@ -186,7 +188,7 @@
                     {
                         var entity = entities[0];
 
-                        string entitiesJson = JsonSerializer.Serialize(entity, new JsonSerializerOptions
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
                             {
                                 WriteIndented = true // Per una visualizzazione leggibile
                             });
@@ -259,6 +261,7 @@
         public string LuogoDiNascita { get; set; }
         public string ProvinciaDiNascita { get; set; }
         public string Nazionalita { get; set; }
+        public string Azienda { get; set; }
     }
 
 }
