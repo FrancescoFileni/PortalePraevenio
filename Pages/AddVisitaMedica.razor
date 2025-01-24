@@ -16,6 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject HttpClient Http
 
 <MudDialog FullWidth="true" Class="custom-dialog-red-gray">
     <TitleContent>
@@ -112,7 +113,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" md="6" class="d-flex align-items-center">
-                        <MudFileUpload T="IBrowserFile" >
+                        <MudFileUpload T="IBrowserFile" OnFilesChanged="HandleFileSelected">
                             <ActivatorContent>
                                 <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CloudUpload"
                                 Style="height: 40px; margin-left: 16px;">
@@ -165,7 +166,7 @@
     private List<FattoreDiRischio> fattori = new List<FattoreDiRischio>();
     private List<Accertamenti> accertamenti = new List<Accertamenti>();
     private bool isLoading = false;
-    //IList<IBrowserFile> _files = new List<IBrowserFile>();
+    IList<IBrowserFile> _files = new List<IBrowserFile>();
 
 
     private string message = "Loading...";
@@ -196,8 +197,8 @@
     private DateTime? dataProssimaVisita;
     private string noteMedico;
     private string sedeVisita;
-    private IBrowserFile fileCertificato;
-    private Task<byte[]> file;
+    private IBrowserFile? fileSelezionato;
+    private string idVisitaCreata;
 
     protected override async Task OnInitializedAsync()
     {
@@ -768,13 +769,25 @@
     </fetch>";
     }
 
-    // private void UploadFiles(IBrowserFile file)
-    // {
-    //     _files.Clear();
-    //     _files.Add(file);
-    //     logger.LogInformation($"file caricato: {file}");
-    // }
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        // Accedi alla lista di file selezionati
+        var files = e.GetMultipleFiles();
 
+        fileSelezionato = files?.FirstOrDefault();
+
+        if (fileSelezionato != null)
+        {
+            logger.LogInformation($"File selezionato: {fileSelezionato.Name}, Dimensione: {fileSelezionato.Size} bytes");
+            // Puoi processare il file qui
+        }
+        else
+        {
+            logger.LogWarning("Nessun file selezionato.");
+        }
+
+        await Task.CompletedTask;
+    }
 
 
     private async Task CreaVisitaMedica(VisitaMedica visitaMedica)
@@ -796,7 +809,6 @@
                 { "cr4f9_esitodellavisita", visitaMedica.EsitoVisita },
                 { "cr4f9_notedelmedico", visitaMedica.NoteMedico },
                 { "cr4f9_sedevisita", visitaMedica.SedeVisita },
-                //{ "cr4f9_certificato", visitaMedica.File }
             };
 
             string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
@@ -831,7 +843,22 @@
 
                 if (response.IsSuccessStatusCode)
                 {
-                    logger.LogInformation("Record della visita medica creato con successo.");
+                    // Recupera l'header "OData-EntityId" o un header simile che contiene l'URL del record creato
+                    if (response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
+                    {
+                        var entityId = entityIdValues.FirstOrDefault();
+
+                        if (entityId != null)
+                        {
+                            // Estrai l'ID dal valore dell'header
+                            idVisitaCreata = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
+                            logger.LogInformation($"Record della visita medica creato con successo. ID: {idVisitaCreata}");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun ID trovato nell'header della risposta.");
+                    }
 
                     visitaMedica = new();
                 }
@@ -841,6 +868,7 @@
                     logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
                     logger.LogError($"Dettagli risposta: {responseBody}");
                 }
+
             }
             else
             {
@@ -854,6 +882,61 @@
         isLoading = false;
     }
 
+    private async Task CaricaCertificato(string idVisitaCreata, IBrowserFile file)
+    {
+        try
+        {
+            using var stream = file.OpenReadStream();
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            byte[] fileContent = memoryStream.ToArray();
+
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                // Log per controllare il token
+                logger.LogInformation($"Token ottenuto: {token.Value}");
+
+                string fileName = file.Name;
+                string url = $"{client.BaseAddress}cr4f9_visitamedicadellavoratores({idVisitaCreata})/cr4f9_certificato?x-ms-file-name={fileName}";
+                logger.LogInformation($"URL per il caricamento: {url}");
+
+                var request = new HttpRequestMessage(HttpMethod.Patch, url)
+                    {
+                        Content = new ByteArrayContent(fileContent)
+                    };
+
+                request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                request.Headers.Add("OData-MaxVersion", "4.0");
+                request.Headers.Add("OData-Version", "4.0");
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                HttpResponseMessage response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("Certificato caricato con successo.");
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    logger.LogError($"Errore durante il caricamento del certificato: {response.StatusCode}. Dettagli: {errorContent}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del certificato.");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del certificato: {ex.Message}");
+        }
+    }
 
     private void OnLavoratoreChanged()
     {
@@ -864,22 +947,11 @@
         }
     }
 
-    // private async Task<byte[]> ConvertFileToByteArray(IBrowserFile file)
-    // {
-    //     using (var memoryStream = new MemoryStream())
-    //     {
-    //         await file.OpenReadStream().CopyToAsync(memoryStream);
-    //         var files = memoryStream.ToArray();
-    //         return files;
-    //     }
-    // }
-
     private async Task Submit()
     {
         if (selectedLavoratore != null)
         {
             var contattoId = selectedLavoratore.cr4f9_contattoprvid;
-             //file = ConvertFileToByteArray(_files[0]);
 
             logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
 
@@ -895,10 +967,22 @@
                     EsitoVisita = esitoVisita,
                     NoteMedico = noteMedico,
                     SedeVisita = sedeVisita,
-                    //File = file
                 };
 
             await CreaVisitaMedica(visitaMedica);
+
+            if (!string.IsNullOrEmpty(idVisitaCreata) && fileSelezionato != null)
+            {
+                await CaricaCertificato(idVisitaCreata, fileSelezionato);
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(idVisitaCreata))
+                    logger.LogWarning("ID visita non valido. Assicurati che la creazione della visita sia riuscita.");
+
+                if (fileSelezionato == null)
+                    logger.LogWarning("Nessun file selezionato per il caricamento.");
+            }
 
             MudDialog.Close(DialogResult.Ok(true));
             await JSRuntime.InvokeVoidAsync("alert", "VISITA MEDICA AGGIUNTA CORRETTAMENTE");
@@ -965,7 +1049,6 @@
         public int? EsitoVisita { get; set; }
         public string NoteMedico { get; set; }
         public string SedeVisita { get; set; }
-        //public Task<byte[]> File { get; set; }
     }
 
 
