@@ -5,22 +5,26 @@
     <MudImage Src="images/praevenio_logo.png" Alt="Praevenio Logo" Elevation="25" Class="logo-img" />
 </div>
 
-    <MudNavLink Href="" Icon=@Icons.Material.Filled.Dashboard IconColor="Color.Dark">Dashboard</MudNavLink>
+    <MudNavLink Href="/dashboard" Icon=@Icons.Material.Filled.Dashboard IconColor="Color.Dark">Dashboard</MudNavLink>
     <MudNavGroup Title="Sedi" Icon=@Icons.Material.Filled.Place IconColor="Color.Dark" Expanded="false" Match="NavLinkMatch.Prefix" Class="custom-navgroup">
         <MudNavLink Href="/fetchsedi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Sedi</MudNavLink>
     </MudNavGroup>
     <MudNavGroup Title="Lavoratori" Icon=@Icons.Material.Filled.PeopleAlt Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
     <MudNavLink Href="/elencolavoratori" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Lavoratori</MudNavLink>
-    <MudNavLink Href="/addlavoratore" Icon=@Icons.Material.Filled.PersonAddAlt1 IconColor="Color.Dark" Class="custom-navlink">Inserisci Lavoratore</MudNavLink>
+    @* <MudNavLink Href="/addlavoratore" Icon=@Icons.Material.Filled.PersonAddAlt1 IconColor="Color.Dark" Class="custom-navlink">Inserisci Lavoratore</MudNavLink> *@
     </MudNavGroup>
     <MudNavGroup Title="Visite Mediche" Icon=@Icons.Material.Filled.MonitorHeart Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-    <MudNavLink Href="/visitemediche" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco visite mediche</MudNavLink>
+    <MudNavLink Href="/visitemediche" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Visite Mediche</MudNavLink>
     </MudNavGroup>
     <MudNavGroup Title="DPI" Icon=@Icons.Material.Filled.WorkOutline Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/fetchsedi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco DPI</MudNavLink>
+        <MudNavLink Href="/elencoconsegnedpi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Consegne DPI</MudNavLink>
     </MudNavGroup>
     <MudNavGroup Title="Formazione" Icon=@Icons.Material.Filled.School Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencocorsi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Partecipazioni</MudNavLink>
+    <MudNavLink Href="/elencopartecipazioni" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Partecipazioni</MudNavLink>
+    </MudNavGroup>
+    <MudNavGroup Title="Documenti" Icon=@Icons.Material.Filled.FileOpen Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
+        <MudNavLink Href="/elencotestatedocumenti" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Documenti Clienti</MudNavLink>
+        <MudNavLink Href="/elencotestatedocumentisede" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Documenti Sede</MudNavLink>
     </MudNavGroup>
 
 <style>

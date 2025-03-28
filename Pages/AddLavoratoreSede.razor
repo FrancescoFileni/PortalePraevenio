@@ -1,0 +1,596 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using System.Text
+@using System.Text.Json
+@using Newtonsoft.Json
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<AddLavoratoreSede> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<MudDialog Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack>
+			<MudIcon Icon="@Icons.Material.Filled.Man" Color="Color.Error"/>
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Associa nuovo lavoratore alla sede
+			</MudText>
+		</MudStack>
+	</TitleContent>
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid">
+				<MudGrid>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false"
+						@bind-Value="@selectedLavoratore" @onchange="OnLavoratoreChange" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona lavoratore">
+							@foreach (var lavoratore in lavoratoriOrdinati.value)
+							{
+								<MudSelectItem Value="@lavoratore">
+									@lavoratore.cr4f9_calcolonomeecognome
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+				<MudGrid>
+					<MudItem xs="12" md="6">
+						<MudTextField T="string" Label="Azienda" Variant="Variant.Outlined" Disabled="true" Placeholder="@sede.Azienda" Class="form-field"/>
+					</MudItem>
+
+					<MudItem xs="12" md="6">
+						<MudTextField T="string" Label ="Sede" Variant="Variant.Outlined" Disabled="true" Placeholder="@sede.new_localita" Class="form-field"/>
+					</MudItem>
+				</MudGrid>
+
+				<MudGrid>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Mansione" Label="Mansione" MultiSelection="false"
+						@bind-Value="@selectedMansione" Required="true" Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter"
+						Placeholder="Seleziona Mansione">
+							@foreach (var mansione in mansioniOrdinate.value)
+							{
+								<MudSelectItem Value="@mansione">
+									@mansione.new_mansione
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton Color="Color.Error" OnClick="Submit" Variant="Variant.Filled">
+			Conferma
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[Parameter]
+	public string id { get; set; }
+
+	[CascadingParameter]
+	private MudDialogInstance MudDialog { get; set; }
+
+	private MudForm form;
+
+	private string userName;
+	private string userEmail;
+	private Guid? azienda;
+	private string clienteId;
+	private string message = "Loading...";
+	private bool isLoading = false;
+	private string idPrestazioneCreata;
+
+	private Lavoratore selectedLavoratore;
+	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+	private LavoratoreCollection lavoratoriOrdinati = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+
+	private Mansione selectedMansione;
+	private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
+	private MansioneCollection mansioniOrdinate = new MansioneCollection { value = Array.Empty<Mansione>() };
+
+	private Sede sede = new Sede { new_sedeid = "", new_localita = "", new_cliente = "", Azienda = "" };
+
+	private SedeCollection sedi = new SedeCollection { value = Array.Empty<Sede>() };
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+		await CaricaListaLavoratori();
+		await CaricaMansioni();
+		await CaricaSede();
+
+		logger.LogInformation($"Parametro id ricevuto: {id}");
+
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+		await CaricaClienteAssociato(userEmail);
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildFetchXml(email);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeUriString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+
+					var jsonDocument = JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					logger.LogInformation("FETCH: " + fetchXml);
+
+					if (entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+							{
+								WriteIndented = true
+							});
+						logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+						if(entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+						{
+							clienteId = newClienteProperty.GetString();
+							azienda = newClienteProperty.GetGuid();
+
+							logger.LogInformation($"Entities reference: {clienteId}");
+							logger.LogInformation($"Azienda reference: {azienda}");
+						}
+						else
+						{
+							logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun record trovato per l'email fornita.");
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		} 
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	public async Task CaricaListaLavoratori()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildFetchXmlLavoratori(userEmail);
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/josn"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+				lavoratoriOrdinati.value = lavoratori.value.OrderBy(l => l.cr4f9_calcolonomeecognome).ToArray();
+				logger.LogInformation($"Lista lavoratori caricata");
+			}
+			else
+			{
+				message = "An error occured.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildFetchXmlLavoratori(string email)
+	{
+		return $@"
+		<fetch>
+            <entity name='cr4f9_contattoprv'>
+                <attribute name='cr4f9_calcolonomeecognome' />
+                <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
+                <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
+                    <filter>
+                        <condition attribute='cr4f9_inforza' operator='eq' value='1' />
+                    </filter>
+                    <link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_azienda' alias='cliente'>
+                        <link-entity name='new_emailautorizzazioniprv' from='new_cliente' to='cr4f9_clienteprvid' alias='emailAuth'>
+                            <filter>
+                                <condition attribute='new_email' operator='eq' value='{userEmail}' />
+                            </filter>
+                        </link-entity>
+                    </link-entity>
+                </link-entity>
+            </entity>
+        </fetch>";
+	}
+
+	public async Task CaricaMansioni() 
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildFetchXmlMansioni();
+
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_mansionetabellamasters?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				mansioni = await response.Content.ReadFromJsonAsync<MansioneCollection>();
+				mansioniOrdinate.value = mansioni.value.OrderBy(m => m.new_mansione).ToArray();
+				logger.LogInformation($"Lista mansioni caricata");
+			}
+			else
+			{
+				message = "An error occured.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildFetchXmlMansioni()
+	{
+		return $@"
+		<fetch>
+		  <entity name='new_mansionetabellamaster'>
+			<attribute name='new_mansionetabellamasterid' />
+			<attribute name='new_mansione' />
+			<filter>
+			  <condition attribute='cr4f9_sede' operator='eq' value='{id}' />
+			</filter>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXml = BuildFetchXmlSedeeAzienda();
+
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_sedeprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode) 
+			{
+				sedi = await response.Content.ReadFromJsonAsync<SedeCollection>();
+				if (sedi.value != null && sedi.value.Length > 0)
+				{
+					sede = sedi.value[0];
+					logger.LogInformation($"Sede caricata: {sede.new_sedeid} - {sede.new_localita}");
+				}
+				else
+				{
+					logger.LogWarning("Nessuna sede trovata per l'id specificato.");
+				}
+			}
+			else
+			{
+				message = "An error occured while fetching the sede.";
+				logger.LogError($"Error fetching sede: {response.ReasonPhrase}");
+
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildFetchXmlSedeeAzienda()
+	{
+		return $@"
+		<fetch>
+		  <entity name='new_sedeprv'>
+			<attribute name='new_sedeprvid' />
+			<attribute name='new_localita' />
+			<attribute name='new_cliente' />
+			<filter>
+			  <condition attribute='new_sedeprvid' operator='eq' value='{id}' />
+			</filter>
+			<link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_cliente' link-type='inner' alias='Cliente'>
+			  <attribute name='cr4f9_ragionesociale' alias='Azienda' />
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	private async Task CreaPrestazioneLavorativa(PrestazioneDiLavoro prestazione)
+	{
+		try
+		{
+			isLoading = true;
+
+			var dizionario = new Dictionary<string, object>
+			{
+				{"new_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({prestazione.Lavoratore})"},
+				{"new_Azienda@odata.bind", $"/cr4f9_clienteprvs({azienda})"},
+				{"new_Sede@odata.bind", $"/new_sedeprvs({id})"},
+				{"cr4f9_Mansione@odata.bind", $"/new_mansionetabellamasters({prestazione.Mansione})"},
+				{"cr4f9_inforza", prestazione.InForza}
+			};
+
+			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+			logger.LogInformation($"Contenuto: {contenuto}");
+
+			await form.Validate();
+
+			if(!form.IsValid)
+			{
+				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+				isLoading = false;
+				return;
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage(HttpMethod.Post, "new_lavorapressoprvs")
+					{
+						Content = JsonContent.Create(contenuto)
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("Payload inviato: {@contenuto}");
+
+				if(response.IsSuccessStatusCode)
+				{
+					if (response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
+					{
+						var entityId = entityIdValues.FirstOrDefault();
+
+						if (entityId != null)
+						{
+							idPrestazioneCreata = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
+							logger.LogInformation($"Record della prestazione creato con successo. ID: {idPrestazioneCreata}");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun ID trovato nell'header della risposta.");
+					}
+
+					prestazione = new();
+				}
+				else
+				{
+					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+					logger.LogError($"Dettagli risposta: {responseBody}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante la creazione del record.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Errore durante la creazione del record della visita medica: {ex.Message}");
+		}
+		isLoading = false;
+	}
+
+	private void OnLavoratoreChange()
+	{
+		if (selectedLavoratore !=null)
+		{
+			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatti ID: {contattoId}");
+		}
+	}
+
+	private async Task Submit()
+	{
+		if (selectedLavoratore != null)
+		{
+			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+
+			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+
+			var prestazione = new PrestazioneDiLavoro
+				{
+					Lavoratore = contattoId,
+					Azienda = sede.new_cliente,
+					Sede = sede.new_sedeid,
+					Mansione = selectedMansione.new_mansionetabellamasterid,
+					InForza = true
+				};
+
+			await CreaPrestazioneLavorativa(prestazione);
+
+			if (!string.IsNullOrEmpty(idPrestazioneCreata))
+			{
+				await DialogService.ShowMessageBox(
+				"INFO",
+				"Lavoratore aggiunto alla sede con successo",
+				yesText: "Chiudi");
+
+				MudDialog.Close(DialogResult.Ok(true));
+
+				Navigation.NavigateTo($"/dettagliosede/id={id}", forceLoad: true);
+			}
+			else
+			{
+				logger.LogWarning("ID prestazione non valido. Assicurati che la creazione della prestazione di lavoro sia riuscita.");
+
+				await DialogService.ShowMessageBox(
+				"ERRORE",
+				"Lavoratore non inserito",
+				yesText: "Chiudi");
+			}
+		}
+		else
+		{
+			logger.LogWarning("Nessun lavoratore selezionato.");
+		}
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	public class Lavoratore
+	{
+		public string cr4f9_contattoprvid { get; set; }
+		public string cr4f9_calcolonomeecognome { get; set; }
+	}
+
+	public class LavoratoreCollection
+	{
+		public Lavoratore[] value { get; set; }
+	}
+
+	public class Mansione
+	{
+		public string new_mansionetabellamasterid { get; set; }
+		public string new_mansione { get; set; }
+	}
+
+	public class MansioneCollection
+	{
+		public Mansione[] value { get; set; }
+	}
+
+	public class PrestazioneDiLavoro
+	{
+		public string Lavoratore { get; set; }
+		public string Azienda { get; set; }
+		public string Sede { get; set; }
+		public string Mansione { get; set; }
+		public bool InForza { get; set; }
+	}
+
+	public class Sede
+	{
+		public string new_sedeid { get; set; }
+		public string new_localita { get; set; }
+		public string new_cliente { get; set; }
+		public string Azienda { get; set; }
+	}
+
+	public class SedeCollection
+	{
+		public Sede[] value { get; set; }
+	}
+}
+
+<style>
+	.custom-dialog-red-gray {
+		padding: 16px;
+		border-radius: 8px;
+		background-color: #f2f2f2; /* Grigio chiaro */
+		width: 100vw; /* Larghezza del 90% della viewport */
+		height: 100vh; /* Altezza del 90% della viewport */
+		max-width: none; /* Disabilita il limite massimo della larghezza predefinita */
+		max-height: none; /* Disabilita il limite massimo dell'altezza predefinita */
+		display: flex; /* Garantisce un comportamento flessibile */
+		flex-direction: column; /* Imposta il layout a colonna */
+	}
+
+	.content-area-red-gray {
+		margin: 16px 0;
+		padding: 16px;
+		background-color: #ffffff; /* Bianco */
+		border: 1px solid #e0e0e0; /* Bordo grigio */
+		border-radius: 4px;
+		flex-grow: 1; /* Permette alla sezione del contenuto di espandersi */
+		overflow-y: auto; /* Abilita lo scorrimento verticale se necessario */
+	}
+
+	.mud-dialog-actions {
+		justify-content: center; /* Centra i bottoni */
+	}
+
+	.mud-button {
+		margin: 0 8px; /* Spaziatura tra i bottoni */
+	}
+</style>

@@ -19,9 +19,11 @@
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
 
-
 @if (partecipazioni?.value?.Length > 0)
 {
+    <button @onclick="GoBack">
+        <i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
+    </button>
 
     <div class="folder-container">
         <!-- Linguetta della cartella -->
@@ -38,13 +40,13 @@
         </div>
         <!-- Seconda scheda: informazioni corso e pulsante -->
         <div class="folder-section">
-            <div class="course-info">
+            <div class="course-info grid-layout">
                 <span>Tipo corso: @partecipazioni.value[0].tipoCorso</span>
             </div>
-            <div class="course-info">
+            <div class="course-info grid-layout">
                 <span>Corso sostenuto: @partecipazioni.value[0].titoloCorso</span>
             </div>
-            <div class="course-info">
+            <div class="course-info grid-layout">
                 <span>Corso superato: @((partecipazioni.value[0].cr4f9_superato) ? "Sì" : "No")</span>
             </div>
 
@@ -88,8 +90,6 @@
             </MudButton>
         </div>
     </div>
-
-
 }
 else if (!string.IsNullOrEmpty(message))
 {
@@ -99,7 +99,6 @@ else
 {
     <MudProgressCircular Color="Color.Default" Indeterminate="true" />
 }
-
 
 @code {
     [Parameter]
@@ -275,6 +274,12 @@ else
         }
     }
 
+    private void GoBack()
+    {
+        // Utilizza la navigazione per tornare indietro nella cronologia
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
     public class Partecipazione
     {
         public string cr4f9_cognome { get; set; }
@@ -333,7 +338,6 @@ else
     {
         public Partecipazione[] value { get; set; }
     }
-
 }
 
 <style>
@@ -374,7 +378,8 @@ else
     .course-info {
         font-size: 1rem;
         color: #333;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
+        vertical-align: middle;
     }
 
     /* Pulsante di azione */
@@ -389,9 +394,9 @@ else
         transition: background-color 0.3s ease;
     }
 
-        button:hover {
-            background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
-        }
+    button:hover {
+        background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+    }
 
     /* Contenitore delle informazioni del corso */
     .course-info {
@@ -413,27 +418,61 @@ else
         gap: 8px;
     }
 
-        /* Stile per stato positivo */
-        .course-status.success {
-            color: #2e7d32; /* Verde scuro */
-            background-color: #e8f5e9; /* Verde chiaro */
-            border-left: 4px solid #2e7d32;
-            padding-left: 12px;
-        }
+    /* Stile per stato positivo */
+    .course-status.success {
+        color: #2e7d32; /* Verde scuro */
+        background-color: #e8f5e9; /* Verde chiaro */
+        border-left: 4px solid #2e7d32;
+        padding-left: 12px;
+    }
 
-        /* Stile per stato negativo */
-        .course-status.failure {
-            color: #d32f2f; /* Rosso scuro */
-            background-color: #ffebee; /* Rosso chiaro */
-            border-left: 4px solid #d32f2f;
-            padding-left: 12px;
-        }
+    /* Stile per stato negativo */
+    .course-status.failure {
+        color: #d32f2f; /* Rosso scuro */
+        background-color: #ffebee; /* Rosso chiaro */
+        border-left: 4px solid #d32f2f;
+        padding-left: 12px;
+    }
 
-        /* Icone */
-        .course-status .mud-icon {
-            font-size: 1.5rem;
-        }
+    /* Icone */
+    .course-status .mud-icon {
+        font-size: 1.5rem;
+    }
 
+    .course-info {
+        display: flex;
+        justify-content: space-between; /* Distribuisce gli elementi su tutta la larghezza */
+        align-items: center; /* Allinea verticalmente al centro */
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
 
+    /* Specifica larghezza per ogni colonna, se necessario */
+    .course-info span {
+        flex: 1; /* Ogni colonna occuperà lo stesso spazio */
+        text-align: left; /* Allinea il testo a sinistra */
+    }
+
+    /* Esempio di allineamento in una griglia */
+    .course-info.grid-layout {
+        display: grid;
+        grid-template-columns: 1fr 2fr 1fr; /* Imposta colonne con larghezze proporzionali */
+        gap: 8px; /* Distanza tra le colonne */
+        align-items: center; /* Allinea i contenuti verticalmente al centro */
+    }
+
+    /* Adatta la larghezza per ogni colonna */
+    .course-info span:first-child { /* Cognome */
+        text-align: left;
+    }
+
+    .course-info span:nth-child(2) { /* Nome o altri dettagli */
+        text-align: left;
+    }
+
+    .course-info span:nth-child(3) { /* Corso o altro */
+        text-align: left;
+    }
 
 </style>

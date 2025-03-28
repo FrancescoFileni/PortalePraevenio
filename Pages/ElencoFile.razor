@@ -1,0 +1,572 @@
+﻿@page "/elencofile/id={IdCartella}&titolo={Titolo}"
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Text
+@inject ILogger<ElencoFile> logger
+@inject IHttpClientFactory ClientFactory
+@inject IAccessTokenProvider TokenProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>@Titolo</h3>
+
+<button @onclick="GoBack">
+    <i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
+</button>
+
+<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935;" @onclick="OpenDialogAsync">Nuovo File</MudButton>
+
+<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color:#E53935;" @onclick="DownloadAllFiles">
+    Scarica Cartella
+</MudButton>
+
+<div class="folder-container">
+    <div class="folder-tab">Elenco File</div>
+    @if (files?.value != null && files.value.Length > 0)
+    {
+        <MudTable Items="files.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.createdon)">Data Caricamento File</MudTableSortLabel></MudTh>
+            </HeaderContent>
+            <RowTemplate Context="file">
+                <MudTd>
+                    <!-- Cliccando sul nome si scarica il file -->
+                    <a href="javascript:void(0)" @onclick="() => DownloadFile(file)" style="text-decoration: underline; color: blue;">
+                        @file.cr4f9_name
+                    </a>
+                </MudTd>
+                <MudTd>@file.cr4f9_notedocumento</MudTd>
+                <MudTd>
+                    @if (file.createdon.HasValue)
+                    {
+                        @file.createdon.Value.ToString("dd/MM/yyyy")
+                    }
+                    else
+                    {
+                        <em>Data non disponibile</em>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <p>Non ci sono file in questa cartella</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string IdCartella { get; set; }
+
+    [Parameter]
+    public string Titolo { get; set; }
+
+    [Inject]
+    private IDialogService DialogService { get; set; }
+
+    private FileCollection files = new FileCollection { value = Array.Empty<File>() };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Guid.TryParse(IdCartella, out var cartellaId))
+        {
+            await LoadFile(cartellaId);
+        }
+        else
+        {
+            logger.LogInformation("Id della cartella non valido");
+        }
+    }
+
+    private async Task OpenDialogAsync()
+    {
+        var parameters = new DialogParameters
+        {
+            { "IdCartella", IdCartella },
+            {"Titolo", Titolo}
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+
+        var dialog = DialogService.Show<AddFile>("Nuovo File", parameters, options);
+        var result = await dialog.Result;
+
+        // Puoi gestire il risultato qui, ad esempio ricaricare i file
+    }
+
+    private async Task LoadFile(Guid cartellaId)
+    {
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            // Aggiunto il campo createdon per la data di creazione
+            var fetchXmlFile = $@"
+                <fetch>
+                  <entity name='cr4f9_filedocumento'>
+                    <attribute name='cr4f9_filedocumentoid' />
+                    <attribute name='cr4f9_name' />
+                    <attribute name='cr4f9_file' />
+                    <attribute name='cr4f9_notedocumento' />
+                    <attribute name='createdon' />
+                    <filter>
+                      <condition attribute='cr4f9_cartella' operator='eq' value='{cartellaId}' />
+                    </filter>
+                    <link-entity name='cr4f9_cartelladocumenti' from='cr4f9_cartelladocumentiid' to='cr4f9_cartella' link-type='inner' alias='Cartella'>
+                      <attribute name='cr4f9_name' />
+                    </link-entity>
+                  </entity>
+                </fetch>";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_filedocumentos?fetchXml={Uri.EscapeUriString(fetchXmlFile)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            // Se necessario, modifica il media type per il tuo ambiente
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            var resultJson = await response.Content.ReadAsStringAsync();
+            logger.LogInformation($"Risposta JSON: {resultJson}");
+            if (response.IsSuccessStatusCode)
+            {
+                files = await response.Content.ReadFromJsonAsync<FileCollection>();
+            }
+            else
+            {
+                logger.LogError($"Errore nel recupero dei file: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            logger.LogError("Token non ottenuto");
+        }
+    }
+
+    private async Task DownloadFile(File file)
+    {
+        logger.LogInformation($"Download del file con ID: {file.cr4f9_filedocumentoid}");
+
+        byte[] fileBytes = null;
+        // Gestione differenziata a seconda della stringa contenuta in cr4f9_file
+        if (file.cr4f9_file.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (!tokenResult.TryGetToken(out var token))
+            {
+                logger.LogError("Token non ottenuto per il download del file.");
+                return;
+            }
+            var client = ClientFactory.CreateClient("DataverseClient");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            var response = await client.GetAsync(file.cr4f9_file);
+            if (response.IsSuccessStatusCode)
+            {
+                fileBytes = await response.Content.ReadAsByteArrayAsync();
+            }
+            else
+            {
+                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
+                return;
+            }
+        }
+        else if (file.cr4f9_file.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = file.cr4f9_file.Split("base64,");
+            if (parts.Length == 2)
+            {
+                try
+                {
+                    fileBytes = Convert.FromBase64String(parts[1]);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Errore nella decodifica Base64: {ex.Message}");
+                    return;
+                }
+            }
+            else
+            {
+                logger.LogError("Formato data URI non valido.");
+                return;
+            }
+        }
+        else
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (!tokenResult.TryGetToken(out var token))
+            {
+                logger.LogError("Token non ottenuto per il download del file.");
+                return;
+            }
+            var client = ClientFactory.CreateClient("DataverseClient");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+            var downloadUrl = $"{client.BaseAddress}cr4f9_filedocumentos({file.cr4f9_filedocumentoid})/cr4f9_file/$value";
+            var response = await client.GetAsync(downloadUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                fileBytes = await response.Content.ReadAsByteArrayAsync();
+            }
+            else
+            {
+                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
+                return;
+            }
+        }
+
+        if (fileBytes == null || fileBytes.Length == 0)
+        {
+            logger.LogError("File vuoto o non recuperato correttamente.");
+            return;
+        }
+
+        // Determina il MIME type in base al contenuto del file
+        string mimeType = GetMimeTypeFromBytes(fileBytes);
+        // Determina un'estensione da usare per il file (utile per il nome)
+        string extension = GetExtensionFromMimeType(mimeType);
+        string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
+                            ? $"downloadedFile{extension}"
+                            : file.cr4f9_name + extension;
+
+        string base64 = Convert.ToBase64String(fileBytes);
+        await JS.InvokeVoidAsync("downloadFileFromBase64", base64, mimeType, fileName);
+    }
+
+    private string GetMimeTypeFromBytes(byte[] fileBytes)
+    {
+        if (fileBytes.Length >= 4)
+        {
+            var header = BitConverter.ToString(fileBytes.Take(4).ToArray());
+            switch (header)
+            {
+                case "50-4B-03-04": // ZIP header (usato da .docx, .xlsx, .pptx)
+                    return DetectOfficeFileType(fileBytes);
+                case "D0-CF-11-E0": // Vecchi formati Microsoft Office
+                    return "application/msword"; // Potrebbe essere Word, Excel o PowerPoint
+                case "25-50-44-46": // PDF: %PDF
+                    return "application/pdf";
+                case "89-50-4E-47": // PNG file header
+                    return "image/png";
+            }
+        }
+        return "application/octet-stream";
+    }
+
+
+    // Funzione per identificare se il file ZIP è DOCX, XLSX o PPTX
+    private string DetectOfficeFileType(byte[] fileBytes)
+    {
+        string content = Encoding.ASCII.GetString(fileBytes);
+        if (content.Contains("[Content_Types].xml"))
+        {
+            if (content.Contains("word/"))
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; // .docx
+            if (content.Contains("xl/"))
+                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // .xlsx
+            if (content.Contains("ppt/"))
+                return "application/vnd.openxmlformats-officedocument.presentationml.presentation"; // .pptx
+        }
+        return "application/zip"; // Se non riconosciuto
+    }
+
+
+    private string GetExtensionFromMimeType(string mimeType)
+    {
+        return mimeType switch
+        {
+            "application/pdf" => ".pdf",
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/gif" => ".gif",
+            "text/plain" => ".txt",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" => ".pptx",
+            "application/msword" => ".doc",
+            "application/vnd.ms-excel" => ".xls",
+            "application/vnd.ms-powerpoint" => ".ppt",
+            _ => ".bin"
+        };
+    }
+
+    private async Task<byte[]> GetFileBytes(File file)
+    {
+        if (file == null || string.IsNullOrEmpty(file.cr4f9_file))
+        {
+            logger.LogError("Il file o il suo URL è null.");
+            return null;
+        }
+
+        byte[] fileBytes = null;
+        if (file.cr4f9_file.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (!tokenResult.TryGetToken(out var token))
+            {
+                logger.LogError("Token non ottenuto per il download del file.");
+                return null;
+            }
+            var client = ClientFactory.CreateClient("DataverseClient");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            var response = await client.GetAsync(file.cr4f9_file);
+            if (response.IsSuccessStatusCode)
+            {
+                fileBytes = await response.Content.ReadAsByteArrayAsync();
+            }
+            else
+            {
+                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
+                return null;
+            }
+        }
+        else if (file.cr4f9_file.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = file.cr4f9_file.Split("base64,");
+            if (parts.Length == 2)
+            {
+                try
+                {
+                    fileBytes = Convert.FromBase64String(parts[1]);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Errore nella decodifica Base64: {ex.Message}");
+                    return null;
+                }
+            }
+            else
+            {
+                logger.LogError("Formato data URI non valido.");
+                return null;
+            }
+        }
+        else
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (!tokenResult.TryGetToken(out var token))
+            {
+                logger.LogError("Token non ottenuto per il download del file.");
+                return null;
+            }
+            var client = ClientFactory.CreateClient("DataverseClient");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            var downloadUrl = $"{client.BaseAddress}cr4f9_filedocumentos({file.cr4f9_filedocumentoid})/cr4f9_file/$value";
+            var response = await client.GetAsync(downloadUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                fileBytes = await response.Content.ReadAsByteArrayAsync();
+            }
+            else
+            {
+                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
+                return null;
+            }
+        }
+        return fileBytes;
+    }
+
+
+
+    private async Task DownloadAllFiles()
+    {
+        var fileDataList = new List<FileData>();
+
+        foreach (var file in files.value)
+        {
+            var fileBytes = await GetFileBytes(file);
+            if (fileBytes == null || fileBytes.Length == 0)
+            {
+                logger.LogError($"File {file.cr4f9_name} vuoto o non recuperato.");
+                continue;
+            }
+            string mimeType = GetMimeTypeFromBytes(fileBytes);
+            string extension = GetExtensionFromMimeType(mimeType);
+            string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
+                                ? $"downloadedFile{extension}"
+                                : file.cr4f9_name + extension;
+
+            string base64 = Convert.ToBase64String(fileBytes);
+            fileDataList.Add(new FileData { FileName = fileName, Base64Data = base64, MimeType = mimeType });
+        }
+
+        await JS.InvokeVoidAsync("zipAndDownloadFiles", Titolo, fileDataList);
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
+    public class File
+    {
+        public Guid? cr4f9_filedocumentoid { get; set; }
+        public string cr4f9_name { get; set; }
+        public string cr4f9_file { get; set; }
+        public string cr4f9_notedocumento { get; set; }
+        public DateTime? createdon { get; set; } // Data di creazione
+    }
+
+    public class FileData
+    {
+        public string FileName { get; set; }
+        public string Base64Data { get; set; }
+        public string MimeType { get; set; }
+    }
+
+    public class FileCollection
+    {
+        public File[] value { get; set; }
+    }
+}
+
+<style>
+
+    /* Contenitore a forma di cartella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+        margin-bottom: 100px;
+    }
+
+    /* Linguetta in alto a sinistra */
+    .folder-tab {
+        position: absolute;
+        top: -25px; /* Altezza sopra il contenitore */
+        left: 20px; /* Regola la posizione più verso sinistra */
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+    }
+
+    /* Stile per la sezione aggiuntiva */
+    .folder-section {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+    }
+
+    /* Stile per le informazioni del corso */
+    .course-info {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    /* Pulsante di azione */
+    button {
+        font-size: 1rem;
+        background-color: #E53935; /* Stesso colore della linguetta */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+    }
+
+    /* Contenitore delle informazioni del corso */
+    .course-info {
+        display: flex;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 12px 0;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stile generale per lo stato */
+    .course-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Stile per stato positivo */
+    .course-status.success {
+        color: #2e7d32; /* Verde scuro */
+        background-color: #e8f5e9; /* Verde chiaro */
+        border-left: 4px solid #2e7d32;
+        padding-left: 12px;
+    }
+
+    /* Stile per stato negativo */
+    .course-status.failure {
+        color: #d32f2f; /* Rosso scuro */
+        background-color: #ffebee; /* Rosso chiaro */
+        border-left: 4px solid #d32f2f;
+        padding-left: 12px;
+    }
+
+    /* Icone */
+    .course-status .mud-icon {
+        font-size: 1.5rem;
+    }
+
+    .mud-tab-slider {
+        position: absolute;
+        background: #A9A9A9;
+    }
+
+    .mud-tab.mud-tab-active {
+        color: currentColor;
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+    .mud-table-header .mud-table-cell {
+        color: white !important;
+        font-weight: bold; /* Grassetto per l'intestazione */
+    }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+    /* Hover sui link */
+    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+        color: red !important;
+        cursor: pointer;
+    }
+
+</style>

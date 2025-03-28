@@ -1,5 +1,4 @@
-﻿@page "/addlavoratore"
-@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using System.Text.Json
@@ -11,50 +10,66 @@
 @inject ILogger<AddLavoratore> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
-<AuthorizeView>
-    <Authorized>
-        <h3>Inserisci Lavoratore</h3>
-        <div class="folder-container">
-            <div class="folder-tab">Inserisci Lavoratore</div>
-            <MudCard>
-                <MudCardContent>
-                    <MudText Align="Align.Center">Nuovo Lavoratore</MudText>
-                    <MudForm @ref="form" @bind-Instance="lavoratore" Spacing="2">
-                        <MudTextField T="string" Label="Nome" @bind-Value="lavoratore.Nome" Required="true" />
-                        <MudTextField T="string" Label="Cognome" @bind-Value="lavoratore.Cognome" Required="true" />
-                        <MudTextField T="string" Label="Codice Fiscale" @bind-Value="lavoratore.CodiceFiscale" Required="true" />
-                        <MudDatePicker T="DateTime?" Label="Data di Nascita"
-                        @bind-Date="lavoratore.DataDiNascita"
-                        Orientation="Orientation.Landscape"
-                        Color="Color.Error" />
-                        <MudTextField T="string" Label="Luogo di Nascita" @bind-Value="lavoratore.LuogoDiNascita" />
-                        <MudTextField T="string" Label="Provincia di Nascita" @bind-Value="lavoratore.ProvinciaDiNascita" />
-                        <MudTextField T="string" Label="Nazionalità (Sigla)" @bind-Value="lavoratore.Nazionalita" />
-                    </MudForm>
-                </MudCardContent>
-            </MudCard>
-        </div>
 
-        <div class="button-container">
-            <MudButton Variant="Variant.Filled"
-            EndIcon="@Icons.Material.Filled.Save"
-            Style="background-color: red; color: white; width: 200px; height: 60px;"
-            OnClick="SalvaLavoratore">
-                Salva
-            </MudButton>
-        </div>
+<MudDialog FullWidth="true" Class="custom-dialog-red-gray">
+    <TitleContent>
+        <MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Error" />
+            <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+                Inserisci Nuovo Lavoratore
+            </MudText>
+        </MudStack>
+    </TitleContent>
 
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <p style="color:red;">@message</p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
-</AuthorizeView>
+    <DialogContent>
+        <MudPaper Class="content-area-red-gray" Elevation="1">
+            <!-- MudForm per la validazione -->
+            <MudForm @ref="form" Valid="isFormValid">
+                <MudGrid Spacing="2">
+                    <!-- Nome -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Nome" @bind-Value="lavoratore.Nome" Required="true" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <!-- Cognome -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Cognome" @bind-Value="lavoratore.Cognome" Required="true" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <!-- Codice Fiscale -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Codice Fiscale" @bind-Value="lavoratore.CodiceFiscale" Required="true" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <!-- Data di Nascita -->
+                    <MudItem xs="12">
+                        <MudDatePicker T="DateTime?" Label="Data di Nascita" @bind-Date="lavoratore.DataDiNascita" Orientation="Orientation.Landscape" Color="Color.Error" />
+                    </MudItem>
+                    <!-- Luogo di Nascita -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Luogo di Nascita" @bind-Value="lavoratore.LuogoDiNascita" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <!-- Provincia di Nascita -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Provincia di Nascita (Sigla)" @bind-Value="lavoratore.ProvinciaDiNascita" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <!-- Nazionalità -->
+                    <MudItem xs="12">
+                        <MudTextField T="string" Label="Nazionalità (Sigla)" @bind-Value="lavoratore.Nazionalita" Variant="Variant.Outlined" />
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        </MudPaper>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+            Annulla
+        </MudButton>
+        <MudButton Color="Color.Error" OnClick="SalvaLavoratore" Variant="Variant.Filled">
+            Salva
+        </MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     private MudForm form;
@@ -66,30 +81,34 @@
     private Guid? azienda;
     private string clienteId;
 
+    [Inject]
+    private IDialogService DialogService { get; set; }
+
 
     protected override async Task OnInitializedAsync()
     {
         await LoadUserInformation();
     }
 
+    private void Cancel() => Navigation.NavigateTo("/elencolavoratori");
+
     private async Task SalvaLavoratore()
     {
         isLoading = true;
         logger.LogInformation($"Azienda reference: {azienda.ToString()}");
 
-        // Preparazione del payload
+        // Preparazione del payload per la creazione del lavoratore
         var dizionario = new Dictionary<string, object>
-        {
-            { "cr4f9_nome", lavoratore.Nome},
-            { "cr4f9_cognome", lavoratore.Cognome},
-            { "cr4f9_codicefiscale", lavoratore.CodiceFiscale},
-            { "cr4f9_datadinascita", lavoratore.DataDiNascita?.ToString("yyyy/MM/dd") },
-            { "cr4f9_luogodinascita", lavoratore.LuogoDiNascita},
-            { "cr4f9_provinciadinascita", lavoratore.ProvinciaDiNascita},
-            { "cr4f9_nazionalita", lavoratore.Nazionalita ?? string.Empty },
-            {"new_AziendaPrinciaple@odata.bind", $"/cr4f9_clienteprvs({azienda})"}
-        };
-        string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+    {
+        { "cr4f9_nome", lavoratore.Nome },
+        { "cr4f9_cognome", lavoratore.Cognome },
+        { "cr4f9_codicefiscale", lavoratore.CodiceFiscale },
+        { "cr4f9_datadinascita", lavoratore.DataDiNascita?.ToString("yyyy/MM/dd") },
+        { "cr4f9_luogodinascita", lavoratore.LuogoDiNascita },
+        { "cr4f9_provinciadinascita", lavoratore.ProvinciaDiNascita },
+        { "cr4f9_nazionalita", lavoratore.Nazionalita ?? string.Empty },
+        {"new_AziendaPrinciaple@odata.bind", $"/cr4f9_clienteprvs({azienda})"}
+    };
 
         await form.Validate();
 
@@ -107,26 +126,83 @@
             {
                 var client = ClientFactory.CreateClient("DataverseClient");
 
+                // Prima chiamata: creazione del lavoratore
                 var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_contattoprvs")
                     {
-                        Content = JsonContent.Create(contenuto)
+                        Content = JsonContent.Create(dizionario)
                     };
-
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 
                 var response = await client.SendAsync(request);
                 var responseBody = await response.Content.ReadAsStringAsync();
-                logger.LogInformation("Payload inviato: {@contenuto}");
+                logger.LogInformation("Payload inviato: {@dizionario}", dizionario);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    message = "Lavoratore salvato correttamente.";
-                    lavoratore = new(); // Reset form
+                    // Recupera l'ID del lavoratore creato.
+                    // Dataverse restituisce l'URL dell'entità creata nell'header "OData-EntityId"
+                    if (!response.Headers.TryGetValues("OData-EntityId", out var values))
+                    {
+                        message = "Impossibile recuperare l'ID del lavoratore creato.";
+                        isLoading = false;
+                        return;
+                    }
+
+                    // Estrai l'ID dall'URL (esempio: "...(GUID)" )
+                    var entityUrl = values.First();
+                    var startIndex = entityUrl.IndexOf('(');
+                    var endIndex = entityUrl.IndexOf(')');
+                    if (startIndex < 0 || endIndex < 0)
+                    {
+                        message = "Formato ID non valido.";
+                        isLoading = false;
+                        return;
+                    }
+
+                    var lavoratoreId = entityUrl.Substring(startIndex + 1, endIndex - startIndex - 1);
+                    logger.LogInformation($"Lavoratore creato con ID: {lavoratoreId}");
+
+                    // Seconda chiamata: creazione del record nella tabella new_lavorapressoprv
+                    var payloadLavorapresso = new Dictionary<string, object>
+                {
+                    // Imposta il lookup "new_lavoratore" con l'ID del lavoratore appena creato
+                    { "new_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({lavoratoreId})" },
+                    // Imposta il lookup "new_azienda" con il valore di azienda
+                    { "new_Azienda@odata.bind", $"/cr4f9_clienteprvs({azienda})" }
+                };
+
+                    var request2 = new HttpRequestMessage(HttpMethod.Post, "new_lavorapressoprvs")
+                        {
+                            Content = JsonContent.Create(payloadLavorapresso)
+                        };
+                    request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                    var response2 = await client.SendAsync(request2);
+                    var responseBody2 = await response2.Content.ReadAsStringAsync();
+
+                    if (response2.IsSuccessStatusCode)
+                    {
+                        message = "Lavoratore salvato correttamente.";
+                        lavoratore = new();
+
+                        await DialogService.ShowMessageBox(
+                            "INFO",
+                            "Lavoratore inserito con successo",
+                            yesText: "Chiudi");
+
+                        Navigation.NavigateTo("/elencolavoratori", forceLoad: true);
+                    }
+                    else
+                    {
+                        message = $"Errore nella creazione del record di collegamento: {response2.ReasonPhrase}";
+                        logger.LogError($"Errore API (lavorapressoprv): {response2.StatusCode} - {response2.ReasonPhrase}");
+                        logger.LogError($"Dettagli risposta: {responseBody2}");
+                    }
                 }
                 else
                 {
-                    message = $"Errore nell'invio: {response.ReasonPhrase}";
-                    logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+                    message = $"Errore nell'invio del lavoratore: {response.ReasonPhrase}";
+                    logger.LogError($"Errore API (lavoratore): {response.StatusCode} - {response.ReasonPhrase}");
                     logger.LogError($"Dettagli risposta: {responseBody}");
                 }
             }
@@ -143,6 +219,7 @@
 
         isLoading = false;
     }
+
 
     private async Task LoadUserInformation()
     {
@@ -273,6 +350,28 @@
         border-radius: 8px;
         padding: 16px;
         margin-top: 50px;
+    }
+
+    .custom-dialog-red-gray {
+        padding: 16px;
+        border-radius: 8px;
+        background-color: #f2f2f2; /* Grigio chiaro */
+        width: 100vw; /* Larghezza del 90% della viewport */
+        height: 100vh; /* Altezza del 90% della viewport */
+        max-width: none; /* Disabilita il limite massimo della larghezza predefinita */
+        max-height: none; /* Disabilita il limite massimo dell'altezza predefinita */
+        display: flex; /* Garantisce un comportamento flessibile */
+        flex-direction: column; /* Imposta il layout a colonna */
+    }
+
+    .content-area-red-gray {
+        margin: 16px 0;
+        padding: 16px;
+        background-color: #ffffff; /* Bianco */
+        border: 1px solid #e0e0e0; /* Bordo grigio */
+        border-radius: 4px;
+        flex-grow: 1; /* Permette alla sezione del contenuto di espandersi */
+        overflow-y: auto; /* Abilita lo scorrimento verticale se necessario */
     }
 
     .folder-tab {

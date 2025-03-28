@@ -1,0 +1,144 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using Newtonsoft.Json
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<AddCartellaDocumentiSede> logger
+@inject NavigationManager Navigation
+
+<MudDialog FullWidth="true" Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
+			<MudIcon Icon="@Icons.Material.Filled.CreateNewFolder" Color="Color.Error" />
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Crea Nuova Cartella Documenti
+			</MudText>
+		</MudStack>
+	</TitleContent>
+
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid">
+				<MudGrid Spacing="2">
+					<MudItem xs="12">
+						<MudTextField T="string" Label="Nome Cartella" @bind-Value="cartella.cr4f9_nomecartella" Required="true" Variant="Variant.Outlined" />
+					</MudItem>
+					<MudItem xs="12">
+						<MudDatePicker T="DateTime?" Label="Data Scadenza" @bind-Date="cartella.cr4f9_datascadenza" Required="true" Orientation="Orientation.Landscape" Variant="Variant.Outlined" />
+					</MudItem>
+				</MudGrid>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton OnClick="SalvaCartella" Variant="Variant.Filled" Color="Color.Error">
+			Salva
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance MudDialog { get; set; }
+
+	[Parameter]
+	public string IdTestata { get; set; }
+
+	[Parameter]
+	public string NumeroEstratto { get; set; }
+
+	[Inject]
+	private IDialogService DialogService { get; set; }
+
+	private MudForm form;
+	private bool isFormValid = false;
+	private Cartella cartella = new();
+	private bool isLoading = false;
+	private string message;
+
+	private void Cancel() => MudDialog.Cancel();
+
+	private string ExtractNumber(string nome)
+	{
+		var match = System.Text.RegularExpressions.Regex.Match(nome, @"-(\d+)$");
+		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
+
+	private async Task SalvaCartella()
+	{
+		await form.Validate();
+
+		if(!form.IsValid)
+		{
+			message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+			return;
+		}
+
+		isLoading = true;
+
+		var payload = new Dictionary<string, object>
+		{
+			{"cr4f9_nomecartella", cartella.cr4f9_nomecartella},
+			{"cr4f9_datascadenza", cartella.cr4f9_datascadenza},
+			{"cr4f9_TestataDocumentoSede@odata.bind", $"/cr4f9_testatadocumentosedes({IdTestata})"}
+		};
+
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if(tokenResult.TryGetToken(out var token))
+		{
+			try
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_cartelladocumentosedes")
+					{
+						Content = JsonContent.Create(payload)
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("Payload inviato: {@Payload}", payload);
+
+				if(response.IsSuccessStatusCode)
+				{
+					message = "Cartella creata correttamente.";
+					await DialogService.ShowMessageBox(
+					"INFO",
+					"Cartella inserita con successo",
+					yesText: "Chiudi");
+
+					Navigation.NavigateTo($"/dettagliotestatadocumentisede/id={IdTestata}&numero={NumeroEstratto}", forceLoad: true);
+				}
+				else
+				{
+					message = $"Errore durante il salvataggio: {response.ReasonPhrase}";
+					logger.LogError("Errore API: {StatusCode} - {ReasonPhrase}. Dettagli: {ResponseBody}",
+						response.StatusCode, response.ReasonPhrase, responseBody);
+				}
+			}
+			catch (Exception ex)
+			{
+				message = "Errore durante il salvataggio della cartella.";
+				logger.LogError("Eccezione: {Exception}", ex.Message);
+			}
+		}
+		else
+		{
+			message = "Token non ottenuto.";
+		}
+		isLoading = false;
+	}
+
+	public class Cartella
+	{
+		public string cr4f9_nomecartella { get; set; }
+		public DateTime? cr4f9_datascadenza { get; set; }
+	}
+}

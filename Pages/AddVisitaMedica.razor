@@ -17,6 +17,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog FullWidth="true" Class="custom-dialog-red-gray">
     <TitleContent>
@@ -149,15 +150,13 @@
     </DialogActions>
 </MudDialog>
 
-
-
-
-
-
 @code {
     [CascadingParameter]
     private MudDialogInstance MudDialog { get; set; }
     private MudForm form;
+
+    [Inject]
+    private IDialogService DialogService { get; set; }
 
     private Lavoratore selectedLavoratore;
     private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
@@ -166,8 +165,6 @@
     private List<FattoreDiRischio> fattori = new List<FattoreDiRischio>();
     private List<Accertamenti> accertamenti = new List<Accertamenti>();
     private bool isLoading = false;
-    IList<IBrowserFile> _files = new List<IBrowserFile>();
-
 
     private string message = "Loading...";
     private string userName;
@@ -176,7 +173,6 @@
     private Guid? azienda;
     private string clienteId;
     private int? tipologiaVisita;
-
 
     private string elencopuntato;
     private int preassuntiva = 644840000;
@@ -443,7 +439,7 @@
                 foreach (var mansione in mansioni)
                 {
                     logger.LogInformation($"Mansione inserita nella fetch: {mansione.cr4f9_mansione}");
-                    var fetchXml = BuildFattoriDiRischioFetchXml(mansione); // Costruzione della query
+                    var fetchXml = BuildFattoriDiRischioFetchXml(mansione);
 
                     var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_fattoredirischios?fetchXml={Uri.EscapeDataString(fetchXml)}");
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
@@ -496,7 +492,6 @@
                     }
                 }
 
-                // Stampa i fattori di rischio trovati
                 if (fattori.Count > 0)
                 {
                     logger.LogInformation("Lista dei fattori di rischio:");
@@ -645,7 +640,6 @@
         return elencoAccertamenti;
     }
 
-
     private int AggiornaPeriodicitaMinima(List<Accertamenti> accertamenti, int periodicita)
     {
 
@@ -689,7 +683,6 @@
             {
                 logger.LogInformation($"Caricamento dei dati per il lavoratore: {selectedLavoratore}");
 
-                // Carica i dati necessari
                 await CaricaMansioniAssociato(selectedLavoratore, clienteId);
                 await CaricaFattoriDiRischio(mansioni);
                 await CaricaAccertamenti(fattori);
@@ -779,7 +772,8 @@
         if (fileSelezionato != null)
         {
             logger.LogInformation($"File selezionato: {fileSelezionato.Name}, Dimensione: {fileSelezionato.Size} bytes");
-            // Puoi processare il file qui
+
+            Snackbar.Add("File correttamente caricato", Severity.Success);
         }
         else
         {
@@ -788,7 +782,6 @@
 
         await Task.CompletedTask;
     }
-
 
     private async Task CreaVisitaMedica(VisitaMedica visitaMedica)
     {
@@ -808,7 +801,7 @@
                 { "cr4f9_dataprossimavisita", visitaMedica.DataProssimaVisita },
                 { "cr4f9_esitodellavisita", visitaMedica.EsitoVisita },
                 { "cr4f9_notedelmedico", visitaMedica.NoteMedico },
-                { "cr4f9_sedevisita", visitaMedica.SedeVisita },
+                { "cr4f9_sedevisita", visitaMedica.SedeVisita }
             };
 
             string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
@@ -868,7 +861,6 @@
                     logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
                     logger.LogError($"Dettagli risposta: {responseBody}");
                 }
-
             }
             else
             {
@@ -919,6 +911,7 @@
                 if (response.IsSuccessStatusCode)
                 {
                     logger.LogInformation("Certificato caricato con successo.");
+
                 }
                 else
                 {
@@ -974,21 +967,41 @@
             if (!string.IsNullOrEmpty(idVisitaCreata) && fileSelezionato != null)
             {
                 await CaricaCertificato(idVisitaCreata, fileSelezionato);
+
+                await DialogService.ShowMessageBox(
+                "INFO",
+                "Visita medica inserita con successo",
+                yesText: "Chiudi");
+
+                MudDialog.Close(DialogResult.Ok(true));
+
+                Navigation.NavigateTo("/visitemediche", forceLoad: true);
             }
             else
             {
                 if (string.IsNullOrEmpty(idVisitaCreata))
                     logger.LogWarning("ID visita non valido. Assicurati che la creazione della visita sia riuscita.");
 
-                if (fileSelezionato == null)
+                if (fileSelezionato == null) {
                     logger.LogWarning("Nessun file selezionato per il caricamento.");
+
+                    await DialogService.ShowMessageBox(
+                   "INFO",
+                   "Visita medica inserita con successo senza certificato",
+                   yesText: "Chiudi");
+
+                    MudDialog.Close(DialogResult.Ok(true));
+
+                    Navigation.NavigateTo("/visitemediche", forceLoad: true);
+                }
+
+                logger.LogWarning("Nessun file selezionato per il caricamento.");
+
+                await DialogService.ShowMessageBox(
+                "ERRORE",
+                "Visita medica non inserita",
+                yesText: "Chiudi");
             }
-
-            MudDialog.Close(DialogResult.Ok(true));
-            await JSRuntime.InvokeVoidAsync("alert", "VISITA MEDICA AGGIUNTA CORRETTAMENTE");
-
-
-            Navigation.NavigateTo("/visitemediche", forceLoad: true);
 
         }
         else
@@ -1034,7 +1047,6 @@
         public string cr4f9_accertamentoid { get; set; }
         public string cr4f9_accertamento { get; set; }
         public int cr4f9_periodicitaunder50 { get; set; }
-
     }
 
     public class VisitaMedica
@@ -1050,9 +1062,6 @@
         public string NoteMedico { get; set; }
         public string SedeVisita { get; set; }
     }
-
-
-
 }
 
 <style>

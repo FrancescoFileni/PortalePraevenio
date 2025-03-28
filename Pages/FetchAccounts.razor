@@ -12,7 +12,6 @@
     @*Only show the list if the user is signed in and authorized*@
     <Authorized>
         <h3>Fetch Accounts</h3>
-
         @if (accounts != null)
         {
             <table class="table">
@@ -74,7 +73,6 @@
     </NotAuthorized>
 </AuthorizeView>
 
-
 @code {
 
     //The collection of Account records to display
@@ -132,18 +130,14 @@
                 message = "An error occurred.";
                 //Log the details so they can be seen in the browser console
                 logger.LogError($"{error.detail.message}");
-
             }
-
         }
         else
         {
             // Notify user that the token request was not successful
             message = "There was a problem authenticating.";
         }
-
     }
-
 
     // The result will be a JSON object with an array of entities set to the value property
     public class AccountCollection

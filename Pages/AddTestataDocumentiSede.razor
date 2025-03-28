@@ -1,0 +1,332 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using Microsoft.Xrm.Sdk
+@using Newtonsoft.Json
+@using System.Text.Json
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddTestataDocumentiSede> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<MudDialog FullWidth="true" Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
+			<MudIcon Icon="@Icons.Material.Filled.FileOpen" Color="Color.Error"/>
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Inserisci Nuova Testata
+			</MudText>
+		</MudStack>
+	</TitleContent>
+
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid">
+				<MudGrid Spacing="2">
+					<MudItem xs="12">
+						<MudTextField T="string" Label="Nome" @bind-Value="testata.Nome" Required="true" Variant="Variant.Outlined"/>
+					</MudItem>
+					<MudItem xs="12">
+						<MudTextField T="string" Label="Email" @bind-Value="testata.Email" Variant="Variant.Outlined"/>
+					</MudItem>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Sede" Label="Sedi" MultiSelection="false" @bind-Value="@selectedSede"
+						@onchange="OnSedeChanged" Required="true" Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter"
+						Placeholder="Seleziona Sede">
+							@foreach (var sede in sediOrdinate.value)
+							{
+								<MudSelectItem Value="@sede">
+									@sede.new_localita
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+					<MudItem xs="12">
+						<MudTextField T="string" Label="Note" @bind-Value="testata.Note" Variant="Variant.Outlined"/>
+					</MudItem>
+				</MudGrid>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton OnClick="SalvaTestata" Variant="Variant.Filled" Color="Color.Error">
+			Salva
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	private MudForm form;
+	private Testata testata = new();
+	private string message;
+	private string userName;
+	private string userEmail;
+	private bool isLoading;
+	private Guid? azienda;
+	private string clienteId;
+	private Sede selectedSede;
+	private SedeCollection sedi = new SedeCollection { value = Array.Empty<Sede>() };
+	private SedeCollection sediOrdinate = new SedeCollection { value = Array.Empty<Sede>() };
+
+	[Inject]
+	private IDialogService DialogService { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if(user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+
+			await CaricaClienteAssociato(userEmail);
+			await CaricaSedi();
+		}
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildFetchXml(email);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if(response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+
+					var jsonDocument = JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					logger.LogInformation("FETCH: " + fetchXml);
+
+					if(entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+							{
+								WriteIndented = true
+							});
+						logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+						if(entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+						{
+							clienteId = newClienteProperty.GetString();
+							azienda = newClienteProperty.GetGuid();
+
+							logger.LogInformation($"Entities reference: {clienteId}");
+							logger.LogInformation($"Azienda reference: {azienda}");
+						}
+						else
+						{
+							logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun record trovato per l'email fornita.");
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	private string BuildSediFetchXml()
+	{
+		return $@"
+			<fetch>
+			  <entity name='new_sedeprv'>
+				<attribute name='new_sedeprvid' />
+				<attribute name='new_localita' />
+				<filter>
+				  <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+				</filter>
+			  </entity>
+			</fetch>";
+	}
+
+	private async Task CaricaSedi()
+	{
+		var fetchXml = BuildSediFetchXml();
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_sedeprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				sedi = await response.Content.ReadFromJsonAsync<SedeCollection>();
+				sediOrdinate.value = sedi.value.OrderBy(s => s.new_localita).ToArray();
+				logger.LogInformation($"Lista sedi caricata");
+			}
+			else
+			{
+				message = "An error occured.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private void OnSedeChanged()
+	{
+		if (selectedSede != null)
+		{
+			var sedeId = selectedSede.new_sedeprvid;
+			logger.LogInformation($"Sede selezionato: {selectedSede.new_localita}, Sede ID: {sedeId}");
+		}
+	}
+
+	private void Cancel() => Navigation.NavigateTo("/elencotestatedocumentisede");
+
+	private async Task SalvaTestata()
+	{
+		isLoading = true;
+		logger.LogInformation($"Azienda Reference: {azienda}");
+
+		var dizionario = new Dictionary<string, object>
+		{
+			{"cr4f9_nomedocumentosede", testata.Nome},
+			{"cr4f9_email", testata.Email},
+			{"cr4f9_notedocumento", testata.Note},
+			{"cr4f9_Cliente@odata.bind", $"/cr4f9_clienteprvs({azienda})"},
+			{"cr4f9_Sede@odata.bind", $"/new_sedeprvs({selectedSede.new_sedeprvid})"}
+		};
+
+		string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+		await form.Validate();
+
+		if (!form.IsValid)
+		{
+			message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+			isLoading = false;
+			return;
+		}
+
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if(tokenResult.TryGetToken(out var token))
+		{
+			try
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_testatadocumentosedes")
+					{
+						Content = JsonContent.Create(contenuto)
+					};
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("Payload inviato: {contenuto}");
+
+				if (response.IsSuccessStatusCode)
+				{
+					message = "Testata salvata correttamente.";
+					testata = new();
+
+					await DialogService.ShowMessageBox(
+						"INFO",
+						"Testata inserita con successo",
+						yesText: "Chiudi");
+
+					Navigation.NavigateTo("/elencotestatedocumentisede", forceLoad: true);
+				}
+				else
+				{
+					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+					logger.LogError($"Dettagli risposta: {responseBody}");
+				}
+			}
+			catch (Exception ex)
+			{
+				message = "Errore di autenticazione";
+			}
+			isLoading = false;
+		}
+	}
+
+	private class Testata
+	{
+		public string Nome { get; set; }
+		public string Email { get; set; }
+		public string Note { get; set; }
+		public string Azienda { get; set; }
+		public string Sede { get; set; }
+	}
+
+	public class Sede
+	{
+		public string new_sedeprvid { get; set; }
+		public string new_localita { get; set; }
+	}
+
+	public class SedeCollection
+	{
+		public Sede[] value { get; set; }
+	}
+}

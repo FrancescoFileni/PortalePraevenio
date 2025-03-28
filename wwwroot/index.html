@@ -31,7 +31,70 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/js/saveAsFile.js"></script>
     <script src="/js/generatePDF.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 
+    <script>
+        if (window.Chart && window.Chart.register && window.ChartDataLabels) {
+            window.Chart.register(window.ChartDataLabels);
+        }
+    </script>
+
+    <script>
+        function downloadFileFromBase64(base64Data, mimeType, fileName) {
+            // Crea un URL data a partire dalla stringa Base64
+            const linkSource = `data:${mimeType};base64,${base64Data}`;
+
+            // Crea un elemento <a> temporaneo per il download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = linkSource;
+            downloadLink.download = fileName;
+
+            // Aggiungi il link al DOM, esegui il click e poi rimuovilo
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        window.downloadExcelFromBlazor = (fileName, jsonData) => {
+            const ws = XLSX.utils.json_to_sheet(jsonData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Lavoratori");
+            XLSX.writeFile(wb, fileName);
+        };
+    </script>
+
+    <script>
+        window.downloadFileFromStream = (byteArray, fileName) => {
+            const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+    </script>
+
+    <script>
+        async function zipAndDownloadFiles(zipName, files) {
+            const zip = new JSZip();
+            // Accedi alle proprietà in camelCase, come serializzate da .NET
+            files.forEach(file => {
+                zip.file(file.fileName, file.base64Data, { base64: true });
+            });
+            try {
+                const zipContent = await zip.generateAsync({ type: "base64" });
+                const finalZipName = zipName + ".zip";
+                downloadFileFromBase64(zipContent, "application/zip", finalZipName);
+            } catch (err) {
+                console.error("Errore durante la creazione dello zip:", err);
+            }
+        }
+    </script>
 
 </body>
 

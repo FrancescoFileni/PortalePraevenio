@@ -1,4 +1,4 @@
-﻿@page "/elencocorsi"
+﻿@page "/elencopartecipazioni"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
@@ -8,27 +8,112 @@
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
 
 <h3>Partecipazioni</h3>
 
 <AuthorizeView>
     <Authorized>
+        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color: #4CAF50; margine-left:16px;" @onclick="ExportToExcel">
+            Esporta in Excel
+        </MudButton>
+
+        <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" OnClick="ToggleFilters" Class="mt-4" Style="color: #E53935; margin-bottom:12px;" />
+
+        @if(showFilters)
+        {
+            <div class="folder-container compact">
+                <div class="folder-tab">Filtri</div>
+
+                <MudGrid GutterSize="8">
+                    <MudItem sm="12" md="4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Cognome</MudText>
+                        <MudTextField @bind-Value="searchCognome" Placeholder="Cerca per cognome"
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;"/>
+                    </MudItem>
+
+                    <MudItem sm="12" md="4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Nome</MudText>
+                        <MudTextField @bind-Value="searchNome" Placeholder="Cerca per nome"
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
+                    </MudItem>
+
+                    <MudItem sm="12" md="4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Codice Fiscale</MudText>
+                        <MudTextField @bind-Value="searchCF" Placeholder="Cerca per codice fiscale"
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem sm="12" md="4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Titolo Corso</MudText>
+                        <MudTextField @bind-Value="searchTitoloCorso" Placeholder="Cerca per titolo corso"
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Data Fine Corso</MudText>
+                        <MudGrid GutterSize="4">
+                            <MudItem xs="6">
+                                <MudDatePicker @bind-Date="dataFineForm"
+                                Label="Da"
+                                Variant="Variant.Outlined"
+                                Class="white-input"
+                                Clearable="true"
+                                ClearIcon="@Icons.Material.Filled.Clear" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudDatePicker @bind-Date="dataFineTo"
+                                Label="A"
+                                Variant="Variant.Outlined"
+                                Class="white-input"
+                                Clearable="true"
+                                ClearIcon="@Icons.Material.Filled.Clear" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudItem>
+
+                    <MudItem sm="12" md="4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Sede Corso</MudText>
+                        <MudTextField @bind-Value="searchSedeCorso" Placeholder="Cerca per sede corso"
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
+                    </MudItem>
+                </MudGrid>
+            </div>
+        }
+
 
         @if (corsi != null)
         {
-
             <div class="folder-container">
-                <div class="folder-tab">Partecipazioni</div>
-                <MudTable Items="corsi.value" Dense="true" HeaderClass="mud-table-header" Hover="true" Filter="new Func<Corsi,bool>(FilterFunc1)">
+                <div class="folder-tab">Elenco Partecipazioni</div>
+                <MudTable Items="corsi.value" Filter="ToggleFunc" Dense="true" HeaderClass="mud-table-header" Hover="true" >
                     <ToolBarContent>
                         <MudText Typo="Typo.h6">Partecipazioni</MudText>
                         <MudSpacer />
-                        <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                        @* <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField> *@
                     </ToolBarContent>
                     <HeaderContent>
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.cr4f9_cognome)">Cognome</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.cr4f9_corsotipo)">Corso Tipo</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x => x.cr4f9_codicefiscale)">Codice Fiscale</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.titoloCorso)">Titolo Corso</MudTableSortLabel></MudTh>
                         <!-- Nuova colonna -->
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.dataFineCorso)">Data Fine Corso</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.SedeDescrizione)">Sede del corso</MudTableSortLabel></MudTh>
@@ -38,7 +123,8 @@
                             @corsi.cr4f9_cognome
                         </MudLink>
                         <MudTd DataLabel="idcorso">@corsi.cr4f9_nome</MudTd>
-                        <MudTd DataLabel="titolocorso">@corsi.cr4f9_corsotipo</MudTd>
+                        <MudTd DataLabel="codicefiscale">@corsi.cr4f9_codicefiscale</MudTd>
+                        <MudTd DataLabel="titolocorso">@corsi.titoloCorso</MudTd>
                         <!-- Nuova cella per la nuova colonna -->
                         <MudTd DataLabel="datacorso">@corsi.dataFineCorsoString</MudTd>
                         <MudTd DataLabel="datacorso">
@@ -50,8 +136,6 @@
                     </PagerContent>
                 </MudTable>
             </div>
-
-
         }
         else
         {
@@ -70,6 +154,14 @@
     private Corsi selectedItem1 = null;
     private CorsiCollection corsi;
     private string message = "Loading...";
+    private bool showFilters = false;
+    private string searchCognome;
+    private string searchNome;
+    private string searchCF;
+    private string searchTitoloCorso;
+    private string searchSedeCorso;
+    private DateTime? dataFineForm;
+    private DateTime? dataFineTo;
 
     // Variabili per le informazioni dell'utente autenticato
     private string userName;
@@ -77,6 +169,8 @@
 
     // Definire la query FetchXML, ma senza email statica
     private string fetchXmlQuery;
+
+    [Inject] IJSRuntime JS { get; set; }
 
     private bool FilterFunc1(Corsi corsi) => FilterFunc(corsi, searchString1);
 
@@ -90,7 +184,6 @@
                (corsi.cr4f9_corsotipo?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
-
     protected override async Task OnInitializedAsync()
     {
         await LoadUserInformation(); // Chiama il metodo per caricare le informazioni dell'utente
@@ -102,6 +195,7 @@
                 <attribute name='new_partecipazionecorsoprvid' />
                 <attribute name='cr4f9_cognome' />
                 <attribute name='cr4f9_nome' />
+                <attribute name='cr4f9_codicefiscale' />
                 <attribute name='cr4f9_corsotipo' />
                 <attribute name='new_corso' />
                 <attribute name='new_dataconclusione' />
@@ -114,6 +208,7 @@
                 </link-entity>
                 <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' alias='corso'>
                   <attribute name='cr4f9_datadifine' alias='dataFineCorso'/>
+                  <attribute name='cr4f9_titolocorso' alias='titoloCorso'/>
                   <attribute name='new_sedecorso' alias='sedeCorso'/>
                   <attribute name='new_sedeteorica' alias='sedeTeorica'/>
                   <attribute name='new_sedepratica' alias='sedePratica'/>
@@ -176,13 +271,89 @@
         }
     }
 
+    private Task OpenDialogAsync()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        return DialogService.ShowAsync<AddPartecipazione>("Simple Dialog", options);
+    }
+
+    private async Task ExportToExcel()
+    {
+        if (corsi == null || corsi.value.Length == 0)
+        {
+            message = "Nessun dato da esportare.";
+            return;
+        }
+
+        var jsonData = corsi.value.Select(c => new
+        {
+            Nome = c.cr4f9_nome,
+            Cognome = c.cr4f9_cognome,
+            CodiceFiscale = c.cr4f9_codicefiscale,
+            CorsoTipo = c.cr4f9_corsotipo,
+            TitoloCorso = c.titoloCorso,
+            SedeCorso = c.SedeDescrizione,
+            SedeTeorica = c.SedeTeoricaDescrizione,
+            SedePratica = c.SedePraticaDescrizione,
+            DataFineCorso = c.dataFineCorso.ToString("dd/MM/yyyy")
+        });
+
+        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "PartecipazioniCorsi.xlsx", jsonData);
+    }
+
+    private bool ToggleFunc(Corsi corso)
+    {
+        bool matches = true;
+
+        if(!string.IsNullOrWhiteSpace(searchCognome))
+        {
+            matches &= corso.cr4f9_cognome != null && corso.cr4f9_cognome.ToLower().Contains(searchCognome.ToLower());
+        }
+
+        if(!string.IsNullOrWhiteSpace(searchNome))
+        {
+            matches &= corso.cr4f9_nome != null && corso.cr4f9_nome.ToLower().Contains(searchNome.ToLower());
+        }
+
+        if(!string.IsNullOrWhiteSpace(searchCF))
+        {
+            matches &= corso.cr4f9_codicefiscale != null && corso.cr4f9_codicefiscale.ToLower().Contains(searchCF.ToLower());
+        }
+
+        if(!string.IsNullOrWhiteSpace(searchTitoloCorso))
+        {
+            matches &= corso.titoloCorso != null && corso.titoloCorso.ToLower().Contains(searchTitoloCorso.ToLower());
+        }
+
+        if(dataFineForm.HasValue)
+        {
+            matches &= corso.dataFineCorso >= dataFineForm.Value;
+        }
+
+        if(dataFineTo.HasValue)
+        {
+            matches &= corso.dataFineCorso <= dataFineTo.Value;
+        }
+
+        if(!string.IsNullOrWhiteSpace(searchSedeCorso))
+        {
+            matches &= corso.SedeDescrizione != null && corso.SedeDescrizione.ToLower().Contains(searchSedeCorso.ToLower());
+        }
+
+        return matches;
+    }
+
+    private void ToggleFilters() => showFilters = !showFilters;
+
     public class Corsi
     {
         public Guid new_partecipazionecorsoprvid { get; set; }
         public Guid? _new_corso_value { get; set; }
         public string cr4f9_cognome { get; set; }
         public string cr4f9_nome { get; set; }
+        public string cr4f9_codicefiscale { get; set; }
         public string cr4f9_corsotipo { get; set; }
+        public string titoloCorso { get; set; }
         public DateTime new_dataconclusione { get; set; }
         public DateTime dataFineCorso { get; set; }
         public int sedeCorso { get; set; }
@@ -224,7 +395,7 @@
             SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
             SedeCorso.SEDE_CLIENTE => string.IsNullOrWhiteSpace(sedeT) ? sedeP : sedeT,
             SedeCorso.ALTRO => indicareSede,
-            SedeCorso.VUOTO => "Vuoto"
+            SedeCorso.VUOTO => ""
         };
 
         public string SedeTeoricaDescrizione => SedeTeoricaInt switch
@@ -233,18 +404,19 @@
             SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
             SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
             SedeCorso.SEDE_CLIENTE => indirizzoDue,
-            SedeCorso.ALTRO => indicareSedeTeorica
+            SedeCorso.ALTRO => indicareSedeTeorica,
+            SedeCorso.VUOTO => ""
 
         };
 
-        public string SedePraticaDescrizione => SedeTeoricaInt switch
+        public string SedePraticaDescrizione => SedePraticaInt switch
         {
             SedeCorso.PRAEVENIO => "Praevenio SRLS",
             SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
             SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
             SedeCorso.SEDE_CLIENTE => indirizzoTre,
-            SedeCorso.ALTRO => indicareSedePratica
-
+            SedeCorso.ALTRO => indicareSedePratica,
+            SedeCorso.VUOTO => ""
         };
 
     }
@@ -265,6 +437,7 @@
     }
 
 }
+
 <style>
 
     /* Contenitore principale della tabella */
@@ -313,7 +486,10 @@
         color: #757575 !important;
         font-weight: bold;
         display: block;
-        text-align: center;
+        text-align: left;
+        vertical-align: middle;
+        margin-left: 8px;
+        padding: 16px;
     }
 
     /* Hover sui link */
@@ -338,6 +514,18 @@
     /* Nascondi informazioni di paginazione */
     .mud-table-pagination-information {
         display: none;
+    }
+
+    .white-input input,
+    .white-input .mud-input-slot {
+        background-color: #ffffff !important;
+        font-size: 0.8rem !important;
+    }
+
+    .date-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
 </style>

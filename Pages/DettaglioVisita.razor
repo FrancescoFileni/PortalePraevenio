@@ -13,108 +13,105 @@
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
 
+@if (visite?.value?.Length > 0)
+{
+<MudText Typo="Typo.h4" FontWeight="FontWeight.Bold" Align="Align.Center" Style="background-color: #f4f4f4; padding: 16px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); margin-bottom: 24px; color: #333; display: flex; align-items: center; justify-content: center; gap: 12px;">
+    <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Style="margin-right: 8px; color: #E53935;" />
+    <span>Riepilogo visita</span>
+    <span style="color: #E53935;">@visite.value[0].TipologiaDescrizione</span>
+    <span>per</span>
+    <span>@visite.value[0].Cognome @visite.value[0].Nome</span>
+</MudText>
 
-    @if (visite?.value?.Length > 0)
-    {
-    <MudText Typo="Typo.h4" FontWeight="FontWeight.Bold" Align="Align.Center" Style="background-color: #f4f4f4; padding: 16px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); margin-bottom: 24px; color: #333; display: flex; align-items: center; justify-content: center; gap: 12px;">
-        <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Style="margin-right: 8px; color: #E53935;" />
-        <span>Riepilogo visita</span>
-        <span style="color: #E53935;">@visite.value[0].TipologiaDescrizione</span>
-        <span>per</span>
-        <span>@visite.value[0].Cognome @visite.value[0].Nome</span>
-    </MudText>
+<div class="folder-container">
+    <div class="folder-tab">Dettaglio visita medica lavoratore @visite.value[0].Cognome @visite.value[0].Nome</div>
+    <MudCard>
+        <MudTimeline TimelineOrientation=TimelineOrientation.Horizontal Style="margin-top: 16px; margin-bottom: 24px;">
+            <MudTimelineItem Color="Color.Success" Variant="Variant.Filled">
+                <ItemContent>
+                    <MudAlert Severity="Severity.Success" ContentAlignment="HorizontalAlignment.Center">Visita effettuata</MudAlert>
+                </ItemContent>
+                <ItemOpposite>
+                    <MudText Color="Color.Success">@visite.value[0].checkDate</MudText>
+                </ItemOpposite>
+            </MudTimelineItem>
+            <MudTimelineItem Color="Color.Info" Variant="Variant.Filled">
+                <ItemContent>
+                    <MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">Prossima visita</MudAlert>
+                </ItemContent>
+                <ItemOpposite>
+                    <MudText Color="Color.Info">
+                        @(visite.value[0].nextCheckDate == "01/01/0001" ? "Non definita" : visite.value[0].nextCheckDate)
+                    </MudText>
+                </ItemOpposite>
+            </MudTimelineItem>
+        </MudTimeline>
 
+        <MudCardContent Style="margin-top: 24px; padding: 20px; background-color: #f9f9f9; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
 
+            <!-- Campo di testo per gli accertamenti con un bordo più morbido -->
+            <MudTextField T="string"
+                            Label="Accertamenti"
+                            Variant="Variant.Outlined"
+                            Text="@visite.value[0].cr4f9_accertamenti"
+                            ReadOnly="_readonly"
+                            Lines="5"
+                            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
 
-    <div class="folder-container">
-        <div class="folder-tab">Dettaglio visita medica lavoratore @visite.value[0].Cognome @visite.value[0].Nome</div>
-        <MudCard>
-            <MudTimeline TimelineOrientation=TimelineOrientation.Horizontal Style="margin-top: 16px; margin-bottom: 24px;">
-                <MudTimelineItem Color="Color.Success" Variant="Variant.Filled">
-                    <ItemContent>
-                        <MudAlert Severity="Severity.Success" ContentAlignment="HorizontalAlignment.Center">Visita effettuata</MudAlert>
-                    </ItemContent>
-                    <ItemOpposite>
-                        <MudText Color="Color.Success">@visite.value[0].checkDate</MudText>
-                    </ItemOpposite>
-                </MudTimelineItem>
-                <MudTimelineItem Color="Color.Info" Variant="Variant.Filled">
-                    <ItemContent>
-                        <MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">Prossima visita</MudAlert>
-                    </ItemContent>
-                    <ItemOpposite>
-                        <MudText Color="Color.Info">
-                            @(visite.value[0].nextCheckDate == "01/01/0001" ? "Non definita" : visite.value[0].nextCheckDate)
-                        </MudText>
-                    </ItemOpposite>
-                </MudTimelineItem>
-            </MudTimeline>
+            <!-- Campo numerico per la periodicità del controllo -->
+            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+                                Label="Periodicità del controllo (mesi)"
+                                Variant="Variant.Outlined"
+                                Min="0"
+                                Max="400"
+                                @bind-Value="@visite.value[0].cr4f9_periodicita"
+                                ReadOnly="_readonly"
+                                Adornment="Adornment.Start"
+                                AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
 
-            <MudCardContent Style="margin-top: 24px; padding: 20px; background-color: #f9f9f9; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <!-- Campo numerico per la durata del controllo -->
+            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+                                Label="Durata del controllo (minuti)"
+                                Variant="Variant.Outlined"
+                                Min="0"
+                                Max="400"
+                                @bind-Value="@visite.value[0].cr4f9_duratavisita"
+                                ReadOnly="_readonly"
+                                Adornment="Adornment.Start"
+                                AdornmentIcon="@Icons.Material.Filled.Timer" />
 
-                <!-- Campo di testo per gli accertamenti con un bordo più morbido -->
-                <MudTextField T="string"
-                              Label="Accertamenti"
-                              Variant="Variant.Outlined"
-                              Text="@visite.value[0].cr4f9_accertamenti"
-                              ReadOnly="_readonly"
-                              Lines="5"
-                              Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+            <MudSelect Variant="Variant.Outlined" T="string"
+            AdornmentIcon="@getEsitoVisita()" 
+            Label="@visite.value[0].EsitoDescrizione" MultiSelection="false" @bind-Value="_value"
+                        ReadOnly="_readonly">
+                @foreach (var esito in _esiti)
+                {
+                    <MudSelectItem 
+                        Value="@esito">@esito</MudSelectItem>
+                }
+            </MudSelect>
 
-                <!-- Campo numerico per la periodicità del controllo -->
-                <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                                 Label="Periodicità del controllo (mesi)"
-                                 Variant="Variant.Outlined"
-                                 Min="0"
-                                 Max="400"
-                                 @bind-Value="@visite.value[0].cr4f9_periodicita"
-                                 ReadOnly="_readonly"
-                                 Adornment="Adornment.Start"
-                                 AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+        </MudCardContent>
 
-                <!-- Campo numerico per la durata del controllo -->
-                <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                                 Label="Durata del controllo (minuti)"
-                                 Variant="Variant.Outlined"
-                                 Min="0"
-                                 Max="400"
-                                 @bind-Value="@visite.value[0].cr4f9_duratavisita"
-                                 ReadOnly="_readonly"
-                                 Adornment="Adornment.Start"
-                                 AdornmentIcon="@Icons.Material.Filled.Timer" />
+    </MudCard>
 
-                <MudSelect Variant="Variant.Outlined" T="string"
-                AdornmentIcon="@getEsitoVisita()" 
-                Label="@visite.value[0].EsitoDescrizione" MultiSelection="false" @bind-Value="_value"
-                           ReadOnly="_readonly">
-                    @foreach (var esito in _esiti)
-                    {
-                        <MudSelectItem 
-                           Value="@esito">@esito</MudSelectItem>
-                    }
-                </MudSelect>
-
-            </MudCardContent>
-
-        </MudCard>
-
-        <div style="display: flex; justify-content: flex-end;">
-            <MudButton Variant="Variant.Filled" StartIcon="@Icon" Color="Color.Error" Size="Size.Small"
-                       Style="margin-top: 20px;" @onclick="editVisitaMedica">
-                @(_isEditing ? "Salva" : "Modifica")
-            </MudButton>
-        </div>
-
+    <div style="display: flex; justify-content: flex-end;">
+        <MudButton Variant="Variant.Filled" StartIcon="@Icon" Color="Color.Error" Size="Size.Small"
+                    Style="margin-top: 20px;" @onclick="editVisitaMedica">
+            @(_isEditing ? "Salva" : "Modifica")
+        </MudButton>
     </div>
-    }
-    else if (!string.IsNullOrEmpty(message))
-    {
-    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-    }
-    else
-    {
-    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-    }
+
+</div>
+}
+else if (!string.IsNullOrEmpty(message))
+{
+<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+else
+{
+<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
 
 
 @code {
@@ -250,7 +247,6 @@
         logger.LogInformation("Save changes...");
     }
 
-
     public class Visita
     {
         public Guid cr4f9_visitamedicadellavoratoreid { get; set; }
@@ -262,9 +258,7 @@
         public int cr4f9_duratavisita { get; set; }
         public string Cognome { get; set; }
         public string Nome { get; set; }
-
         public int cr4f9_tipologiadivisita { get; set; }
-
         public int cr4f9_esitodellavisita { get; set; }
 
         public TipologiaVisita Tipologia
@@ -301,7 +295,6 @@
         public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
         public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
     }
-
 
     public class VisitaCollection
     {

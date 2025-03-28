@@ -12,7 +12,7 @@
 <AuthorizeView>
     <Authorized>
 
-        <h3>Elenco Sedi</h3>
+        <h3>Sedi</h3>
 
         @if (sedi != null)
         {
@@ -24,7 +24,9 @@
                         <MudTh>Descrizione</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="sede">
-                        <MudTd DataLabel="localita">@sede.new_localita</MudTd>
+                        <MudLink Href="@($"/dettagliosede/id={sede.new_sedeprvid}")">
+                            @sede.new_localita
+                        </MudLink>
                         <MudTd DataLabel="descrizione">@sede.cr4f9_descrizionesede</MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -32,7 +34,6 @@
                     </PagerContent>
                 </MudTable>
             </div>
-
         }
         else
         {
@@ -137,41 +138,102 @@
 }
 
 <style>
-    /* Contenitore a forma di cartella */
+
+    /* Contenitore principale della tabella e dei filtri */
     .folder-container {
         position: relative;
         background-color: #f0f0f0;
         border: 2px solid #E53935;
         border-radius: 8px;
         padding: 16px;
-        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        margin-top: 50px;
     }
 
-    /* Linguetta in alto a sinistra */
+    .folder-container.compact {
+        padding: 8px;
+        margin-top: 20px;
+    }
+
     .folder-tab {
         position: absolute;
-        top: -25px; /* Altezza sopra il contenitore */
-        left: 20px; /* Regola la posizione più verso sinistra */
+        top: -25px;
+        left: 20px;
         background-color: #E53935;
         color: white;
         padding: 6px 16px;
         border-top-left-radius: 6px;
         border-top-right-radius: 6px;
         font-weight: bold;
+        font-size: 0.9rem;
+        padding: 4px 12px;
     }
 
-    /* Stile per la tabella */
+    .mb-1 {
+        margin-bottom: 4px;
+    }
+
+    .red-label {
+        color: #E53935;
+    }
+
+    /* Stili per la tabella */
+    .mud-table {
+        width: 100%;
+        border-radius: 8px;
+        border-collapse: collapse;
+    }
+
     .mud-table-header {
         background-color: #E53935;
     }
 
         .mud-table-header .mud-table-cell {
             color: white !important;
+            font-weight: bold;
         }
 
-    /* Nascondi le informazioni di paginazione */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0;
+        padding: 8px;
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: left;
+        vertical-align: central;
+        margin-top: 8px;
+        margin-left: 16px;
+    }
+
+        .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+            color: red !important;
+            cursor: pointer;
+        }
+
     .mud-table-pagination-information {
         display: none;
+    }
+
+    /* Classe per uniformare l'aspetto degli input */
+    .white-input input,
+    .white-input .mud-input-slot {
+        background-color: #ffffff !important;
+        font-size: 0.8rem !important;
+    }
+
+    .date-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
 </style>

@@ -1,0 +1,534 @@
+﻿@page "/dashboard"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<Dashboard> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<AuthorizeView>
+    <Authorized>
+        <h3>Dashboard</h3>
+
+        <!-- Sezione tabelle (es. Controlli DPI e Controlli Macchinari) -->
+        @if (controlliDpi != null && controlliMacchinari != null)
+        {
+            <div class="dashboard-grid">
+                <!-- Tabella Controlli DPI -->
+                <div class="table-container">
+                    <div class="folder-container">
+                        <div class="folder-tab">Scadenze Controlli DPI</div>
+                        <MudTable Items="controlliDpi.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                            <HeaderContent>
+                                <MudTh>Lavoratore</MudTh>
+                                <MudTh>DPI</MudTh>
+                                <MudTh>Data Scadenza Controllo</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="controllo">
+                                <MudTd DataLabel="Lavoratore">
+                                    @controllo.NomeLavoratore
+                                </MudTd>
+                                <MudTd DataLabel="DPI">
+                                    @controllo.NomeDPI
+                                </MudTd>
+                                <MudTd DataLabel="Data Scadenza">
+                                    @controllo.cr4f9_datascadenzacontrollo.ToString("dd/MM/yyyy")
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                            </PagerContent>
+                        </MudTable>
+                    </div>
+                </div>
+
+                <!-- Tabella Controlli Macchinari -->
+                <div class="table-container" style="margin-bottom=20px;">
+                    <div class="folder-container">
+                        <div class="folder-tab">Scadenze Controlli Macchinari</div>
+                        <MudTable Items="controlliMacchinari.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                            <HeaderContent>
+                                <MudTh>Macchinario</MudTh>
+                                <MudTh>Sede</MudTh>
+                                <MudTh>Tipo Controllo</MudTh>
+                                <MudTh>Data Scadenza</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="controllo">
+       
+                                <MudTd DataLabel="Macchinario">
+                                    @controllo.MacchinarioNome
+                                </MudTd>
+                                <MudTd DataLabel="Sede">
+                                    @controllo.SedeLocalita
+                                </MudTd>
+                                <MudTd DataLabel="Tipo Controllo">
+                                    @controllo.TipoControllo
+                                </MudTd>
+                                <MudTd DataLabel="Data Scadenza">
+                                    @controllo.cr4f9_datadiscadenza.ToString("dd/MM/yyyy")
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                            </PagerContent>
+                        </MudTable>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p><em>@message</em></p>
+        }
+
+        <!-- Sezione Grafico: Istogramma per i lavoratori raggruppati per mansione -->
+        @if (Series != null && XAxisLabels != null)
+        {
+            <div class="chart-container">
+                <MudPaper Class="p-4" Elevation="4">
+                    <MudText Typo="Typo.h6" Class="chart-title">
+                        Lavoratori per Mansione
+                    </MudText>
+                    <div class="chart-content" style="display: grid; grid-template-columns: 82% 18%;">
+                        <!-- Grafico che occupa l'80% della larghezza -->
+                        <div>
+                            <MudChart ChartType="ChartType.Bar" ChartSeries="@Series" XAxisLabels="@XAxisLabels" Height="350px" />
+                        </div>
+                        <!-- Lista delle mansioni con un contenitore più carino -->
+                        <MudPaper Class="p-3" Elevation="3" Style="margin-left: -10px; background-color: #f9fafb; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);">
+                            <MudText Typo="Typo.body1">
+                                @GetMansioniList()
+                            </MudText>
+                        </MudPaper>
+                    </div>
+                </MudPaper>
+            </div>
+
+        }
+        else
+        {
+            <p><em>Caricamento dati per il grafico...</em></p>
+        }
+
+    </Authorized>
+    <NotAuthorized>
+        <h3>Authentication Failure!</h3>
+        <p>You're not signed in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    // -------------------- CONTROLLI DPI --------------------
+    private ControlliDpiCollection controlliDpi;
+    public class ControlloDpi
+    {
+        public DateTime cr4f9_datascadenzacontrollo { get; set; }
+        [JsonPropertyName("NomeLavoratore")]
+        public string NomeLavoratore { get; set; }
+        [JsonPropertyName("NomeDPI")]
+        public string NomeDPI { get; set; }
+    }
+    public class ControlliDpiCollection
+    {
+        public ControlloDpi[] value { get; set; }
+    }
+
+    // -------------------- CONTROLLI MACCHINARI --------------------
+    private ControlliMacchinariCollection controlliMacchinari;
+    public class ControlloMacchinario
+    {
+        public DateTime cr4f9_datadiscadenza { get; set; }
+        [JsonPropertyName("MacchinarioNome")]
+        public string MacchinarioNome { get; set; }
+        [JsonPropertyName("SedeLocalita")]
+        public string SedeLocalita { get; set; }
+        [JsonPropertyName("TipoControllo")]
+        public string TipoControllo { get; set; }
+    }
+    public class ControlliMacchinariCollection
+    {
+        public ControlloMacchinario[] value { get; set; }
+    }
+
+    // -------------------- DATI AGGREGATI PER IL GRAFICO --------------------
+    // Questi dati saranno ottenuti dalla query di aggregazione raggruppata per mansione
+    private AggregatedMansioniCollection aggregatedMansioni;
+    public class AggregatedMansione
+    {
+        // Il nome della mansione (alias "mansione" nel fetch XML)
+        public string mansione { get; set; }
+        // Il conteggio dei record (alias "numero")
+        public double numero { get; set; }
+    }
+    public class AggregatedMansioniCollection
+    {
+        public AggregatedMansione[] value { get; set; }
+    }
+
+    // Proprietà per il grafico
+    public List<ChartSeries> Series { get; set; }
+    public string[] XAxisLabels { get; set; }
+
+    // -------------------- VARIABILI UTENTE E AZIENDA --------------------
+    private string message = "Loading...";
+    private string clienteId;
+    private Guid? azienda;
+    private string userName;
+    private string userEmail;
+
+    // Query FetchXML per le altre entità (es. controlli) sono state definite in precedenza
+    private string fetchXmlQueryDpi;
+    private string fetchXmlQueryMacchinari;
+    private string fetchXmlQueryMansioni; // per il grafico
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation();
+
+        if (azienda == null)
+        {
+            message = "Cliente non trovato.";
+            return;
+        }
+
+        // ----- Carica Controlli DPI -----
+        fetchXmlQueryDpi = $@"
+            <fetch>
+              <entity name='cr4f9_elencocontrollidpi'>
+                <attribute name='cr4f9_datascadenzacontrollo' />
+                <link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_associazionedpialavoratoreid' to='cr4f9_dispositivoconsegnato' link-type='inner' alias='DPIConsegnato'>
+                  <filter>
+                    <condition attribute='cr4f9_clientelookup' operator='eq' value='{azienda}' />
+                  </filter>
+                  <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratorelookup' link-type='inner' alias='Lavoratore'>
+                    <attribute name='cr4f9_calcolonomeecognome' alias='NomeLavoratore' />
+                  </link-entity>
+                  <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='DPI'>
+                    <attribute name='cr4f9_nomedeldispositivofisico' alias='NomeDPI' />
+                  </link-entity>
+                </link-entity>
+              </entity>
+            </fetch>";
+
+        // ----- Carica Controlli Macchinari -----
+        fetchXmlQueryMacchinari = $@"
+            <fetch>
+              <entity name='cr4f9_elencocontrollimacchinarieimpianti'>
+                <attribute name='cr4f9_datadiscadenza' />
+                <link-entity name='cr4f9_macchinarioimpiantofisico' from='cr4f9_macchinarioimpiantofisicoid' to='cr4f9_macchinariooimpianto' link-type='inner' alias='Macchinario'>
+                  <attribute name='cr4f9_nome' alias='MacchinarioNome' />
+                  <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+                    <attribute name='new_localita' alias='SedeLocalita' />
+                    <filter>
+                      <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+                    </filter>
+                  </link-entity>
+                </link-entity>
+                <link-entity name='cr4f9_tipologiedicontrollo' from='cr4f9_tipologiedicontrolloid' to='cr4f9_controllo' link-type='inner' alias='Controllo'>
+                  <attribute name='cr4f9_tipocontrollo' alias='TipoControllo' />
+                </link-entity>
+              </entity>
+            </fetch>";
+
+        // ----- Carica Dati Aggregati per il Grafico (Lavoratori raggruppati per mansione) -----
+        fetchXmlQueryMansioni = $@"
+            <fetch aggregate='true'>
+              <entity name='new_lavorapressoprv'>
+                <filter>
+                  <condition attribute='new_azienda' operator='eq' value='{azienda}' />
+                </filter>
+                <link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='cr4f9_mansione' link-type='inner' alias='Mansione'>
+                  <attribute name='new_mansione' alias='mansione' groupby='true' />
+                </link-entity>
+                <attribute name='new_lavorapressoprvid' alias='numero' aggregate='count' />
+              </entity>
+            </fetch>";
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            // --- Recupera i dati per i controlli DPI ---
+            var requestDpi = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollidpis?fetchXml={Uri.EscapeDataString(fetchXmlQueryDpi)}");
+            requestDpi.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            requestDpi.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var responseDpi = await client.SendAsync(requestDpi);
+            if (responseDpi.IsSuccessStatusCode)
+            {
+                controlliDpi = await responseDpi.Content.ReadFromJsonAsync<ControlliDpiCollection>();
+            }
+            else
+            {
+                message = "Errore nel recupero dei controlli DPI.";
+                logger.LogError($"Error fetching DPI data: {responseDpi.ReasonPhrase}");
+            }
+
+            // --- Recupera i dati per i controlli Macchinari ---
+            var requestMacchinari = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollimacchinarieimpiantis?fetchXml={Uri.EscapeDataString(fetchXmlQueryMacchinari)}");
+            requestMacchinari.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            requestMacchinari.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var responseMacchinari = await client.SendAsync(requestMacchinari);
+            if (responseMacchinari.IsSuccessStatusCode)
+            {
+                controlliMacchinari = await responseMacchinari.Content.ReadFromJsonAsync<ControlliMacchinariCollection>();
+            }
+            else
+            {
+                message = "Errore nel recupero dei controlli macchinari.";
+                logger.LogError($"Error fetching macchinari data: {responseMacchinari.ReasonPhrase}");
+            }
+
+            // --- Recupera i dati aggregati per il grafico (raggruppamento per mansione) ---
+            var requestMansioni = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryMansioni)}");
+            requestMansioni.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            requestMansioni.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var responseMansioni = await client.SendAsync(requestMansioni);
+            if (responseMansioni.IsSuccessStatusCode)
+            {
+                aggregatedMansioni = await responseMansioni.Content.ReadFromJsonAsync<AggregatedMansioniCollection>();
+
+                // Trasforma i dati aggregati per popolare il grafico
+                if (aggregatedMansioni != null && aggregatedMansioni.value != null)
+                {
+                    var labels = new List<string>();
+                    var counts = new List<double>();
+
+                    foreach (var item in aggregatedMansioni.value)
+                    {
+                        labels.Add(item.mansione);
+                        counts.Add(item.numero);
+                    }
+
+                    Series = new List<ChartSeries>()
+                    {
+                        new ChartSeries() { Name = "Lavoratori per Mansione", Data = counts.ToArray() }
+                    };
+
+                    XAxisLabels = labels.ToArray();
+                }
+            }
+            else
+            {
+                logger.LogError($"Error fetching aggregated mansioni data: {responseMansioni.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "Problema di autenticazione.";
+        }
+    }
+
+    // -------------------- METODO PER CARICARE LE INFORMAZIONI DELL'UTENTE E DEL CLIENTE --------------------
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+            logger.LogInformation("USER EMAIL: " + userEmail);
+            await CaricaClienteAssociato(userEmail);
+        }
+    }
+
+    // Ottiene il cliente/azienda associato in base all'email e imposta la variabile 'azienda'
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var fetchXml = BuildAziendaFetchXml(email);
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    using var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH (cliente): " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Cliente reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    // Costruisce il FetchXML per ottenere il cliente/azienda in base all'email
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+            <fetch>
+              <entity name='new_emailautorizzazioniprv'>
+                <attribute name='new_cliente' />
+                <filter>
+                  <condition attribute='new_email' operator='eq' value='{email}' />
+                </filter>
+              </entity>
+            </fetch>";
+    }
+
+    private string GetMansioniList()
+    {
+        if (aggregatedMansioni?.value == null || !aggregatedMansioni.value.Any())
+            return "Nessuna mansione disponibile.";
+
+        return string.Join("\n", aggregatedMansioni.value.Select(m => $"{m.mansione}: {m.numero}"));
+    }
+}
+
+<style>
+
+    /* Layout per le due tabelle affiancate */
+    .dashboard-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .table-container {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    /* Contenitore principale della tabella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px;
+    }
+
+    /* Tabella principale */
+    .mud-table {
+        width: 100%;
+        border-radius: 8px;
+        border-collapse: collapse;
+    }
+
+    /* Intestazione della tabella */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+    .mud-table-header .mud-table-cell {
+        color: white !important;
+        font-weight: bold;
+    }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    /* Celle della tabella */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0;
+        padding: 8px;
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    /* Stile per eventuali link */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: left;
+        margin-left: 16px;
+        vertical-align: central;
+        margin-top: 8px;
+    }
+
+    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+        color: red !important;
+        cursor: pointer;
+    }
+
+    /* Etichetta della tabella */
+    .folder-tab {
+        position: absolute;
+        top: -25px;
+        left: 20px;
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+    }
+
+    /* Nasconde informazioni di paginazione non necessarie */
+    .mud-table-pagination-information {
+        display: none;
+    }
+
+    /* Stile personalizzato per il grafico */
+    .custom-chart {
+        width: 50%;
+        margin-left: 0;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px;
+    }
+
+    /* Titolo del grafico */
+    .chart-title {
+        background-color: #E53935;
+        color: white;
+        font-weight: bold;
+        padding: 8px;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+
+</style>

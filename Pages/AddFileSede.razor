@@ -1,0 +1,290 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Newtonsoft.Json
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<AddFileSede> logger
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar 
+
+<MudDialog Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
+			<MudIcon Icon="@Icons.Material.Filled.FileUpload" Color="Color.Error"/>
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Inserisci File Sede 
+			</MudText>
+		</MudStack>
+	</TitleContent>
+
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid">
+				<MudItem xs="12" md="6">
+					<MudTextField T="string" @bind-Value="noteFile" Label="Note File" Variant="Variant.Outlined" Lines="5" Class="form-filed"/>
+				</MudItem>
+				<MudItem xs="12" md="6">
+					<MudFileUpload T="IBrowserFile" OnFilesChanged="HandleFileSelected">
+						<ActivatorContent>
+							<MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CloudUpload" Style="height: 40px; margin-left: 16px;">
+								Carica File
+							</MudButton>
+						</ActivatorContent>
+					</MudFileUpload>
+				</MudItem>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Error">
+			Conferma
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance MudDialog { get; set; }
+
+	[Parameter]
+	public string IdCartella { get; set; }
+
+	[Parameter]
+	public string Titolo { get; set; }
+
+	[Inject]
+	public IDialogService DialogService { get; set; }
+
+	private MudForm form;
+	private bool idFormValid = false;
+	private File file = new();
+	private bool isLoading = false;
+	private string message;
+	private IBrowserFile? fileSelezionato;
+	private string idFileCreato;
+	private string noteFile;
+
+	private async Task HandleFileSelected(InputFileChangeEventArgs e)
+	{
+		var files = e.GetMultipleFiles();
+
+		fileSelezionato = files?.FirstOrDefault();
+
+		if(fileSelezionato != null)
+		{
+			logger.LogInformation($"File selezionato: {fileSelezionato.Name}, Dimensione: {fileSelezionato.Size} bytes");
+
+			Snackbar.Add("File correttamente caricato", Severity.Success);
+		}
+		else
+		{
+			logger.LogWarning("Nessun file selezionato.");
+		}
+
+		await Task.CompletedTask;
+	}
+
+	private async Task CreaRecordFile(File file)
+	{
+		try
+		{
+			isLoading = true;
+
+			var dizionario = new Dictionary<string, object>
+			{
+				{"cr4f9_CartellaDocumentoSede@odata.bind", $"/cr4f9_cartelladocumentosedes({file.Cartella})"},
+				{"cr4f9_notedocumento", file.Note}
+			};
+
+			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+			logger.LogInformation($"Contenuto: {contenuto}");
+
+			await form.Validate();
+
+			if(!form.IsValid)
+			{
+				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+				isLoading = false;
+				return;
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_filedocumentosedes")
+					{
+						Content = JsonContent.Create(contenuto)
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("Payload inviato: {@contenuto}");
+
+				if(response.IsSuccessStatusCode)
+				{
+					if(response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
+					{
+						var entityId = entityIdValues.FirstOrDefault();
+
+						if (entityId != null)
+						{
+							idFileCreato = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
+							logger.LogInformation($"Record del file creato con successo. ID: {idFileCreato}");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun ID trovato nell'header della risposta.");
+					}
+					file = new();
+				}
+				else
+				{
+					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					logger.LogError($"Error Api: {response.StatusCode} - {response.ReasonPhrase}");
+					logger.LogError($"Dettagli risposta: {responseBody}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante la creazione del record.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Errore durante la creazione del record del file: {ex.Message}");
+		}
+		isLoading = false;
+	}
+
+	private async Task CaricaFile(string idFileCreato, IBrowserFile file)
+	{
+		try
+		{
+			using var stream = file.OpenReadStream();
+			using var memoryStream = new MemoryStream();
+			await stream.CopyToAsync(memoryStream);
+			byte[] fileContent = memoryStream.ToArray();
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				logger.LogInformation($"Token ottenuto: {token.Value}");
+
+				string fileName = file.Name;
+				string url = $"{client.BaseAddress}cr4f9_filedocumentosedes({idFileCreato})/cr4f9_file?x-ms-file-name={fileName}";
+				logger.LogInformation($"URL per il caricamento: {url}");
+
+				var request = new HttpRequestMessage(HttpMethod.Patch, url)
+					{
+						Content = new ByteArrayContent(fileContent)
+					};
+
+				request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+				request.Headers.Add("OData-MaxVersion", "4.0");
+				request.Headers.Add("OData-Versione", "4.0");
+				request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				HttpResponseMessage response = await client.SendAsync(request);
+
+				if(response.IsSuccessStatusCode)
+				{
+					logger.LogInformation("File caricato con successo.");
+				}
+				else
+				{
+					var errorContent = await response.Content.ReadAsStringAsync();
+					logger.LogError($"Errore durante il caricamento del file: {response.StatusCode}. Dettagli: {errorContent}");
+				}
+			}
+			else
+			{
+				logger.LogError("Error di autenticazione durante il caricamento del certificato");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cerificato: {ex.Message}");
+		}
+	}
+
+	private async Task Submit()
+	{
+		if( IdCartella != null)
+		{
+			var cartellaId = IdCartella;
+
+			var file = new File
+				{
+					Cartella = cartellaId,
+					Note = noteFile
+				};
+
+			await CreaRecordFile(file);
+
+			if(!string.IsNullOrEmpty(idFileCreato) && fileSelezionato !=null)
+			{
+				await CaricaFile(idFileCreato, fileSelezionato);
+
+				await DialogService.ShowMessageBox(
+					"INFO",
+					"File inserito con successo",
+					yesText: "Chiudi");
+
+				MudDialog.Close(DialogResult.Ok(true));
+
+				Navigation.NavigateTo($"/elencofilesede/id={IdCartella}&titolo={Titolo}", forceLoad: true);
+			}
+			else
+			{
+				if (string.IsNullOrEmpty(idFileCreato))
+					logger.LogWarning("ID fil enon valido. Assicurati che la creazione del record sia riuscita");
+
+				if(fileSelezionato == null)
+				{
+					logger.LogWarning("Nessun file selezionato per il caricamento");
+
+					await DialogService.ShowMessageBox(
+						"INFO",
+						"Record inserito con successo senza file",
+						yesText: "Chiudi");
+
+					MudDialog.Close(DialogResult.Ok(true));
+
+					Navigation.NavigateTo($"//elencofilesede/id={IdCartella}&titolo={Titolo}", forceLoad: true);
+				}
+
+				logger.LogWarning("Nessun file selezionato per il caricamento.");
+
+				await DialogService.ShowMessageBox(
+					"ERRORE",
+					"Record file non inserito",
+					yesText: "Chiudi");
+			}
+		}
+		else
+		{
+			logger.LogWarning("Nessun Id");
+		}
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	public class File
+	{
+		public string Cartella { get; set; }
+		public string Note { get; set; }
+	}
+}

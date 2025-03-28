@@ -1,0 +1,911 @@
+﻿@page "/dettagliosede/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using Microsoft.Extensions.Logging
+@using System.Net.Http.Headers
+@using System.Text.Json.Serialization
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<DettaglioSede> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IDialogService DialogService
+
+<button @onclick="GoBack">
+	<i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
+</button>
+
+<MudTabs Elevation="2" Rounded="true" Class="my-6">
+	@if (sedi!=null && sedi.value?.Length > 0)
+	{
+		<MudTabPanel Icon="@Icons.Material.Filled.Info" Text="Informazioni">
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+
+				<div class="folder-section">
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].new_localita" Label="Sede" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].cr4f9_ragionesociale" Label="Azienda" Variant="Variant.Outlined" Disabled="true" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].cr4f9_provincia" Label="Provincia" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].cr4f9_cap" Label="CAP" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].new_indirizzo" Label="Indirizzo" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].cr4f9_descrizionesede" Label="Descrizione Sede" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+
+					<div class="course-info">
+						<MudTextField @bind-Value="@sedi.value[0].new_emailresponsabile" Label="Email Responsabile" Variant="Variant.Outlined" Disabled="@(!editMode)" />
+					</div>
+				</div>
+				<button @onclick="ToggleEdit">
+					@if (!editMode)
+					{
+						<span>MODIFICA</span>
+					}
+					else
+					{
+						<span>SALVA MODIFICHE</span>
+					}
+				</button>
+			</div>
+
+		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.Work" Text="Mansioni">
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+				<MudTable Items="mansioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+					<ToolBarContent>
+						<MudText Typo="Typo.h6">Mansioni in questa sede</MudText>
+					</ToolBarContent>
+					<HeaderContent>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Mansione, object>(x => x.new_mansione)">Mansioni</MudTableSortLabel></MudTh>
+					</HeaderContent>
+					<RowTemplate Context="mansioni">
+						<MudTd DataLabel="Mansione">@mansioni.new_mansione</MudTd>
+					</RowTemplate>
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.Person" Text="Lavoratori">
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+				<MudTable Items="lavoratori.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+					<ToolBarContent>
+						<MudText Typo="Typo.h6">Lavoratori in questa sede</MudText>
+						<div style="text-align: right; width: 80%;">
+							<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsync">
+								Nuovo Lavoratore
+							</MudButton>
+						</div>
+					</ToolBarContent>
+					<HeaderContent>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.cr4f9_calcolonomeecognome)">Lavoratori</MudTableSortLabel></MudTh>
+					</HeaderContent>
+					<RowTemplate Context="lavoratori">
+						<MudTd>
+							<MudLink Href="@($"/dettagliolavoratore/id={lavoratori.cr4f9_contattoprvid}")">
+								@lavoratori.cr4f9_calcolonomeecognome
+							</MudLink>
+						</MudTd>
+					</RowTemplate>
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}"/>
+					</PagerContent>
+				</MudTable>
+			</div>
+		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.CatchingPokemon" Text="Impianti e Macchinari">
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+				<MudTable Items="macchinariEdImpianti.value" Dense ="true" HeaderClass="mud-table-header" Hover="true">
+					<ToolBarContent>
+						<MudText Typo="Typo.h6">Macchinari ed Impianti in questa sede</MudText>
+					</ToolBarContent>
+					<HeaderContent>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<MacchinariEdImpianti, object>(x => x.cr4f9_matricola)" >Matricola</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<MacchinariEdImpianti, object>(x => x.cr4f9_tipologia)">Tipologia</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<MacchinariEdImpianti, object>(x => x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
+					</HeaderContent>
+					<RowTemplate Context="macchinariEdImpianti">
+						<MudTd DataLabel="Matricola">@macchinariEdImpianti.cr4f9_matricola</MudTd>
+						<MudTd DataLabel="Tipologia">@macchinariEdImpianti.TipologiaDescrizione</MudTd>
+						<MudTd DataLabel="Nome">@macchinariEdImpianti.cr4f9_nome</MudTd>
+					</RowTemplate>
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
+
+		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.FileOpen" Text="Documenti">
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+				<MudTable Items="testate.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+					<ToolBarContent>
+						<MudText Typo="Typo.h6">Testate Documenti Sede</MudText>
+					</ToolBarContent>
+					<HeaderContent>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_nomedocumentosede)">Nome</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_email)">Email</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
+					</HeaderContent>
+					<RowTemplate Context="testata">
+						<MudLink Href="@($"/dettagliotestatadocumentisede/id={testata.cr4f9_testatadocumentosedeid}&numero={ExtractNumber(testata.cr4f9_name)}")">@testata.cr4f9_name</MudLink>
+						<MudTd DataLabel="Nome">@testata.cr4f9_nomedocumentosede</MudTd>
+						<MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
+						<MudTd DataLabel="Note">@testata.cr4f9_notedocumento</MudTd>
+					</RowTemplate>
+				</MudTable>
+			</div>
+		</MudTabPanel>
+	}
+	else
+	{
+		<p>Caricamento in corso o nessun dato disponibile...</p>
+	}
+
+
+</MudTabs>
+
+@code {
+	[Parameter]
+	public string id { get; set; }
+
+	private bool editMode = false;
+
+	private string message = "Loading...";
+	private string userName;
+	private string userEmail;
+	private string clienteId;
+	private Guid? azienda;
+
+	private SedeCollection sedi = new SedeCollection { value = Array.Empty<Sede>() };
+	private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
+	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+	private MacchinariEdImpiantiCollection macchinariEdImpianti = new MacchinariEdImpiantiCollection { value = Array.Empty<MacchinariEdImpianti>() };
+	private TestataCollection testate = new TestataCollection { value = Array.Empty<TestataDocumentiSede>() };
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		logger.LogInformation($"Id Sede : {id}");
+
+		if(user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+
+		await CaricaClienteAssociato(userEmail);
+		await CaricaSede();
+		await CaricaMansioni();
+		await CaricaLavoratori();
+		await CaricaMacchinariedImpianti();
+		await CaricaTestateDocmunetiSede();
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildAziendaFetchXml(email);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+
+					var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					logger.LogInformation("Fetch: " + fetchXml);
+
+					if(entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+							{
+								WriteIndented = true
+							});
+						logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+						if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+						{
+							clienteId = newClienteProperty.GetString();
+							azienda = newClienteProperty.GetGuid();
+
+							logger.LogInformation($"Entities reference: {clienteId}");
+							logger.LogInformation($"Entities reference: {azienda}");
+						}
+						else
+						{
+							logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun record trovato per l'email fornita.");
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				}
+			}
+
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		}
+		catch(Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildAziendaFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	private async Task CaricaSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+
+		var fetchXml = BuildSedeFetchXml(userEmail);
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_sedeprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				sedi = await response.Content.ReadFromJsonAsync<SedeCollection>();
+			}
+			else
+			{
+				message = "An error occured in the first request.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+				return;
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildSedeFetchXml(string email)
+	{
+		return 
+		$@"<fetch>
+			<entity name='new_sedeprv'>
+				<attribute name='new_localita' />
+				<attribute name='cr4f9_provincia' />
+				<attribute name='new_indirizzo' />
+				<attribute name='cr4f9_cap' />
+				<attribute name='cr4f9_descrizionesede' />
+				<attribute name='new_emailresponsabile' />
+				<filter>
+					<condition attribute='new_cliente' operator='eq' value='{azienda}' />
+				</filter>
+				<filter>
+				    <condition attribute='new_sedeprvid' operator='eq' value='{id}' />
+				</filter>
+			<link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_cliente' link-type='inner' alias='Cliente'>
+				<attribute name='cr4f9_ragionesociale' />
+			</link-entity>
+			</entity>
+		</fetch>";
+	}
+
+	public async Task CaricaMansioni()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildMansioniFetchXml();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			// Usare l'endpoint dell'entità radice (new_sedeprvs) perché il fetch XML è basato su "new_sedeprv"
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_sedeprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				mansioni = await response.Content.ReadFromJsonAsync<MansioneCollection>();
+			}
+			else
+			{
+				message = "An error occured in the mansioni request.";
+				logger.LogError($"Error fetching mansioni data: {response.ReasonPhrase}");
+				return;
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildMansioniFetchXml()
+	{
+		return $@"
+				<fetch>
+				  <entity name='new_sedeprv'>
+					<filter>
+					  <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+					</filter>
+					<filter>
+					  <condition attribute='new_sedeprvid' operator='eq' value='{id}' />
+					</filter>
+					<link-entity name='cr4f9_new_sedeprv_new_mansionetabellamaster' from='new_sedeprvid' to='new_sedeprvid' link-type='inner' alias='Mansione'>
+					  <link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='new_mansionetabellamasterid' link-type='inner' alias='MansioniSede'>
+						<attribute name='new_mansione' />
+					  </link-entity>
+					</link-entity>
+				  </entity>
+				</fetch>";
+	}
+
+	public async Task CaricaLavoratori()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildLavoratoriFetchXml();
+
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+			}
+			else
+			{
+				message = "An error occured in the first request.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+				return;
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating";
+		}
+
+	}
+
+	private string BuildLavoratoriFetchXml()
+	{
+		return $@"
+				<fetch>
+				  <entity name='new_lavorapressoprv'>
+					<filter>
+					  <condition attribute='new_sede' operator='eq' value='{id}' />
+					</filter>
+					<filter>
+					  <condition attribute='new_azienda' operator='eq' value='{azienda}' />
+					</filter>
+					<link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='new_lavoratore' link-type='inner' alias='Lavoratore'>
+					  <attribute name='cr4f9_calcolonomeecognome' />
+                      <attribute name='cr4f9_contattoprvid' />					
+					</link-entity>
+				  </entity>
+				</fetch>";
+	}
+
+	public async Task CaricaMacchinariedImpianti()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildMacchinariEdImpiantiXml();
+
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_macchinarioimpiantofisicos?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				macchinariEdImpianti = await response.Content.ReadFromJsonAsync<MacchinariEdImpiantiCollection>();
+			}
+			else
+			{
+				message = "An error occured.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildMacchinariEdImpiantiXml()
+	{
+		return $@"
+				<fetch>
+					<entity name='cr4f9_macchinarioimpiantofisico'>
+					<attribute name='cr4f9_nome' />
+					<attribute name='cr4f9_matricola' />
+					<filter>
+						<condition attribute='cr4f9_sede' operator='eq' value='{id}' />
+					</filter>
+					<link-entity name='cr4f9_macchinarioeimpianto' from='cr4f9_macchinarioeimpiantoid' to='cr4f9_tipologiadimacchinariooimpianto' link-type='inner' alias='Tipologia'>
+						<attribute name='cr4f9_tipologia' />
+					</link-entity>
+					<link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+						<filter>
+						<condition attribute='new_cliente' operator='eq' value='{azienda}' />
+						</filter>
+					</link-entity>
+					</entity>
+				</fetch>";
+	}
+
+	public async Task CaricaTestateDocmunetiSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildTestataDocumentiFetchXml();
+
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_testatadocumentosedes?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				testate = await response.Content.ReadFromJsonAsync<TestataCollection>();
+			}
+			else
+			{
+				message = "An error occured.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildTestataDocumentiFetchXml()
+	{
+		return $@"
+			<fetch>
+			  <entity name='cr4f9_testatadocumentosede'>
+				<attribute name='cr4f9_testatadocumentosedeid' />
+				<attribute name='cr4f9_name' />
+				<attribute name='cr4f9_nomedocumentosede' />
+				<attribute name='cr4f9_email' />
+				<attribute name='cr4f9_notedocumento' />
+				<filter>
+				  <condition attribute='cr4f9_sede' operator='eq' value='{id}' />
+				</filter>
+			  </entity>
+			</fetch>";
+	}
+
+	private async Task ToggleEdit()
+	{
+		if (!editMode)
+		{
+			editMode = true;
+		}
+		else
+		{
+			await SalvaModifiche();
+
+			editMode = false;
+		}
+	}
+
+	private async Task SalvaModifiche()
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var sedeAggiornata = new
+				{
+					new_localita = sedi.value[0].new_localita,
+					cr4f9_provincia = sedi.value[0].cr4f9_provincia,
+					new_indirizzo = sedi.value[0].new_indirizzo,
+					cr4f9_cap = sedi.value[0].cr4f9_cap,
+					cr4f9_descrizionesede = sedi.value[0].cr4f9_descrizionesede,
+					new_emailresponsabile = sedi.value[0].new_emailresponsabile
+				};
+
+				var request = new HttpRequestMessage(new HttpMethod("PATCH"), $"{client.BaseAddress}new_sedeprvs({id})")
+					{
+						Content = JsonContent.Create(sedeAggiornata)
+					};
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				if(response.IsSuccessStatusCode)
+				{
+					logger.LogInformation("Modifiche salvate correttamente.");
+				}
+				else
+				{
+					logger.LogError($"Errore nel salvataggio: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError($"Errore di autenticazione durante il salvataggio delle modifiche.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il salvataggio: {ex.Message}");
+		}
+	}
+
+	private Task OpenDialogAsync()
+	{
+		var parameters = new DialogParameters();
+		parameters.Add("id", id);
+
+		logger.LogInformation($"Parametro id inviato :{id}");
+
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+		return DialogService.ShowAsync<AddLavoratoreSede>("Simple Dialog",parameters, options);
+	}
+
+	private string ExtractNumber(string nome)
+	{
+		var match = System.Text.RegularExpressions.Regex.Match(nome, @"-(\d+)$");
+		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
+
+	private void GoBack()
+	{
+		// Utilizza la navigazione per tornare indietro nella cronologia
+		NavigationManager.NavigateTo("javascript:history.back()");
+	}
+
+	public class Sede
+	{
+		public string new_localita { get; set; }
+		public string cr4f9_provincia { get; set; }
+		public string new_indirizzo { get; set; }
+		public string cr4f9_cap { get; set; }
+		public string cr4f9_descrizionesede { get; set; }
+		public string new_emailresponsabile { get; set; }
+
+		[JsonPropertyName("Cliente.cr4f9_ragionesociale")]
+		public string cr4f9_ragionesociale { get; set; }
+	}
+
+	public class SedeCollection
+	{
+		public Sede[] value { get; set; }
+	}
+
+	public class Mansione
+	{
+		[JsonPropertyName("MansioniSede.new_mansione")]
+		public string new_mansione { get; set; }
+	}
+
+	public class MansioneCollection
+	{
+		public Mansione[] value { get; set; }
+	}
+
+	public class Lavoratore
+	{
+		[JsonPropertyName("Lavoratore.cr4f9_calcolonomeecognome")]
+		public string cr4f9_calcolonomeecognome { get; set; }
+
+		[JsonPropertyName("Lavoratore.cr4f9_contattoprvid")]
+		public string cr4f9_contattoprvid { get; set; }
+	}
+
+	public class LavoratoreCollection
+	{
+		public Lavoratore[] value { get; set; }
+	}
+
+	public class MacchinariEdImpianti
+	{
+		public string cr4f9_nome { get; set; }
+
+		public string cr4f9_matricola { get; set; }
+
+		[JsonPropertyName("Tipologia.cr4f9_tipologia")]
+		public int cr4f9_tipologia { get; set; }
+
+		public string TipologiaDescrizione =>
+		cr4f9_tipologia switch
+		{
+			644840000 => "IMPIANTO FOTOVOLTAICO",
+			644840001 => "ROBOT INCISIVO",
+			_ => "Tipo sconosciuto"
+		};
+	}
+
+	public class MacchinariEdImpiantiCollection
+	{
+		public MacchinariEdImpianti[] value { get; set; }
+	}
+
+	public class TestataDocumentiSede
+	{
+		public Guid? cr4f9_testatadocumentosedeid { get; set; }
+		public string cr4f9_name { get; set; }
+		public string cr4f9_nomedocumentosede { get; set; }
+		public string cr4f9_email { get; set; }
+		public string cr4f9_notedocumento { get; set; }
+	}
+
+	public class TestataCollection
+	{
+		public TestataDocumentiSede[] value { get; set; }
+	}
+}
+
+<style>
+
+	/* Contenitore a forma di cartella */
+	.folder-container {
+		position: relative;
+		background-color: #f0f0f0;
+		border: 2px solid #E53935;
+		border-radius: 8px;
+		padding: 16px;
+		margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+		box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+		margin-bottom: 100px;
+	}
+
+	/* Linguetta in alto a sinistra */
+	.folder-tab {
+		position: absolute;
+		top: -25px; /* Altezza sopra il contenitore */
+		left: 20px; /* Regola la posizione più verso sinistra */
+		background-color: #E53935;
+		color: white;
+		padding: 6px 16px;
+		border-top-left-radius: 6px;
+		border-top-right-radius: 6px;
+		font-weight: bold;
+		box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+	}
+
+	/* Stile per la sezione aggiuntiva */
+	.folder-section {
+		margin-top: 16px;
+		padding-top: 8px;
+		border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+	}
+
+	/* Stile per le informazioni del corso */
+	.course-info {
+		font-size: 1rem;
+		color: #333;
+		margin-bottom: 12px;
+	}
+
+	/* Pulsante di azione */
+	button {
+		font-size: 1rem;
+		background-color: #E53935; /* Stesso colore della linguetta */
+		color: white;
+		border: none;
+		padding: 8px 16px;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.3s ease;
+	}
+
+	button:hover {
+		background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+	}
+
+	/* Contenitore delle informazioni del corso */
+	.course-info {
+		display: flex;
+		align-items: center;
+		font-size: 1.2rem;
+		font-weight: bold;
+		margin: 12px 0;
+		padding: 8px;
+		border-radius: 8px;
+		background-color: #f9f9f9;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	/* Stile generale per lo stato */
+	.course-status {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	/* Stile per stato positivo */
+	.course-status.success {
+		color: #2e7d32; /* Verde scuro */
+		background-color: #e8f5e9; /* Verde chiaro */
+		border-left: 4px solid #2e7d32;
+		padding-left: 12px;
+	}
+
+	/* Stile per stato negativo */
+	.course-status.failure {
+		color: #d32f2f; /* Rosso scuro */
+		background-color: #ffebee; /* Rosso chiaro */
+		border-left: 4px solid #d32f2f;
+		padding-left: 12px;
+	}
+
+	/* Icone */
+	.course-status .mud-icon {
+		font-size: 1.5rem;
+	}
+
+	.mud-tab-slider {
+		position: absolute;
+		background: #A9A9A9;
+	}
+
+	.mud-tab.mud-tab-active {
+		color: currentColor;
+	}
+
+	/* Tabella intestazione */
+	.mud-table-header {
+		background-color: #E53935;
+	}
+
+	.mud-table-header .mud-table-cell {
+		color: white !important;
+		font-weight: bold; /* Grassetto per l'intestazione */
+	}
+
+	/* Righe della tabella */
+	.mud-table-row {
+		border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+	}
+
+	/* Celle della tabella (MudTd) */
+	.mud-table .mud-td, .mud-table .mud-th {
+		border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+		padding: 8px; /* Padding per le celle */
+		vertical-align: middle; /* Allinea verticalmente il contenuto */
+		text-align: center; /* Centra il testo */
+	}
+
+	/* Colore dei link nella tabella */
+	.mud-table .mud-link.mud-typography.mud-primary-text {
+		font-size: 0.875rem;
+		color: #757575 !important;
+		font-weight: bold;
+		display: block;
+		text-align: left;
+		vertical-align: central;
+		margin-top: 8px;
+		margin-left: 16px;
+	}
+
+	/* Hover sui link */
+	.mud-table .mud-link.mud-typography.mud-primary-text:hover {
+		color: red !important;
+		cursor: pointer;
+	}
+
+</style>

@@ -1,0 +1,302 @@
+﻿@page "/dettagliotestatadocumentisede/id={IdTestata}&numero={NumeroEstratto}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using Microsoft.AspNetCore.Components
+@using System.Net.Http.Headers
+@inject ILogger<DettaglioTestataDocumentiSede> logger
+@inject IHttpClientFactory ClientFactory
+@inject IAccessTokenProvider TokenProvider
+@inject NavigationManager Navigation
+
+<h3>Testata Documento Sede - @NumeroEstratto</h3>
+
+<button @onclick="GoBack">
+    <i class="fas fa-arrow-left" style="font-size: 24px; color: white;" /> 
+</button>
+
+<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color=#E53935;" @onclick="OpenDialogAsync">Nuova Cartella</MudButton>
+
+<div class="folder-container">
+    <div class="folder-tab">Elenco Cartelle Documenti Sede</div>
+    @if (cartelle?.value !=null && cartelle.value.Length > 0)
+    {
+        <MudTable Items="cartelle.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+            <HeaderContent>
+                <MudTh>Id</MudTh>
+                <MudTh>Cartella</MudTh>
+                <MudTh>Data Scadenza</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="cartella">
+                <MudTd DataLabel="Id" Class="id-column">
+                    <MudLink Href="@($"/elencofilesede/id={cartella.cr4f9_cartelladocumentosedeid}&titolo=Cartella-{NumeroEstratto}-{cartelle.value.ToList().IndexOf(cartella) + 1:00}")" Class="id-column">
+                        @($"Cartella-{NumeroEstratto}-{cartelle.value.ToList().IndexOf(cartella) + 1:00}")
+                    </MudLink>
+                </MudTd>
+                <MudTd DataLabel="Cartella">@cartella.cr4f9_nomecartella</MudTd>
+                <MudTd DataLabel="Data Scadenza">@cartella.cr4f9_datascadenza?.ToString("dd/MM/yyyy")</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{10, 20}"/>
+            </PagerContent>
+        </MudTable>
+    }
+    else
+    {
+        <p>Non ci sono cartelle in questa testata</p>
+    }
+</div>
+
+@code {
+	[Parameter]
+	public string IdTestata { get; set; }
+
+	[Parameter]
+	public string NumeroEstratto { get; set; }
+
+	[Inject]
+	private IDialogService DialogService { get; set; }
+
+	private CartelleCollection cartelle = new CartelleCollection { value = Array.Empty<Cartella>() };
+
+	protected override async Task OnInitializedAsync()
+	{
+		if(Guid.TryParse(IdTestata, out var testataId))
+		{
+			await LoadCartelle(testataId);
+			logger.LogInformation($"{NumeroEstratto}");
+		}
+		else
+		{
+			logger.LogInformation("Id della testata non valido");
+		}
+	}
+
+	private async Task LoadCartelle(Guid testataId)
+	{
+		var tokenresult = await TokenProvider.RequestAccessToken();
+
+		if (tokenresult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXmlCartelle = $@"
+					<fetch>
+					  <entity name='cr4f9_cartelladocumentosede'>
+						<attribute name='cr4f9_cartelladocumentosedeid' />
+						<attribute name='cr4f9_name' />
+						<attribute name='cr4f9_nomecartella' />
+						<attribute name='cr4f9_testatadocumentosede' />
+						<attribute name='cr4f9_datascadenza' />
+						<filter>
+						  <condition attribute='cr4f9_testatadocumentosede' operator='eq' value='{testataId}' />
+						</filter>
+					  </entity>
+					</fetch>";
+
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_cartelladocumentosedes?fetchXml={Uri.EscapeDataString(fetchXmlCartelle)}");
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			var resultJson = await response.Content.ReadAsStringAsync();
+			logger.LogInformation($"Risposta JSON: {resultJson}");
+			if(response.IsSuccessStatusCode)
+			{
+				cartelle = await response.Content.ReadFromJsonAsync<CartelleCollection>();
+			}
+			else
+			{
+				logger.LogError($"Errore nel recupero delle cartelle: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			logger.LogError("Token non ottenuto");
+		}
+	}
+
+	private void GoBack()
+	{
+		Navigation.NavigateTo("javascript:history.back()");
+	}
+
+	private async Task OpenDialogAsync()
+	{
+		var parameters = new DialogParameters
+		{
+			{"IdTestata", IdTestata},
+			{"NumeroEstratto", NumeroEstratto}
+		};
+
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+		var dialog = DialogService.Show<AddCartellaDocumentiSede>("Nuova Cartella", parameters, options);
+		var result = await dialog.Result;
+	}
+
+	public class Cartella
+	{
+		public Guid? cr4f9_cartelladocumentosedeid { get; set; }
+		public string cr4f9_name { get; set; }
+		public string cr4f9_nomecartella { get; set; }
+		public string cr4f9_testatadocumentosede { get; set; }
+		public DateTime? cr4f9_datascadenza { get; set; }
+	}
+
+	public class CartelleCollection
+	{
+		public Cartella[] value { get; set; }
+	}
+}
+
+<style>
+
+    /* Contenitore a forma di cartella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+        margin-bottom: 100px;
+    }
+
+    /* Linguetta in alto a sinistra */
+    .folder-tab {
+        position: absolute;
+        top: -25px; /* Altezza sopra il contenitore */
+        left: 20px; /* Regola la posizione più verso sinistra */
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+    }
+
+    /* Stile per la sezione aggiuntiva */
+    .folder-section {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+    }
+
+    /* Stile per le informazioni del corso */
+    .course-info {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    .id-column {
+        text-align: left !important;
+        padding-left: 8px !important;
+    }
+
+    /* Pulsante di azione */
+    button {
+        font-size: 1rem;
+        background-color: #E53935; /* Stesso colore della linguetta */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+    }
+
+    /* Contenitore delle informazioni del corso */
+    .course-info {
+        display: flex;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 12px 0;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stile generale per lo stato */
+    .course-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Stile per stato positivo */
+    .course-status.success {
+        color: #2e7d32; /* Verde scuro */
+        background-color: #e8f5e9; /* Verde chiaro */
+        border-left: 4px solid #2e7d32;
+        padding-left: 12px;
+    }
+
+    /* Stile per stato negativo */
+    .course-status.failure {
+        color: #d32f2f; /* Rosso scuro */
+        background-color: #ffebee; /* Rosso chiaro */
+        border-left: 4px solid #d32f2f;
+        padding-left: 12px;
+    }
+
+    /* Icone */
+    .course-status .mud-icon {
+        font-size: 1.5rem;
+    }
+
+    .mud-tab-slider {
+        position: absolute;
+        background: #A9A9A9;
+    }
+
+    .mud-tab.mud-tab-active {
+        color: currentColor;
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+    .mud-table-header .mud-table-cell {
+        color: white !important;
+        font-weight: bold; /* Grassetto per l'intestazione */
+    }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+    /* Hover sui link */
+    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+        color: red !important;
+        cursor: pointer;
+    }
+
+</style>

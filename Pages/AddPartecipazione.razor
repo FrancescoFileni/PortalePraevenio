@@ -1,0 +1,425 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Newtonsoft.Json
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddPartecipazione> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager Navigation
+
+<MudDialog Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack>
+			<MudIcon Icon="@Icons.Material.Filled.WorkOutline" Color="Color.Error"/>
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Inserisci Partecipazione Corso
+			</MudText>
+		</MudStack>
+	</TitleContent>
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid">
+				<MudGrid>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false"
+						@bind-Value="@selectedLavoratore" @onchange="OnLavoratoreChanged" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona lavoratore">
+							@foreach (var lavoratore in lavoratoriOrdinati.value)
+							{
+								<MudSelectItem Value="@lavoratore">
+									@lavoratore.cr4f9_calcolonomeecognome
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Corso" Label="Corso" MultiSelection="false"
+						@bind-Value="@selectedCorso" @onchange="OnCorsoChanged" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona Corso">
+							@foreach (var corso in corsiOrdinati.value)
+							{
+								<MudSelectItem Value="@corso">
+									@corso.cr4f9_titolocorso
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+
+				<MudGrid>
+					<MudItem xs="12">
+						<MudDatePicker Label="Data Inizio Corso" @bind-Date="dataInizioCorso" Orientation="Orientation.Landscape" Color="Color.Error" Required="true"/>
+					</MudItem>
+					<MudItem xs="12">
+						<MudDatePicker Label="Data Fine Corso" @bind-Date="dataFineCorso" Orientation="Orientation.Landscape" Color="Color.Error" Required="true" />
+					</MudItem>
+					<MudItem xs="12">
+						<MudCheckBox @bind-Checked="superato" T="bool" Label="Superato" Color="Color.Error"/>
+					</MudItem>
+				</MudGrid>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton OnClick="Submit" Variant="Variant.Outlined" Color="Color.Error">
+			Conferma
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	private string userName;
+	private string userEmail;
+	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+	private LavoratoreCollection lavoratoriOrdinati = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+
+	private CorsoCollection corsi = new CorsoCollection { value = Array.Empty<Corso>() };
+	private CorsoCollection corsiOrdinati = new CorsoCollection { value = Array.Empty<Corso>() };
+	private string message = "Loading...";
+
+	private Lavoratore selectedLavoratore;
+	private Corso selectedCorso;
+
+	private bool isLoading = false;
+	private MudForm form;
+	private string idPartecipazioneCreata;
+
+	[CascadingParameter]
+	private MudDialogInstance MudDialog { get; set; }
+
+	[Inject]
+	private IDialogService DialogService { get; set; }
+
+	private DateTime? dataInizioCorso;
+	private DateTime? dataFineCorso;
+	private bool superato = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if(user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+			logger.LogInformation("USER EMAIL: " + userEmail);
+
+			await CaricaListaLavoratori(userEmail);
+			await CaricaListaCorsi();
+		}
+	}
+
+	private async Task CaricaListaLavoratori(string email)
+	{
+		try
+		{
+			var fetchXml = BuildLavoratoriFetchXml(userEmail);
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage()
+					{
+						Method = HttpMethod.Get,
+						RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+				request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+				var response = await client.SendAsync(request);
+				if(response.IsSuccessStatusCode)
+				{
+					lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+					lavoratoriOrdinati.value = lavoratori.value.OrderBy(l => l.cr4f9_calcolonomeecognome).ToArray();
+					logger.LogInformation($"Lista lavoratori caricata");
+				}
+				else
+				{
+					message = "An error occureed.";
+					logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				message = "There was a problem authenticating";
+			}
+		}
+		catch(Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento dei lavoratori: {ex.Message}");
+		}
+	}
+
+	private async Task CaricaListaCorsi()
+	{
+		try
+		{
+			var fetchXml = BuildCorsiFetchXml();
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage()
+					{
+						Method = HttpMethod.Get,
+						RequestUri = new Uri($"{client.BaseAddress}cr4f9_corsoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+				request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+				var response = await client.SendAsync(request);
+				if(response.IsSuccessStatusCode)
+				{
+					corsi = await response.Content.ReadFromJsonAsync<CorsoCollection>();
+					corsiOrdinati.value = corsi.value.OrderBy(c => c.cr4f9_titolocorso).ToArray();
+					logger.LogInformation($"Lista corsi caricata");
+				}
+				else
+				{
+					message = "An error occured.";
+					logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				message = "There was a problem authe authenticating";
+			}
+		}
+		catch(Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento dei corsi: {ex.Message}");
+		}
+	}
+
+	private void OnLavoratoreChanged()
+	{
+		if(selectedLavoratore != null)
+		{
+			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+		}
+	}
+
+	private void OnCorsoChanged()
+	{
+		if(selectedCorso != null)
+		{
+			var corsoId = selectedCorso.cr4f9_corsoprvid;
+			logger.LogInformation($"Corso selezionato: {selectedCorso.cr4f9_titolocorso}, Contatto ID: {corsoId}");
+		}
+	}
+
+	private string BuildLavoratoriFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+            <entity name='cr4f9_contattoprv'>
+                <attribute name='cr4f9_calcolonomeecognome' />
+                <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
+                <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
+                    <filter>
+                        <condition attribute='cr4f9_inforza' operator='eq' value='1' />
+                    </filter>
+                    <link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_azienda' alias='cliente'>
+                        <link-entity name='new_emailautorizzazioniprv' from='new_cliente' to='cr4f9_clienteprvid' alias='emailAuth'>
+                            <filter>
+                                <condition attribute='new_email' operator='eq' value='{userEmail}' />
+                            </filter>
+                        </link-entity>
+                    </link-entity>
+                </link-entity>
+            </entity>
+        </fetch>";
+	}
+
+	private string BuildCorsiFetchXml()
+	{
+		return $@"<fetch>
+					  <entity name='cr4f9_corsoprv'>
+						<attribute name='cr4f9_corsoprvid' />
+						<attribute name='new_clienteassociato' />
+						<attribute name='cr4f9_titolocorso' />
+						<attribute name='cr4f9_datadiinizio' />
+						<attribute name='cr4f9_datadifine' />
+					  </entity>
+				 </fetch>";
+	}
+
+	private async Task CreaPartecipazioneCorso(PartecipazioneCorso partecipazioneCorso)
+	{
+		try
+		{
+			isLoading = true;
+
+			var dizionario = new Dictionary<string, object>
+			{
+				{"new_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({partecipazioneCorso.Lavoratore})"},
+				{"new_Azienda@odata.bind", $"/cr4f9_clienteprvs({partecipazioneCorso.Azienda})"},
+				{"new_Corso@odata.bind", $"/cr4f9_corsoprvs({partecipazioneCorso.Corso})"},
+				{"cr4f9_datadiinizio", partecipazioneCorso.DataInizio},
+				{"cr4f9_superato", partecipazioneCorso.Superato},
+				{"new_dataconclusione", partecipazioneCorso.DataFine}
+			};
+
+			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+			logger.LogInformation($"Contenuto: {contenuto}");
+
+			await form.Validate();
+
+			if(!form.IsValid)
+			{
+				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+				isLoading = false;
+				return;
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+
+			if(tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage(HttpMethod.Post, "new_partecipazionecorsoprvs")
+					{
+						Content = JsonContent.Create(contenuto)
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation($"Payload inviato: {contenuto}");
+
+				if(response.IsSuccessStatusCode)
+				{
+					if(response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
+					{
+						var entityId = entityIdValues.FirstOrDefault();
+
+						if (entityId != null)
+						{
+							idPartecipazioneCreata = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
+							logger.LogInformation($"Record della partecipazione creato con successo: {idPartecipazioneCreata}");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun ID trovato nell'header della risposta.");
+					}
+					partecipazioneCorso = new();
+				}
+				else
+				{
+					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+					logger.LogError($"Dettagli risposta: {responseBody}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante la creazione del record.");
+			}
+		}
+		catch(Exception ex)
+		{
+			logger.LogError($"Errore durante la creazione del record della partecipazione corso: {ex.Message}");
+		}
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	private async Task Submit()
+	{
+		if(selectedLavoratore != null && selectedCorso != null)
+		{
+			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
+			var corsoId = selectedCorso.cr4f9_corsoprvid;
+			var aziendaId = selectedCorso.new_clienteassociato;
+
+			logger.LogInformation($"Azienda: {aziendaId}");
+			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+			logger.LogInformation($"Corso selezionato: {selectedCorso.cr4f9_titolocorso}, Corso ID: {corsoId}");
+
+			var partecipazioneCorso = new PartecipazioneCorso
+				{
+					Lavoratore = contattoId,
+					Azienda = aziendaId,
+					Corso = corsoId,
+					DataInizio = dataInizioCorso,
+					Superato = superato,
+					DataFine = dataFineCorso
+				};
+
+			await CreaPartecipazioneCorso(partecipazioneCorso);
+
+			await DialogService.ShowMessageBox(
+				"INFO",
+				"Partecipazione corso inserita con successo",
+				yesText: "Chiudi");
+
+			MudDialog.Close(DialogResult.Ok(true));
+
+			Navigation.NavigateTo("/elencocorsi", forceLoad: true);
+		}
+	}
+
+	public class Lavoratore
+	{
+		public string cr4f9_contattoprvid { get; set; }
+		public string cr4f9_calcolonomeecognome { get; set; }
+	}
+
+	public class LavoratoreCollection
+	{
+		public Lavoratore[] value { get; set; }
+	}
+
+	public class Azienda
+	{
+		public string cr4f9_clienteprvid { get; set; }
+		public string cr4f9_ragionesociale { get; set; }
+	}
+
+	public class Corso
+	{
+		public string cr4f9_corsoprvid { get; set; }
+		public string new_clienteassociato { get; set; }
+		public string cr4f9_titolocorso { get; set; }
+		public DateTime? cr4f9_datadiinizio { get; set; }
+		public DateTime? cr4f9_datadifine { get; set; }
+	}
+
+	public class CorsoCollection
+	{
+		public Corso[] value { get; set; }
+	}
+
+	public class PartecipazioneCorso
+	{
+		public string Lavoratore { get; set; }
+		public string Azienda { get; set; }
+		public string Corso { get; set; }
+		public DateTime? DataInizio { get; set; }
+		public bool Superato { get; set; }
+		public DateTime? DataFine { get; set; }
+	}
+}

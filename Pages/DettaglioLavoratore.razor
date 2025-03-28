@@ -21,99 +21,186 @@
 
 @if (contatti?.value?.Length > 0)
 {
-    
+
+    <button @onclick="GoBack">
+        <i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
+    </button>
+
     <MudTabs Elevation="2" Rounded="true" Class="my-6">
 
-    <MudTabPanel Icon="@Icons.Material.Filled.Person" Text="Anagrafica">
-        <div class="folder-container">
-            <!-- Linguetta della cartella -->
-            <div class="folder-tab">
-                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+        <MudTabPanel Icon="@Icons.Material.Filled.Person" Text="Anagrafica">
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                </div>
+
+                <div class="folder-section">
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_codicefiscale" Label="Codice Fiscale" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+
+                    <div class="course-info">
+                        <MudDatePicker @bind-Date="SelectedDate" Label="Data di nascita" Format="dd/MM/yyyy" ReadOnly="true"/>
+                    </div>
+
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_luogodinascita" Label="Luogo di nascita" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_provinciadinascita" Label="Provincia di nascita" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_nazionalita" Label="Nazionalità" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_telefonoprincipale" Label="Telefono principale" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+
+                    <div class="course-info">
+                        <MudTextField @bind-Value="@contatti.value[0].cr4f9_emailprincipale" Label="Email principale" Variant="Variant.Outlined"></MudTextField>
+                    </div>
+                </div>
+            </div>
+        </MudTabPanel>
+
+        <MudTabPanel Icon="@Icons.Material.Filled.Place" Text="Mansioni e Sedi">
+
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                </div>
+                <MudTable Items="mansioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6">Mansioni e Sedi</MudText>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Mansione, object>(x=>x.sede)">Sede</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Mansione, object>(x=>x.mansione)">Mansione</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Mansione, object>(x=>x.cr4f9_inforza)">In Forza</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="mansioni">
+                        <MudTd DataLabel="Località">@mansioni.sede</MudTd>
+                        <MudTd DataLabel="Mansione">@mansioni.mansione</MudTd>
+                        <MudTd DataLabel="In Forza">@((mansioni.cr4f9_inforza) ? "Sì" : "No")</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
             </div>
 
-            <div class="folder-section">
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_codicefiscale" Label="Codice Fiscale" Variant="Variant.Outlined"></MudTextField>
+        </MudTabPanel>
+
+        <MudTabPanel Icon="@Icons.Material.Filled.School" Text="Corsi sostenuti">
+
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
                 </div>
 
-                <div class="course-info">
-                    <MudDatePicker @bind-Date="SelectedDate" Label="Data di nascita" Format="dd/MM/yyyy" ReadOnly="true"/>
-                </div>
-
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_luogodinascita" Label="Luogo di nascita" Variant="Variant.Outlined"></MudTextField>
-                </div>
-
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_provinciadinascita" Label="Provincia di nascita" Variant="Variant.Outlined"></MudTextField>
-                </div>
-
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_nazionalita" Label="Nazionalità" Variant="Variant.Outlined"></MudTextField>
-                </div>
-
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_telefonoprincipale" Label="Telefono principale" Variant="Variant.Outlined"></MudTextField>
-                </div>
-
-                <div class="course-info">
-                    <MudTextField @bind-Value="@contatti.value[0].cr4f9_emailprincipale" Label="Email principale" Variant="Variant.Outlined"></MudTextField>
-                </div>
-            </div>
-        </div>
-    </MudTabPanel>
-
-    <MudTabPanel Icon="@Icons.Material.Filled.Place" Text="Mansioni e Sedi">
-
-        <div class="folder-container">
-            <!-- Linguetta della cartella -->
-            <div class="folder-tab">
-                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
-            </div>
-        </div>
-
-    </MudTabPanel>
-
-    <MudTabPanel Icon="@Icons.Material.Filled.School" Text="Corsi sostenuti">
-
-        <div class="folder-container">
-            <!-- Linguetta della cartella -->
-            <div class="folder-tab">
-                Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                <MudTable Items="partecipazioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6">Partecipazioni interne a Praevenio</MudText>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.cr4f9_corsotipo)">Tipo Corso</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.dataFineCorso)">Data Conclusione</MudTableSortLabel></MudTh>
+                        <MudTh>Superato</MudTh>
+                        <MudTh>Scarica Attestato</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="partecipazioni">
+                        <MudTd DataLabel="corsoTipo">@partecipazioni.cr4f9_corsotipo</MudTd>
+                        <MudTd DataLabel="dataFine">@partecipazioni.dataFineCorsoString</MudTd>
+                        <MudTd DataLabel="superato">@((partecipazioni.cr4f9_superato) ? "Sì" : "No")</MudTd>
+                        <MudTd DataLabel="attestato">
+                            <MudButton Variant="Variant.Filled" Color="Color.Error">
+                                Scarica
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
             </div>
 
-            <MudTable Items="partecipazioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6">Partecipazioni interne a Praevenio</MudText>
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.cr4f9_corsotipo)">Tipo Corso</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.dataFineCorso)">Data Conclusione</MudTableSortLabel></MudTh>
-                <MudTh>Superato</MudTh>
-                <MudTh>Scarica Attestato</MudTh>
-            </HeaderContent>
-            <RowTemplate Context="partecipazioni">
-                <MudTd DataLabel="corsoTipo">@partecipazioni.cr4f9_corsotipo</MudTd>
-                <MudTd DataLabel="dataFine">@partecipazioni.dataFineCorsoString</MudTd>
-                <MudTd DataLabel="superato">@((partecipazioni.cr4f9_superato) ? "Sì" : "No")</MudTd>
-                <MudTd DataLabel="attestato">
-                     <MudButton Variant="Variant.Filled" Color="Color.Error">
-                        Scarica
-                    </MudButton>
-                </MudTd>
-            </RowTemplate>
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-            </PagerContent>
-        </MudTable>
-        </div>
+        </MudTabPanel>
 
-    </MudTabPanel>
-    <MudTabPanel Icon="@Icons.Material.Filled.WorkOutline" Text="Consegne DPI"></MudTabPanel>
-    <MudTabPanel Icon="@Icons.Material.Filled.MedicalServices" Text="Visite Mediche"></MudTabPanel>
-    <MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze"></MudTabPanel>
+        <MudTabPanel Icon="@Icons.Material.Filled.WorkOutline" Text="Consegne DPI">
+
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                </div>
+                <MudTable Items="consegne.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6">Consegne DPI</MudText>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Consegna, object>(x=>x.cr4f9_idtestata)">Id </MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Consegna, object>(x=>x.cr4f9_dataconsegna)">Data Consegna</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context = "consegne">
+                        <MudTd DataLabel="Id Testata">@consegne.cr4f9_idtestata</MudTd>
+                        <MudTd DataLabel="Data Consegna">@consegne.cr4f9_dataconsegna?.ToString("dd/MM/yyyy")</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </MudTabPanel>
+
+        <MudTabPanel Icon="@Icons.Material.Filled.MedicalServices" Text="Visite Mediche">
+
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                </div>
+                <MudTable Items="visite.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Riepilogo visita</MudTh>
+                        <MudTh>Data visita</MudTh>
+                        <MudTh>Data prossima visita</MudTh>
+                        <MudTh>Tipologia visita</MudTh>
+                        <MudTh>Esito visita</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="visitaMedica">
+                        <MudLink DataLabel="riepilogo" Href="@($"/dettagliovisita/id={visitaMedica.cr4f9_visitamedicadellavoratoreid}")">
+                            @visitaMedica.cr4f9_riepilogovisita
+                        </MudLink>
+                        <MudTd DataLabel="datavisita">@visitaMedica.checkDate</MudTd>
+                        <MudTd DataLabel="dataprossimavisita">@visitaMedica.nextCheckDate</MudTd>
+                        <MudTd DataLabel="tipologiavisita">@visitaMedica.TipologiaDescrizione</MudTd>
+                        <MudTd DataLabel="esitovisita">@visitaMedica.EsitoDescrizione</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </MudTabPanel>
+
+        <MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
+            <div class="folder-container">
+                <!-- Linguetta della cartella -->
+                <div class="folder-tab">
+                    Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
+                </div>
+            </div>
+        </MudTabPanel>
+
     </MudTabs>
-
 }
 else if (!string.IsNullOrEmpty(message))
 {
@@ -133,6 +220,10 @@ else
     private string userEmail;
     private string fetchXmlQuery;
     private string fetchXmlQueryPartecipazioni;
+    private string fetchXmlQueryConsegneDpi;
+    private string fetchXmlQueryVisite;
+    private string clienteId;
+    private Guid? azienda;
 
     // Mansioni e sedi.
     private string fetchXmlQueryMansioniESedi;
@@ -140,6 +231,8 @@ else
     private ContattoCollection contatti = new ContattoCollection { value = Array.Empty<Contatto>() };
     private PartecipazioneCollection partecipazioni = new PartecipazioneCollection { value = Array.Empty<Partecipazione>() };
     private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
+    private ConsegneCollection consegne = new ConsegneCollection { value = Array.Empty<Consegna>() };
+    private VisitaCollection visite = new VisitaCollection { value = Array.Empty<Visita>() };
 
     protected override async Task OnInitializedAsync() {
 
@@ -178,33 +271,62 @@ else
                             </entity>
                         </fetch>";
 
-        fetchXmlQueryMansioniESedi = $@"
-                        <fetch>
-                          <entity name='cr4f9_contattoprv'>
-                            <filter>
-                              <condition attribute='cr4f9_contattoprvid' operator='eq' value='{id}' />
-                            </filter>
-                            <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' link-type='inner' alias='lavoraPresso'>
-                              <attribute name='cr4f9_inforza' alias='inForza' />
-                              <link-entity name='new_sedeprv' from='new_sedeprvid' to='new_sede' link-type='inner' alias='sede'>
-                                <attribute name='new_localita' alias='localita'/>
-                                <link-entity name='new_emailsediprv' from='new_sede' to='new_sedeprvid' link-type='inner' alias='emailsedi'>
-                                  <link-entity name='new_emailautorizzazioniprv' from='new_emailautorizzazioniprvid' to='new_email' link-type='inner' alias='emailauth'>
-                                    <filter>
-                                      <condition attribute='new_email' operator='eq' value='{userEmail}' />
-                                    </filter>
-                                  </link-entity>
-                                </link-entity>
-                                <link-entity name='cr4f9_new_sedeprv_new_mansionetabellamaster' from='new_sedeprvid' to='new_sedeprvid' alias='mansioneMaster' intersect='true'>
-                                  <attribute name='new_mansionetabellamasterid' />
-                                  <link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='new_mansionetabellamasterid' alias='mans' intersect='true'>
-                                    <attribute name='new_mansione' alias='mansione'/>
-                                  </link-entity>
-                                </link-entity>
-                              </link-entity>
+        fetchXmlQueryConsegneDpi = $@"
+                <fetch>
+                  <entity name='cr4f9_testataconsegna'>
+                    <attribute name='cr4f9_idtestata' />
+                    <attribute name='cr4f9_dataconsegna' />
+                    <filter>
+                      <condition attribute='cr4f9_cliente' operator='eq' value='{azienda}' />
+                    </filter>
+                    <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' link-type='inner' alias='Lavoratore'>
+                      <filter>
+                        <condition attribute='cr4f9_contattoprvid' operator='eq' value='{id}' />
+                      </filter>
+                    </link-entity>
+                  </entity>
+                </fetch>";
+
+        fetchXmlQueryVisite = $@"
+        <fetch>
+            <entity name='cr4f9_visitamedicadellavoratore'>
+                <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' alias='contatto'>
+                    <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
+                        <link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_azienda' alias='cliente'>
+                            <link-entity name='new_emailautorizzazioniprv' from='new_cliente' to='cr4f9_clienteprvid' alias='emailAuth'>
+                                <filter>
+                                    <condition attribute='new_email' operator='eq' value='{userEmail}' />
+                                </filter>
                             </link-entity>
-                          </entity>
-                        </fetch>";
+                        </link-entity>
+                    </link-entity>
+                </link-entity>
+                <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' link-type='inner' alias='Lavoratore'>
+                      <filter>
+                        <condition attribute='cr4f9_contattoprvid' operator='eq' value='{id}' />
+                      </filter>
+                    </link-entity>
+            </entity>
+        </fetch>";
+
+        fetchXmlQueryMansioniESedi = $@"
+        <fetch>
+          <entity name='new_lavorapressoprv'>
+            <filter>
+              <condition attribute='new_lavoratore' operator='eq' value='{id}' />
+            </filter>
+            <filter>
+              <condition attribute='new_azienda' operator='eq' value='{azienda}' />
+            </filter>
+            <link-entity name='new_sedeprv' from='new_sedeprvid' to='new_sede' link-type='inner' alias='Sede'>
+              <attribute name='new_localita' alias='sede' />
+            </link-entity>
+            <link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='cr4f9_mansione' link-type='inner' alias='Mansione'>
+              <attribute name='new_mansione' alias ='mansione' />
+            </link-entity>
+            <attribute name='cr4f9_inforza' />
+          </entity>
+        </fetch>";
 
         var tokenResult = await TokenProvider.RequestAccessToken();
 
@@ -283,12 +405,14 @@ else
             var request = new HttpRequestMessage()
                 {
                     Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryMansioniESedi)}")
+                    RequestUri = new Uri($"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryMansioniESedi)}")
                 };
+
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenMans.Value);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await client.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 mansioni = await response.Content.ReadFromJsonAsync<MansioneCollection>();
@@ -299,14 +423,175 @@ else
                 logger.LogError($"Error fetching data: {response.ReasonPhrase}");
                 return;
             }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+
+        // Quarta richiesta per consegne dpi.
+
+        var tokenResultConsegne = await TokenProvider.RequestAccessToken();
+        if (tokenResultConsegne.TryGetToken(out var tokenConsegne))
+        {
+            logger.LogInformation("FETCH CONSEGNE: " + fetchXmlQueryConsegneDpi);
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_testataconsegnas?fetchXml={Uri.EscapeDataString(fetchXmlQueryConsegneDpi)}");
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenConsegne.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                consegne = await response.Content.ReadFromJsonAsync<ConsegneCollection>();
             }
             else
             {
-                message = "There was a problem authenticating.";
+                message = "An error occurred while fetching data.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+                return;
             }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
 
+        var tokenResultVisite = await TokenProvider.RequestAccessToken();
 
+        if (tokenResultVisite.TryGetToken(out var tokenVisite))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+
+            var request = new HttpRequestMessage()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQueryVisite)}")
+                    // RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?$top=100")
+                };
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenVisite.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
+                logger.LogInformation($"Visita: {visite.value}");
+            }
+            else
+            {
+                message = "An error occurred.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
     }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private void GoBack()
+    {
+        // Utilizza la navigazione per tornare indietro nella cronologia
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
     // Metodo per caricare le informazioni sull'utente
     private async Task LoadUserInformation()
     {
@@ -320,6 +605,7 @@ else
 
             logger.LogInformation("USER EMAIL: " + userEmail);
         }
+        await CaricaClienteAssociato(userEmail);
     }
 
     public class Contatto
@@ -349,25 +635,105 @@ else
         public bool cr4f9_superato { get; set; }
 
         public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
-    
+
     }
 
     public class PartecipazioneCollection {
-    
+
         public Partecipazione[] value { get; set; }
     }
 
     public class Mansione {
 
-        public string localita { get; set; }
+        public string sede { get; set; }
         public string mansione { get; set; }
-        public bool inForza { get; set; }
-    
+        public bool cr4f9_inforza { get; set; }
+
     }
 
     public class MansioneCollection {
-    
+
         public Mansione[] value { get; set; }
+    }
+
+    public class Consegna
+    {
+        public string cr4f9_idtestata { get; set; }
+        public DateTime? cr4f9_dataconsegna { get; set; }
+    }
+
+    public class ConsegneCollection {
+
+        public Consegna[] value { get; set; }
+    }
+
+    public class Visita
+    {
+        public Guid cr4f9_visitamedicadellavoratoreid { get; set; }
+        public string cr4f9_riepilogovisita { get; set; }
+        public DateTime cr4f9_datavisita { get; set; }
+        public DateTime cr4f9_dataprossimavisita { get; set; }
+
+        public int cr4f9_tipologiadivisita { get; set; }
+
+        public int cr4f9_esitodellavisita { get; set; }
+
+        public TipologiaVisita Tipologia
+        {
+            get => (TipologiaVisita)cr4f9_tipologiadivisita;
+            set => cr4f9_tipologiadivisita = (int)value;
+        }
+
+        public string TipologiaDescrizione => Tipologia switch
+        {
+            TipologiaVisita.Preassuntiva => "Preassuntiva",
+            TipologiaVisita.Periodica => "Periodica",
+            TipologiaVisita.SuRichiesta => "Su richiesta",
+            TipologiaVisita.Rientro => "Rientro da malattia/infortunio",
+            TipologiaVisita.Fine => "Fine rapporto",
+            _ => "Sconosciuto"
+        };
+
+        public EsitoVisita Esito
+        {
+            get => (EsitoVisita)cr4f9_esitodellavisita;
+            set => cr4f9_esitodellavisita = (int)value;
+        }
+
+        public string EsitoDescrizione => Esito switch
+        {
+            EsitoVisita.Idoneo => "Idoneo",
+            EsitoVisita.IdoneoConPrescrizioni => "Idoneo con prescrizioni",
+            EsitoVisita.IdoneoConLimitazioni => "Idoneo con limitazioni",
+            EsitoVisita.NonIdoneoTemporanemante => "Non idoneo temporaneamente",
+            EsitoVisita.NonIdoneoPermanentemente => "Non idoneo permanentemente"
+        };
+
+        public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
+        public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
+    }
+
+    public class VisitaCollection
+    {
+        public Visita[] value { get; set; }
+    }
+
+    public enum TipologiaVisita
+    {
+        Preassuntiva = 644840000,
+        Fine = 644840004,
+        Periodica = 644840001,
+        SuRichiesta = 644840002,
+        Rientro = 644840003
+    }
+
+    public enum EsitoVisita
+    {
+        Idoneo = 644840000,
+        IdoneoConPrescrizioni = 644840004,
+        IdoneoConLimitazioni = 644840001,
+        NonIdoneoTemporanemante = 644840002,
+        NonIdoneoPermanentemente = 644840003
     }
 
     private DateTime? SelectedDate
@@ -381,7 +747,6 @@ else
             }
         }
     }
-
 }
 
 <style>
@@ -438,9 +803,9 @@ else
         transition: background-color 0.3s ease;
     }
 
-        button:hover {
-            background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
-        }
+    button:hover {
+        background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+    }
 
     /* Contenitore delle informazioni del corso */
     .course-info {
