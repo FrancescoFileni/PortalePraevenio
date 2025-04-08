@@ -29,7 +29,7 @@
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumenti, object>(x=>x.cr4f9_note)">Note</MudTableSortLabel></MudTh>
                     </HeaderContent>
                     <RowTemplate Context="testata">
-                        <MudLink Href="@($"/dettagliotestatadocumenti/id={testata.cr4f9_testatadocumentoclienteid}&numero={ExtractNumber(testata.cr4f9_name)}")">@testata.cr4f9_name</MudLink>
+                        <MudLink Href="@($"/dettagliotestatadocumenti/id={testata.cr4f9_testatadocumentoclienteid}&numero={ExtractNumber(testata.cr4f9_name)}")">@ExtractNumber(testata.cr4f9_name)</MudLink>
                         <MudTd DataLabel="Testata">@testata.cr4f9_nome</MudTd>
                         <MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
                         <MudTd DataLabel="Note">@testata.cr4f9_note</MudTd>

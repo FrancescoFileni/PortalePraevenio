@@ -30,66 +30,99 @@
         {
             <div class="folder-container compact">
                 <div class="folder-tab">Filtri</div>
-
                 <MudGrid GutterSize="8">
                     <MudItem xs="12" md="4">
                         <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Nome o Cognome</MudText>
                         <MudTextField @bind-Value="searchRiepilogo" Placeholder="Cerca per nome o cognome"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;" />
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
                     </MudItem>
-
                     <MudItem xs="12" md="4">
                         <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Data Visita</MudText>
                         <MudGrid GutterSize="4">
                             <MudItem xs="6">
                                 <MudDatePicker @bind-Date="dataTestataFrom"
-                                               Label="Da"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
+                                Label="Da"
+                                Variant="Variant.Outlined"
+                                Class="white-input"
+                                Clearable="true"
+                                ClearIcon="@Icons.Material.Filled.Clear" />
                             </MudItem>
                             <MudItem xs="6">
                                 <MudDatePicker @bind-Date="dataTestataTo"
-                                               Label="A"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
+                                Label="A"
+                                Variant="Variant.Outlined"
+                                Class="white-input"
+                                Clearable="true"
+                                ClearIcon="@Icons.Material.Filled.Clear" />
                             </MudItem>
                         </MudGrid>
                     </MudItem>
-
                     <MudItem xs="12" md="4">
                         <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Numero Testata</MudText>
                         <MudTextField @bind-Value="searchNumTestata" Placeholder="Cerca per numero di testata"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;" />
+                        Variant="Variant.Outlined"
+                        Immediate="true"
+                        Class="white-input"
+                        Style="margin-top: 6px;" />
                     </MudItem>
                 </MudGrid>
             </div>
         }
-
         @if (consegne != null)
         {
             <div class="folder-container">
                 <div class="folder-tab">Elenco Consegne</div>
                 <MudTable Items="consegne.value" Filter="ToggleFunc" Dense="true" HeaderClass="mud-table-header" Hover="true">
                     <HeaderContent>
+                        <MudTh Style="padding: 0; width: 32px;"></MudTh> <!-- Colonna per il pulsante di espansione -->
                         <MudTh>Id Testata</MudTh>
                         <MudTh>Data Consegna</MudTh>
                         <MudTh>Lavoratore</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="consegna">
-                        <!-- Aggiungi un link che punta alla pagina di dettaglio -->
-                        <MudLink Href="@($"/dettaglioTestataDpi/id={consegna.cr4f9_testataconsegnaid}")">@consegna.cr4f9_idtestata</MudLink>
-                        <MudTd DataLabel="Data Consegna">@consegna.cr4f9_dataconsegna?.ToString("dd/MM/yyyy")</MudTd>
-                        <MudTd DataLabel="Lavoratore">@consegna.Nome</MudTd>
+                        <MudTd Style="padding: 0; width: 32px;">
+                            <MudIconButton Icon="@Icons.Material.Filled.ViewList"
+                            @ref="@(refMap[consegna.cr4f9_testataconsegnaid.Value])"
+                            OnClick="@(async () => await ShowPopover(consegna.cr4f9_testataconsegnaid))" />
+                            <MudPopover Open="@popoverStates[consegna.cr4f9_testataconsegnaid.Value]"
+                            AnchorOrigin="Origin.BottomLeft"
+                            Class="px-4 py-2"
+                            Elevation="8"
+                            OpenChanged="(val) => popoverStates[consegna.cr4f9_testataconsegnaid.Value] = val"
+                            AnchorReference="refMap[consegna.cr4f9_testataconsegnaid.Value]">
+                                @if (dpiPerTestata.ContainsKey(consegna.cr4f9_testataconsegnaid))
+                                {
+                                    <MudTable Dense="true" Items="dpiPerTestata[consegna.cr4f9_testataconsegnaid]">
+                                        <HeaderContent>
+                                            <MudTh>Nome DPI</MudTh>
+                                            <MudTh>Matricola</MudTh>
+                                            <MudTh>Data</MudTh>
+                                            <MudTh>Quantità</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate Context="dpi">
+                                            <MudTd>@dpi.nome</MudTd>
+                                            <MudTd>@dpi.cr4f9_numerodimatricola</MudTd>
+                                            <MudTd>@dpi.cr4f9_datadiconsegna.ToString("dd/MM/yyyy")</MudTd>
+                                            <MudTd>@dpi.cr4f9_quantita</MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                }
+                                else
+                                {
+                                    <MudText Color="Color.Secondary">Nessun Dpi associato.</MudText>
+                                }
+                            </MudPopover>
+                        </MudTd>
+                        <MudTd>
+                            <MudLink Href="@($"/dettaglioTestataDpi/id={consegna.cr4f9_testataconsegnaid}")">
+                                @consegna.cr4f9_idtestata
+                            </MudLink>
+                        </MudTd>
+                        <MudTd>@consegna.cr4f9_dataconsegna?.ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd>@consegna.Nome</MudTd>
                     </RowTemplate>
                     <PagerContent>
                         <MudTablePager PageSizeOptions="new int[]{10, 20}" />
@@ -122,6 +155,11 @@
     private DateTime? dataTestataTo;
     private string searchRiepilogo = "";
     private string searchNumTestata = "";
+    private HashSet<Guid?> expandedRows = new HashSet<Guid?>();
+    private Dictionary<Guid?, List<ConsegnaDpi>> dpiPerTestata = new();
+
+    private Dictionary<Guid, bool> popoverStates = new();
+    private Dictionary<Guid, MudIconButton> refMap = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -162,6 +200,15 @@
             if (response.IsSuccessStatusCode)
             {
                 consegne = await response.Content.ReadFromJsonAsync<ConsegneCollection>();
+
+                popoverStates = consegne?.value?.ToDictionary(c => c.cr4f9_testataconsegnaid.GetValueOrDefault(), c => false) ?? new();
+                refMap = new Dictionary<Guid, MudIconButton>();
+                foreach (var consegna in consegne.value)
+                {
+                    var id = consegna.cr4f9_testataconsegnaid.GetValueOrDefault();
+                    if (!refMap.ContainsKey(id))
+                        refMap.Add(id, null);
+                }
             }
             else
             {
@@ -322,6 +369,9 @@
 
     private async Task LoadConsegneDpi(Guid? testataId)
     {
+        if (testataId == null || dpiPerTestata.ContainsKey(testataId))
+            return;
+
         var tokenResult = await TokenProvider.RequestAccessToken();
 
         if (tokenResult.TryGetToken(out var token))
@@ -329,19 +379,19 @@
             var client = ClientFactory.CreateClient("DataverseClient");
 
             var fetchXmlConsegne = $@"
-                <fetch>
-                  <entity name='cr4f9_associazionedpialavoratore'>
-                    <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='DPI'>
-                      <attribute name='cr4f9_nomedeldispositivofisico' alias='nome' />
-                    </link-entity>
-                    <attribute name='cr4f9_datadiconsegna' />
-                    <attribute name='cr4f9_quantita' />
-                    <attribute name='cr4f9_numerodimatricola' />
-                    <filter>
-                      <condition attribute='cr4f9_riferimentotestata' operator='eq' value='{testataId}' />
-                    </filter>
-                  </entity>
-                </fetch>";
+            <fetch>
+              <entity name='cr4f9_associazionedpialavoratore'>
+                <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='DPI'>
+                  <attribute name='cr4f9_nomedeldispositivofisico' alias='nome' />
+                </link-entity>
+                <attribute name='cr4f9_datadiconsegna' />
+                <attribute name='cr4f9_quantita' />
+                <attribute name='cr4f9_numerodimatricola' />
+                <filter>
+                  <condition attribute='cr4f9_riferimentotestata' operator='eq' value='{testataId}' />
+                </filter>
+              </entity>
+            </fetch>";
 
             var request = new HttpRequestMessage()
                 {
@@ -354,12 +404,17 @@
             var response = await client.SendAsync(request);
             var resultJson = await response.Content.ReadAsStringAsync();
             logger.LogInformation($"Risposta JSON: {resultJson}");
+
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<ConsegnaCollection>();
                 if (result?.value?.Length > 0)
                 {
-                    consegneDpi = result.value.ToList();
+                    dpiPerTestata[testataId] = result.value.ToList(); // Salviamo i dati nel dizionario
+                }
+                else
+                {
+                    dpiPerTestata[testataId] = new List<ConsegnaDpi>(); // Se vuoto, evitiamo problemi
                 }
             }
             else
@@ -372,6 +427,7 @@
             logger.LogError("Token non ottenuto.");
         }
     }
+
 
     private async Task DownloadExcel()
     {
@@ -391,7 +447,7 @@
         int row = 2;
 
         // Itero su ogni testata di consegna
-        foreach (var testata in consegne.value)
+        foreach (var testata in consegne.value.Where(ToggleFunc))
         {
             // Azzero la lista delle consegne DPI per ogni testata
             consegneDpi.Clear();
@@ -431,7 +487,36 @@
         }
     }
 
+    private void ToggleRow(Guid? id)
+    {
+        if (expandedRows.Contains(id))
+            expandedRows.Remove(id);
+        else
+            expandedRows.Add(id);
+    }
 
+    private async Task ShowPopover(Guid? testataId)
+    {
+        if (testataId == null) return;
+
+        if (!dpiPerTestata.ContainsKey(testataId))
+            await LoadConsegneDpi(testataId);
+
+        // Verifica se il popover è già aperto
+        if (popoverStates.ContainsKey(testataId.Value) && popoverStates[testataId.Value])
+        {
+            // Se il popover è già aperto, lo chiudiamo
+            popoverStates[testataId.Value] = false;
+        }
+        else
+        {
+            // Altrimenti, chiudiamo tutti i popover e apriamo quello specifico
+            foreach (var key in popoverStates.Keys.ToList())
+                popoverStates[key] = false;
+
+            popoverStates[testataId.Value] = true;
+        }
+    }
 
 
     public class Consegna
@@ -464,6 +549,7 @@
 }
 
 <style>
+
 
     /* Contenitore principale della tabella */
     .folder-container {

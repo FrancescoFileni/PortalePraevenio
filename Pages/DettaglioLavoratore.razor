@@ -21,10 +21,13 @@
 
 @if (contatti?.value?.Length > 0)
 {
+    <div style="display: flex; align-items: center; height: 40px;">
+        <button @onclick="GoBack" style="display: flex; align-items: center; justify-content: center; height: 90%; min-width: 40px; padding: 0; background: #E53935; border: none; border-radius: 5px;">
+            <i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
+        </button>
+        <h3 style="margin: 0;margin-left:16px ; line-height: 40px;">@contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome</h3>
+    </div>
 
-    <button @onclick="GoBack">
-        <i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
-    </button>
 
     <MudTabs Elevation="2" Rounded="true" Class="my-6">
 
@@ -106,16 +109,18 @@
 
                 <MudTable Items="partecipazioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
                     <ToolBarContent>
-                        <MudText Typo="Typo.h6">Partecipazioni interne a Praevenio</MudText>
+                        <MudText Typo="Typo.h6">Partecipazioni a Praevenio</MudText>
                     </ToolBarContent>
                     <HeaderContent>
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.cr4f9_corsotipo)">Tipo Corso</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.titolo)">Titolo Corso</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Partecipazione, object>(x=>x.dataFineCorso)">Data Conclusione</MudTableSortLabel></MudTh>
                         <MudTh>Superato</MudTh>
                         <MudTh>Scarica Attestato</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="partecipazioni">
                         <MudTd DataLabel="corsoTipo">@partecipazioni.cr4f9_corsotipo</MudTd>
+                        <MudTd DataLabel="titoloCorso">@partecipazioni.titolo</MudTd>
                         <MudTd DataLabel="dataFine">@partecipazioni.dataFineCorsoString</MudTd>
                         <MudTd DataLabel="superato">@((partecipazioni.cr4f9_superato) ? "Sì" : "No")</MudTd>
                         <MudTd DataLabel="attestato">
@@ -193,10 +198,27 @@
 
         <MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
             <div class="folder-container">
-                <!-- Linguetta della cartella -->
                 <div class="folder-tab">
                     Lavoratore @contatti.value[0].cr4f9_cognome @contatti.value[0].cr4f9_nome
                 </div>
+                <MudTable Items="scadenzeGeneriche" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6">Scadenze</MudText>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<ScadenzaGenerica, object>(x => x.DataScadenza)">Data Scadenza</MudTableSortLabel></MudTh>
+                        <MudTh>Titolo</MudTh>
+                        <MudTh>Tipo Scadenza</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="scadenza">
+                        <MudTd DataLabel="Data">@scadenza.DataScadenza.ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd DataLabel="Titolo">@scadenza.Titolo</MudTd>
+                        <MudTd DataLabel="Tipo">@scadenza.TipoScadenza</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
             </div>
         </MudTabPanel>
 
@@ -220,8 +242,13 @@ else
     private string userEmail;
     private string fetchXmlQuery;
     private string fetchXmlQueryPartecipazioni;
+    private string fetchXmlQueryPartecipazioniEsterne;
     private string fetchXmlQueryConsegneDpi;
     private string fetchXmlQueryVisite;
+    private string fetchXmlQueryScadenzeCorsiInterni;
+    private string fetchXmlQueryScadenzeCorsiEsterni;
+    private string fetchXmlQueryScadenzeVisite;
+    private string fetchXmlQueryScadenzeControlliDPI;
     private string clienteId;
     private Guid? azienda;
 
@@ -233,6 +260,11 @@ else
     private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
     private ConsegneCollection consegne = new ConsegneCollection { value = Array.Empty<Consegna>() };
     private VisitaCollection visite = new VisitaCollection { value = Array.Empty<Visita>() };
+    private ScadenzaCorsoIntCollection scadenzeCorsoInt = new ScadenzaCorsoIntCollection { value = Array.Empty<ScadenzaCorsoInt>() };
+    private ScadenzaCorsoEstCollection scadenzeCorsoEst = new ScadenzaCorsoEstCollection { value = Array.Empty<ScadenzaCorsoEst>() };
+    private ScadenzeVisiteCollection scadenzeVisite = new ScadenzeVisiteCollection { value = Array.Empty<ScadenzaVisita>() };
+    private ScadenzeControlliDPICollection scadenzeControlli = new ScadenzeControlliDPICollection { value = Array.Empty<ScadenzaControlloDPI>() };
+    private List<ScadenzaGenerica> scadenzeGeneriche = new List<ScadenzaGenerica>();
 
     protected override async Task OnInitializedAsync() {
 
@@ -267,9 +299,24 @@ else
                             </filter>
                             <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' alias='corso'>
                               <attribute name='cr4f9_datadifine' alias='dataFineCorso'/>
+                              <attribute name='cr4f9_titolocorso' alias='titolo' />
                             </link-entity>
                             </entity>
                         </fetch>";
+
+        fetchXmlQueryPartecipazioniEsterne = $@"
+                        <fetch>
+                          <entity name='new_partecipazioneesternaprv'>
+                            <attribute name='new_data' />
+                            <attribute name='new_titolocorso' />
+                            <filter>
+                              <condition attribute='new_lavoratore' operator='eq' value='{id}' />
+                            </filter>
+                            <link-entity name='cr4f9_corsotipoprv' from='cr4f9_corsotipoprvid' to='new_corsotipo' link-type='inner' alias='CorsoTipo'>
+                              <attribute name='cr4f9_nomecorsotipo' alias='titolo'/>
+                            </link-entity>
+                          </entity>
+                        </fetch>"; 
 
         fetchXmlQueryConsegneDpi = $@"
                 <fetch>
@@ -328,6 +375,54 @@ else
           </entity>
         </fetch>";
 
+        fetchXmlQueryScadenzeCorsiInterni = $@"
+        <fetch>
+          <entity name='new_partecipazionecorsoprv'>
+            <attribute name='cr4f9_scadenza' />
+            <filter>
+              <condition attribute='new_lavoratore' operator='eq' value='{id}' />
+            </filter>
+            <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' link-type='inner' alias='Corso'>
+              <attribute name='cr4f9_titolocorso' alias = 'titolo' />
+            </link-entity>
+          </entity>
+        </fetch>";
+
+        fetchXmlQueryScadenzeCorsiEsterni = $@"
+        <fetch>
+          <entity name='new_partecipazioneesternaprv'>
+            <attribute name='new_titolocorso' />
+            <attribute name='new_scadenza' />
+            <filter>
+              <condition attribute='new_lavoratore' operator='eq' value='{id}' />
+            </filter>
+          </entity>
+        </fetch>";
+
+        fetchXmlQueryScadenzeVisite = $@"
+        <fetch>
+          <entity name='cr4f9_visitamedicadellavoratore'>
+            <attribute name='cr4f9_riepilogovisita' />
+            <attribute name='cr4f9_dataprossimavisita' />
+            <filter>
+              <condition attribute='cr4f9_lavoratore' operator='eq' value='{id}' />
+            </filter>
+          </entity>
+        </fetch>";
+
+        fetchXmlQueryScadenzeControlliDPI = $@"
+        <fetch>
+          <entity name='cr4f9_elencocontrollidpi'>
+            <attribute name='cr4f9_datascadenzacontrollo' />
+            <link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_associazionedpialavoratoreid' to='cr4f9_dispositivoconsegnato' link-type='inner' alias='ConsegnaDPI'>
+              <attribute name='cr4f9_riepilogoconsegnacalculated' alias='Riepilogo'/>
+              <filter>
+                <condition attribute='cr4f9_lavoratorelookup' operator='eq' value='{id}' />
+              </filter>
+            </link-entity>
+          </entity>
+        </fetch>";
+
         var tokenResult = await TokenProvider.RequestAccessToken();
 
         if (tokenResult.TryGetToken(out var token))
@@ -380,6 +475,11 @@ else
             if (response.IsSuccessStatusCode)
             {
                 partecipazioni = await response.Content.ReadFromJsonAsync<PartecipazioneCollection>();
+
+                foreach (var part in partecipazioni.value)
+                {
+                    part.Interna = true;
+                }
             }
             else
             {
@@ -391,6 +491,51 @@ else
         else
         {
             message = "There was a problem authenticating.";
+        }
+
+        var tokenResultPartecipazioniEsterne = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultPartecipazioniEsterne.TryGetToken(out var tokenPartEst))
+        {
+            logger.LogInformation("FETCH PARTECIPAZIONI ESTERNE: " + fetchXmlQueryPartecipazioniEsterne);
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_partecipazioneesternaprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryPartecipazioniEsterne)}");
+
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenPartEst.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var partecipazioniEsterne = await response.Content.ReadFromJsonAsync<PartecipazioneEsternaCollection>();
+
+                if (partecipazioniEsterne?.value !=null && partecipazioniEsterne.value.Length > 0)
+                {
+                    var listaPartecipazioni = partecipazioni.value.ToList();
+                    foreach (var pEst in partecipazioniEsterne.value)
+                    {
+                        var nuovaPartecipazione = new Partecipazione
+                            {
+                                cr4f9_corsotipo = pEst.titolo,
+                                dataFineCorso = pEst.new_data,
+                                cr4f9_superato = true,
+                                titolo = pEst.titolo,
+                                Interna = false
+                            };
+                        listaPartecipazioni.Add(nuovaPartecipazione);
+                    }
+                    partecipazioni.value = listaPartecipazioni.ToArray();
+                }
+            }
+            else
+            {
+                logger.LogError($"Errore nel recupero delle partecipazioni esterne: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            logger.LogError("Errore di autenticazione durante il recupero delle partecipazioni esterne.");
         }
 
         // Terza richiesta per mansioni e sedi.
@@ -432,6 +577,7 @@ else
         // Quarta richiesta per consegne dpi.
 
         var tokenResultConsegne = await TokenProvider.RequestAccessToken();
+
         if (tokenResultConsegne.TryGetToken(out var tokenConsegne))
         {
             logger.LogInformation("FETCH CONSEGNE: " + fetchXmlQueryConsegneDpi);
@@ -490,6 +636,156 @@ else
         else
         {
             message = "There was a problem authenticating.";
+        }
+
+        var tokenResultScadenzeCorsiInterni = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultScadenzeCorsiInterni.TryGetToken(out var tokenScadenzeCorsiInterni))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryScadenzeCorsiInterni)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenScadenzeCorsiInterni.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if(response.IsSuccessStatusCode)
+            {
+                scadenzeCorsoInt = await response.Content.ReadFromJsonAsync<ScadenzaCorsoIntCollection>();
+            }
+            else
+            {
+                logger.LogError($"Error fetching scadenze corsi interni: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating for scadenze corsi interni.";
+        }
+
+        var tokenResultScadenzeCorsiEsterni = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultScadenzeCorsiEsterni.TryGetToken(out var tokenScadenzeCorsiEsterni))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_partecipazioneesternaprvs?fetchXml={Uri.EscapeDataString(fetchXmlQueryScadenzeCorsiEsterni)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenScadenzeCorsiEsterni.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                scadenzeCorsoEst = await response.Content.ReadFromJsonAsync<ScadenzaCorsoEstCollection>();
+            }
+            else
+            {
+                logger.LogError($"Error fetching scadenze corsi esterni: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating for scadenze corsi esterni.";
+        }
+
+        var tokenResultScadenzeVisite = await TokenProvider.RequestAccessToken();
+
+        if (tokenResultScadenzeVisite.TryGetToken(out var tokenScadenzeVisite))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQueryScadenzeVisite)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenScadenzeVisite.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                scadenzeVisite = await response.Content.ReadFromJsonAsync<ScadenzeVisiteCollection>();
+            }
+            else
+            {
+                logger.LogError($"Error fetching scadenze visite: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating for scadenze visite.";
+        }
+
+        var tokenResultScadenzeControlliDPI = await TokenProvider.RequestAccessToken();
+        if (tokenResultScadenzeControlliDPI.TryGetToken(out var tokenScadenzeControlliDPI))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollidpis?fetchXml={Uri.EscapeDataString(fetchXmlQueryScadenzeControlliDPI)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenScadenzeControlliDPI.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                scadenzeControlli = await response.Content.ReadFromJsonAsync<ScadenzeControlliDPICollection>();
+            }
+            else
+            {
+                logger.LogError($"Error fetching scadenze controlli DPI: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating for scadenze controlli DPI.";
+        }
+
+        if (scadenzeCorsoInt?.value != null)
+        {
+            foreach (var corso in scadenzeCorsoInt.value)
+            {
+                scadenzeGeneriche.Add(new ScadenzaGenerica
+                    {
+                        DataScadenza = corso.cr4f9_scadenza,
+                        Titolo = corso.titolo,
+                        TipoScadenza = "Corso Interno"
+                    });
+            }
+        }
+
+        // Conversione scadenze corsi esterni
+        if (scadenzeCorsoEst?.value != null)
+        {
+            foreach (var corso in scadenzeCorsoEst.value)
+            {
+                scadenzeGeneriche.Add(new ScadenzaGenerica
+                    {
+                        DataScadenza = corso.new_scadenza,
+                        Titolo = corso.new_titolocorso,
+                        TipoScadenza = "Corso Esterno"
+                    });
+            }
+        }
+
+        // Conversione scadenze visite
+        if (scadenzeVisite?.value != null)
+        {
+            foreach (var visita in scadenzeVisite.value)
+            {
+                scadenzeGeneriche.Add(new ScadenzaGenerica
+                    {
+                        DataScadenza = visita.cr4f9_dataprossimavisita,
+                        Titolo = visita.cr4f9_riepilogovisita,
+                        TipoScadenza = "Visita Medica"
+                    });
+            }
+        }
+
+        // Conversione scadenze controlli DPI
+        if (scadenzeControlli?.value != null)
+        {
+            foreach (var controllo in scadenzeControlli.value)
+            {
+                scadenzeGeneriche.Add(new ScadenzaGenerica
+                    {
+                        DataScadenza = controllo.cr4f9_datascadenzacontrollo,
+                        Titolo = controllo.Riepilogo,
+                        TipoScadenza = "Controllo DPI"
+                    });
+            }
         }
     }
 
@@ -629,18 +925,30 @@ else
     }
 
     public class Partecipazione {
-
         public string cr4f9_corsotipo { get; set; }
         public DateTime dataFineCorso { get; set; }
         public bool cr4f9_superato { get; set; }
 
         public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
-
+        public string titolo { get; set; }
+        public bool Interna { get; set; }
     }
 
     public class PartecipazioneCollection {
 
         public Partecipazione[] value { get; set; }
+    }
+
+    public class PartecipazioneEsterna
+    {
+        public DateTime new_data { get; set; }
+        public string new_titolcorso { get; set; }
+        public string titolo { get; set; }
+    }
+
+    public class PartecipazioneEsternaCollection
+    {
+        public PartecipazioneEsterna[] value { get; set; }
     }
 
     public class Mansione {
@@ -747,6 +1055,58 @@ else
             }
         }
     }
+
+    public class ScadenzaCorsoInt 
+    {
+        public DateTime cr4f9_scadenza { get; set; }
+        public string titolo { get; set; }
+    }
+
+    public class ScadenzaCorsoIntCollection 
+    {
+        public ScadenzaCorsoInt[] value { get; set; }
+    }
+
+    public class ScadenzaCorsoEst
+    {
+        public string new_titolocorso { get; set; }
+        public DateTime new_scadenza { get; set; }
+    }
+
+    public class ScadenzaCorsoEstCollection
+    {
+        public ScadenzaCorsoEst[] value { get; set; }
+    }
+
+    public class ScadenzaVisita
+    {
+        public string cr4f9_riepilogovisita { get; set; }
+        public DateTime cr4f9_dataprossimavisita { get; set; }
+    }
+
+    public class ScadenzeVisiteCollection
+    {
+        public ScadenzaVisita[] value { get; set; }
+    }
+
+    public class ScadenzaControlloDPI
+    {
+        public DateTime cr4f9_datascadenzacontrollo { get; set; }
+        public string Riepilogo { get; set; }
+    }
+
+    public class ScadenzeControlliDPICollection
+    {
+        public ScadenzaControlloDPI[] value { get; set; }
+    }
+
+    public class ScadenzaGenerica
+    {
+        public DateTime DataScadenza { get; set; }
+        public string Titolo { get; set; }
+        public string TipoScadenza { get; set; }
+    }
+
 }
 
 <style>

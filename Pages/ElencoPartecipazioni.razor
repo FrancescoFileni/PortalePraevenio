@@ -285,7 +285,7 @@
             return;
         }
 
-        var jsonData = corsi.value.Select(c => new
+        var jsonData = corsi.value.Where(ToggleFunc).Select(c => new
         {
             Nome = c.cr4f9_nome,
             Cognome = c.cr4f9_cognome,

@@ -274,7 +274,7 @@
             return;
         }
 
-        var jsonData = visite.value.Select(v => new
+        var jsonData = visite.value.Where(FilterFunc).Select(v => new
         {
             RiepilogoVisita = v.cr4f9_riepilogovisita,
             DataVisita = v.checkDate,

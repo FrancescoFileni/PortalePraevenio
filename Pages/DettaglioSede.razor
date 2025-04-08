@@ -10,9 +10,15 @@
 @inject IHttpClientFactory ClientFactory
 @inject IDialogService DialogService
 
-<button @onclick="GoBack">
-	<i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
-</button>
+<div style="display: flex; align-items: center; height: 40px;">
+	<button @onclick="GoBack" style="display: flex; align-items: center; justify-content: center; height: 90%; min-width: 40px; padding: 0; background: #E53935; border: none; border-radius: 5px;">
+		<i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
+	</button>
+	@if (sedi!=null && sedi.value?.Length > 0)
+	{
+		<h3 style="margin: 0;margin-left:16px ; line-height: 40px;">@sedi.value[0].new_localita</h3>
+	}
+</div>
 
 <MudTabs Elevation="2" Rounded="true" Class="my-6">
 	@if (sedi!=null && sedi.value?.Length > 0)
@@ -104,6 +110,7 @@
 					</ToolBarContent>
 					<HeaderContent>
 						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.cr4f9_calcolonomeecognome)">Lavoratori</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.new_mansione)">Mansioni</MudTableSortLabel></MudTh>
 					</HeaderContent>
 					<RowTemplate Context="lavoratori">
 						<MudTd>
@@ -111,6 +118,7 @@
 								@lavoratori.cr4f9_calcolonomeecognome
 							</MudLink>
 						</MudTd>
+						<MudTd DataLabel="Mansione">@lavoratori.new_mansione</MudTd>
 					</RowTemplate>
 					<PagerContent>
 						<MudTablePager PageSizeOptions="new int[]{10, 20}"/>
@@ -146,7 +154,42 @@
 		</MudTabPanel>
 
 		<MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
-
+			<div class="folder-container">
+				<div class="folder-tab">
+					Sede @sedi.value[0].new_localita
+				</div>
+				<MudTable Items="scadenzeGeneriche" Dense="true" HeaderClass="mud-table-header" Hover="true">
+					<ToolBarContent>
+						<MudText Typo="Typo.h6">Scadenze</MudText>
+					</ToolBarContent>
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.DataScadenza)">
+								Data Scadenza
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.Titolo)">
+								Titolo
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.TipoScadenza)">
+								Tipo Scadenza
+							</MudTableSortLabel>
+						</MudTh>
+						@* Il campo "Riferimento" non verrà mostrato nella tabella *@
+					</HeaderContent>
+					<RowTemplate Context="scadenza">
+						<MudTd DataLabel="Data">@scadenza.DataScadenza.ToString("dd/MM/yyyy")</MudTd>
+						<MudTd DataLabel="Titolo">@scadenza.Titolo</MudTd>
+						<MudTd DataLabel="Tipo">@scadenza.TipoScadenza</MudTd>
+					</RowTemplate>
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
 		</MudTabPanel>
 
 		<MudTabPanel Icon="@Icons.Material.Filled.FileOpen" Text="Documenti">
@@ -199,10 +242,15 @@
 	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
 	private MacchinariEdImpiantiCollection macchinariEdImpianti = new MacchinariEdImpiantiCollection { value = Array.Empty<MacchinariEdImpianti>() };
 	private TestataCollection testate = new TestataCollection { value = Array.Empty<TestataDocumentiSede>() };
+	private ScadenzeDocumentiCollection scadenzeDocumenti = new ScadenzeDocumentiCollection { value = Array.Empty<ScadenzaDocumenti>() };
+	private ScadenzeControlliCollection scadenzeControlli = new ScadenzeControlliCollection { value = Array.Empty<ScadenzaControlli>() };
+
+	private List<ScadenzaGenerica> scadenzeGeneriche = new List<ScadenzaGenerica>();
 
 	protected override async Task OnInitializedAsync()
 	{
 		await LoadUserInformation();
+
 	}
 
 	private async Task LoadUserInformation()
@@ -226,6 +274,9 @@
 		await CaricaLavoratori();
 		await CaricaMacchinariedImpianti();
 		await CaricaTestateDocmunetiSede();
+		await CaricaScadenzeControlli();
+		await CaricaScadenzeDocumenti();
+		AggregaScadenze();
 	}
 
 	private async Task CaricaClienteAssociato(string email)
@@ -474,12 +525,12 @@
 					<filter>
 					  <condition attribute='new_sede' operator='eq' value='{id}' />
 					</filter>
-					<filter>
-					  <condition attribute='new_azienda' operator='eq' value='{azienda}' />
-					</filter>
 					<link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='new_lavoratore' link-type='inner' alias='Lavoratore'>
 					  <attribute name='cr4f9_calcolonomeecognome' />
-                      <attribute name='cr4f9_contattoprvid' />					
+					  <attribute name='cr4f9_contattoprvid' />
+					</link-entity>
+					<link-entity name='new_mansionetabellamaster' from='new_mansionetabellamasterid' to='cr4f9_mansione' link-type='inner' alias='Mansione'>
+					  <attribute name='new_mansione' />
 					</link-entity>
 				  </entity>
 				</fetch>";
@@ -594,6 +645,113 @@
 			</fetch>";
 	}
 
+	public async Task CaricaScadenzeDocumenti()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildScadenzeDocumentiSedeXml();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_cartelladocumentosedes")
+				};
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if(response.IsSuccessStatusCode)
+			{
+				scadenzeDocumenti = await response.Content.ReadFromJsonAsync<ScadenzeDocumentiCollection>();
+			}
+			else
+			{
+				message = "An error occured in  the first request.";
+				logger.LogError($"Documenti-Error fetching data: {response.ReasonPhrase}");
+				return;
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildScadenzeDocumentiSedeXml()
+	{
+		return $@"
+		<fetch>
+		  <entity name='cr4f9_cartelladocumentosede'>
+			<attribute name='cr4f9_nomecartella' />
+			<attribute name='cr4f9_datascadenza' />
+			<link-entity name='cr4f9_testatadocumentosede' from='cr4f9_testatadocumentosedeid' to='cr4f9_testatadocumentosede' link-type='inner' alias='Testata'>
+			  <attribute name='cr4f9_testatadocumentosedeid' alias = 'TestataId'/>
+			  <filter>
+				<condition attribute='cr4f9_sede' operator='eq' value='{id}' />
+			  </filter>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaScadenzeControlli()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildScadenzeControlliMacchinariSede();
+
+		if(tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_elencocontrollimacchinarieimpiantis?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				scadenzeControlli = await response.Content.ReadFromJsonAsync<ScadenzeControlliCollection>();
+			}
+			else
+			{
+				message = "An error occurred in the first request.";
+				logger.LogError($"Controlli - Error fetching data: {response.ReasonPhrase}");
+				return; // Termina se la prima richiesta fallisce
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
+	private string BuildScadenzeControlliMacchinariSede()
+	{
+		return $@"
+		<fetch>
+		  <entity name='cr4f9_elencocontrollimacchinarieimpianti'>
+			<attribute name='cr4f9_datadiscadenza' />
+			<link-entity name='cr4f9_macchinarioimpiantofisico' from='cr4f9_macchinarioimpiantofisicoid' to='cr4f9_macchinariooimpianto' link-type='inner' alias='Macchinario'>
+			  <attribute name='cr4f9_matricola' />
+			  <attribute name='cr4f9_macchinarioimpiantofisicoid' alias='MacchinarioId'/>
+			  <filter>
+				<condition attribute='cr4f9_sede' operator='eq' value='{id}' />
+			  </filter>
+			  <link-entity name='cr4f9_macchinarioeimpianto' from='cr4f9_macchinarioeimpiantoid' to='cr4f9_tipologiadimacchinariooimpianto' link-type='inner' alias='Tipologia'>
+				<attribute name='cr4f9_nome' alias='Nome'/>
+			  </link-entity>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
 	private async Task ToggleEdit()
 	{
 		if (!editMode)
@@ -655,6 +813,39 @@
 		}
 	}
 
+	private void AggregaScadenze()
+	{
+		if ( scadenzeControlli?.value != null)
+		{
+			foreach (var controllo in scadenzeControlli.value)
+			{
+				scadenzeGeneriche.Add(new ScadenzaGenerica
+					{
+						DataScadenza = controllo.cr4f9_datadiscadenza,
+						Titolo = controllo.Nome,
+						TipoScadenza = "Controllo",
+						Riferimento = controllo.MacchinarioId
+					});
+			}
+		}
+
+		if (scadenzeDocumenti?.value != null)
+		{
+			foreach (var documento in scadenzeDocumenti.value)
+			{
+				scadenzeGeneriche.Add(new ScadenzaGenerica
+					{
+						DataScadenza = documento.cr4f9_datascadenza,
+						Titolo = documento.cr4f9_nomecartella,
+						TipoScadenza = "Documento",
+						Riferimento = documento.TestataId
+					});
+			}
+		}
+
+		scadenzeGeneriche = scadenzeGeneriche.OrderBy(s => s.DataScadenza).ToList();
+	}
+
 	private Task OpenDialogAsync()
 	{
 		var parameters = new DialogParameters();
@@ -670,6 +861,16 @@
 	{
 		var match = System.Text.RegularExpressions.Regex.Match(nome, @"-(\d+)$");
 		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
+
+	private string GetRowClass(ScadenzaGenerica scadenza)
+	{
+		return scadenza.TipoScadenza switch
+		{
+			"Controllo" => "row-controllo",
+			"Documento" => "row-documento",
+			_ => string.Empty
+		};
 	}
 
 	private void GoBack()
@@ -714,6 +915,10 @@
 
 		[JsonPropertyName("Lavoratore.cr4f9_contattoprvid")]
 		public string cr4f9_contattoprvid { get; set; }
+
+		[JsonPropertyName("Mansione.new_mansione")]
+		public string new_mansione { get; set; }
+
 	}
 
 	public class LavoratoreCollection
@@ -757,6 +962,40 @@
 	{
 		public TestataDocumentiSede[] value { get; set; }
 	}
+
+
+	public class ScadenzaDocumenti()
+	{
+		public string cr4f9_nomecartella { get; set; }
+		public DateTime cr4f9_datascadenza { get; set; }
+		public string TestataId { get; set; }
+	}
+
+	public class ScadenzeDocumentiCollection()
+	{
+		public ScadenzaDocumenti[] value { get; set; }
+	}
+
+	public class ScadenzaControlli()
+	{
+		public DateTime cr4f9_datadiscadenza { get; set; }
+		public string MacchinarioId { get; set; }
+		public string Nome { get; set; }
+	}
+
+	public class ScadenzeControlliCollection()
+	{
+		public ScadenzaControlli[] value { get; set; }
+	}
+
+	public class ScadenzaGenerica
+	{
+		public DateTime DataScadenza { get; set; }
+		public string Titolo { get; set; }
+		public string TipoScadenza { get; set; }
+		public string Riferimento { get; set; }
+	}
+
 }
 
 <style>
@@ -906,6 +1145,14 @@
 	.mud-table .mud-link.mud-typography.mud-primary-text:hover {
 		color: red !important;
 		cursor: pointer;
+	}
+
+	.row-controllo {
+		background-color: #FFCDD2; /* rosso chiaro */
+	}
+
+	.row-documento {
+		background-color: #C8E6C9; /* verde chiaro */
 	}
 
 </style>

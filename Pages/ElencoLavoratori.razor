@@ -229,7 +229,7 @@
             return;
         }
 
-        var jsonData = lavoratori.value.Select(l => new
+        var filteredData = lavoratori.value.Where(FilterFunc).Select(l => new
         {
             Cognome = l.cr4f9_cognome,
             Nome = l.cr4f9_nome,
@@ -237,7 +237,7 @@
             InForza = l.inForza ? "Sì" : "No"
         });
 
-        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "Lavoratori.xlsx", jsonData);
+        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "Lavoratori.xlsx", filteredData);
     }
 
     // Funzione di filtro applicata ad ogni riga della tabella
