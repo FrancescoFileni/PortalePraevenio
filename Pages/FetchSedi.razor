@@ -21,12 +21,16 @@
                 <MudTable Items="sedi.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
                     <HeaderContent>
                         <MudTh>Sede</MudTh>
+                        <MudTh>Provincia</MudTh>
+                        <MudTh>Indirizzo</MudTh>
                         <MudTh>Descrizione</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="sede">
                         <MudLink Href="@($"/dettagliosede/id={sede.new_sedeprvid}")">
                             @sede.new_localita
                         </MudLink>
+                        <MudTd DataLabel="provincia">@sede.cr4f9_provincia</MudTd>
+                        <MudTd DataLabel="indirizzo">@sede.new_indirizzo</MudTd>
                         <MudTd DataLabel="descrizione">@sede.cr4f9_descrizionesede</MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -68,6 +72,8 @@
                 <attribute name='new_sedeprvid' />
                 <attribute name='new_localita' />
                 <attribute name='cr4f9_descrizionesede' />
+                <attribute name='cr4f9_provincia' />
+                <attribute name='new_indirizzo' />
                 <link-entity name='new_emailsediprv' from='new_sede' to='new_sedeprvid' alias='emailsedi'>
                     <link-entity name='new_emailautorizzazioniprv' from='new_emailautorizzazioniprvid' to='new_email' alias='emailAuth'>
                         <filter>
@@ -129,6 +135,8 @@
         public Guid new_sedeprvid { get; set; }
         public string new_localita { get; set; }
         public string cr4f9_descrizionesede { get; set; }
+        public string cr4f9_provincia { get; set; }
+        public string new_indirizzo { get; set; }
     }
 
     public class SedeCollection

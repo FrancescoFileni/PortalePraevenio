@@ -34,8 +34,8 @@
         <!-- Contenuto della cartella -->
         <div class="course-info">
             <MudDateRangePicker Margin="Margin.Dense" ReadOnly="true" Clearable="false"
-                                PlaceholderStart="@(partecipazioni.value[0].dataInizio == "01/01/0001" ? partecipazioni.value[0].dataInizioCorsoString : partecipazioni.value[0].dataInizio)"
-                                PlaceholderEnd="@(partecipazioni.value[0].dataFine == "01/01/0001" ? partecipazioni.value[0].dataFineCorsoString : partecipazioni.value[0].dataFine)" />
+            PlaceholderStart="@(partecipazioni.value[0].dataInizio == "01/01/0001" ? partecipazioni.value[0].dataInizioCorsoString : partecipazioni.value[0].dataInizio)"
+            PlaceholderEnd="@(partecipazioni.value[0].dataFine == "01/01/0001" ? partecipazioni.value[0].dataFineCorsoString : partecipazioni.value[0].dataFine)" />
 
         </div>
         <!-- Seconda scheda: informazioni corso e pulsante -->
@@ -50,42 +50,7 @@
                 <span>Corso superato: @((partecipazioni.value[0].cr4f9_superato) ? "Sì" : "No")</span>
             </div>
 
-           <MudButton Variant="Variant.Filled" Disabled="partecipazioni.value[0].cr4f9_superato ? false : true" Color="Color.Error"
-            OnClick="() => GeneratePdf(partecipazioni.value[0].titoloCorso, 
-                                       partecipazioni.value[0].idCorso, 
-                                       partecipazioni.value[0].tipoCorso, 
-                                       partecipazioni.value[0].cr4f9_cognome, 
-                                       partecipazioni.value[0].cr4f9_nome,
-                                       partecipazioni.value[0].intestazioneUno,
-                                       partecipazioni.value[0].intestazioneDue,
-                                       partecipazioni.value[0].titoloAttestato,
-                                       partecipazioni.value[0].normative,
-                                       partecipazioni.value[0].testoTre,
-                                       partecipazioni.value[0].cr4f9_codicefiscale,
-                                       partecipazioni.value[0].dataNascita,
-                                       partecipazioni.value[0].luogonascita,
-                                       partecipazioni.value[0].provinciaNascita,
-                                       partecipazioni.value[0].cr4f9_azienda,
-                                       partecipazioni.value[0].testoQuattro,
-                                       partecipazioni.value[0].testoCinque,
-                                       partecipazioni.value[0].dataInizio,
-                                       partecipazioni.value[0].dataFine,
-                                       partecipazioni.value[0].durataInOre,
-                                       partecipazioni.value[0].sedeDelCorso,
-                                       partecipazioni.value[0].sedeTeoricaDelCorso,
-                                       partecipazioni.value[0].sedePraticaDelCorso,
-                                       partecipazioni.value[0].indicareSede,
-                                       partecipazioni.value[0].indicareSedeTeorica,
-                                       partecipazioni.value[0].indicareSedePratica,
-                                       partecipazioni.value[0].indirizzoDue,
-                                       partecipazioni.value[0].indirizzoTre,
-                                       partecipazioni.value[0].sedeP,
-                                       partecipazioni.value[0].sedeT,
-                                       partecipazioni.value[0].docenteCognome,
-                                       partecipazioni.value[0].docenteNome,
-                                       partecipazioni.value[0].dataInizioCorsoString,
-                                       partecipazioni.value[0].dataFineCorsoString,
-                                       partecipazioni.value[0].pieDiPagina)">
+            <MudButton Variant="Variant.Filled" Disabled="partecipazioni.value[0].cr4f9_superato ? false : true" Color="Color.Error" OnClick="openReport">
                 Scarica Attestato
             </MudButton>
         </div>
@@ -272,6 +237,11 @@ else
 
             logger.LogInformation("USER EMAIL: " + userEmail);
         }
+    }
+
+    private async Task openReport()
+    {
+        await JS.InvokeVoidAsync("openSSRSReport");
     }
 
     private void GoBack()

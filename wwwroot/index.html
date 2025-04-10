@@ -96,6 +96,58 @@
         }
     </script>
 
+    <script>
+        function getReportingSession() {
+
+            var reportName = "Parziale"; // Report Name
+            var reportId = "8c88fd8d-bed7-ee11-904c-000d3ab8595c"; // Report GUID
+            var participation_guid = "358fd412-db23-ef11-840a-0022489a0285"; // Participation GUID
+            corsoId = "4829d0f0-30ae-ee11-a569-000d3adf4843"; // Corso ID
+
+            // Query per filtrare solo sul corso desiderato. I parametri non li vuole.
+            var crm_filter = '<ReportFilter><ReportEntity paramname="SelezionatiID" displayname="partecipazionecorsoPRV" donotconvert="1">' +
+                '<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false"><entity name="new_partecipazionecorsoprv"><all-attributes/>' +
+                '<filter type="and"><condition attribute="new_partecipazionecorsoprvid" operator="eq" value="' + participation_guid + '"/></filter>' +
+                // '<filter type="and"><condition attribute="statecode" operator="eq" value="0"/></filter>' +
+                '<link-entity name="cr4f9_corsoprv" from="cr4f9_corsoprvid" to="new_corso" alias="aa"><filter type="and">' +
+                '<condition attribute="cr4f9_corsoprvid" operator="eq" uiname="' + corsoId + '" uitype="cr4f9_corsoprv" value="' + corsoId + '"/>' +
+                '</filter></link-entity></entity></fetch></ReportEntity></ReportFilter>'
+
+            var pth = "https://prpdev.crm4.dynamics.com/CRMReports/rsviewer/reportviewer.aspx"
+
+            var retrieveEntityReq = new XMLHttpRequest();
+            retrieveEntityReq.open("POST", pth, false);
+            retrieveEntityReq.setRequestHeader("Accept", "*/*");
+            retrieveEntityReq.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+
+            var encodedParameters = "id=" + reportId + "&uniquename=unq9b05390474cded11aed0000d3ab4e" +
+                "&iscustomreport=true&reportnameonsrs=&signatureid=&reporttypecode=1&reportName=" + reportName + "&isScheduledReport=false" +
+                "&CRM_Filter=" + encodeURIComponent(crm_filter);
+
+            console.log("Encoded Paramenters: ", encodedParameters);
+
+
+            console.log("Stato risposta:", retrieveEntityReq.status);
+            console.log("Risposta testo:", retrieveEntityReq.responseText);
+
+            retrieveEntityReq.send(encodedParameters);
+
+            // console.log("PAGINA DI RISPOSTA: ", retrieveEntityReq.responseText);
+
+            var x = retrieveEntityReq.responseText.lastIndexOf("ReportSession=");
+            var y = retrieveEntityReq.responseText.lastIndexOf("ControlID=");
+
+            var ret = new Array();
+
+            ret[0] = retrieveEntityReq.responseText.substr(x + 14, 24);
+            ret[1] = retrieveEntityReq.responseText.substr(y + 10, 32);
+
+            return ret;
+        };
+    </script>
+
+
 </body>
 
 </html>

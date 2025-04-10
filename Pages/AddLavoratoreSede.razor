@@ -567,13 +567,14 @@
 	.custom-dialog-red-gray {
 		padding: 16px;
 		border-radius: 8px;
-		background-color: #f2f2f2; /* Grigio chiaro */
-		width: 100vw; /* Larghezza del 90% della viewport */
-		height: 100vh; /* Altezza del 90% della viewport */
-		max-width: none; /* Disabilita il limite massimo della larghezza predefinita */
-		max-height: none; /* Disabilita il limite massimo dell'altezza predefinita */
-		display: flex; /* Garantisce un comportamento flessibile */
-		flex-direction: column; /* Imposta il layout a colonna */
+		background-color: #f2f2f2;
+		/* Imposta dimensioni più contenute */
+		width: 50vw; /* Larghezza pari al 50% della viewport, oppure usa un valore fisso */
+		height: auto; /* Lascia l'altezza adeguarsi al contenuto */
+		max-width: 600px; /* Imposta un limite massimo alla larghezza */
+		max-height: 90vh; /* Imposta un limite massimo all'altezza */
+		display: flex;
+		flex-direction: column;
 	}
 
 	.content-area-red-gray {

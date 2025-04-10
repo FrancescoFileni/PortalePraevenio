@@ -80,6 +80,11 @@
 				<MudTable Items="mansioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
 					<ToolBarContent>
 						<MudText Typo="Typo.h6">Mansioni in questa sede</MudText>
+						<div style="text-align: right; width: 80%;">
+							<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsyncMansione">
+								Nuova Mansione Custom
+							</MudButton>
+						</div>
 					</ToolBarContent>
 					<HeaderContent>
 						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Mansione, object>(x => x.new_mansione)">Mansioni</MudTableSortLabel></MudTh>
@@ -127,7 +132,7 @@
 			</div>
 		</MudTabPanel>
 
-		<MudTabPanel Icon="@Icons.Material.Filled.CatchingPokemon" Text="Impianti e Macchinari">
+		<MudTabPanel Icon="@Icons.Material.Filled.PrecisionManufacturing" Text="Impianti e Macchinari">
 			<div class="folder-container">
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
@@ -853,9 +858,31 @@
 
 		logger.LogInformation($"Parametro id inviato :{id}");
 
-		var options = new DialogOptions { CloseOnEscapeKey = true };
-		return DialogService.ShowAsync<AddLavoratoreSede>("Simple Dialog",parameters, options);
+		var options = new DialogOptions
+			{
+				CloseOnEscapeKey = true,
+				FullWidth = false,              // Impedisce al dialog di occupare tutta la larghezza della pagina
+				MaxWidth = MaxWidth.Medium       // Imposta una larghezza massima ragionevole (puoi usare anche Small, Large, ecc.)
+			};
+		return DialogService.ShowAsync<AddLavoratoreSede>("Simple Dialog", parameters, options);
 	}
+
+	private Task OpenDialogAsyncMansione()
+	{
+		var parameters = new DialogParameters();
+		parameters.Add("id", id);
+
+		logger.LogInformation($"Parametro id inviato :{id}");
+
+		var options = new DialogOptions
+			{
+				CloseOnEscapeKey = true,
+				FullWidth = false,              // Impedisce al dialog di occupare tutta la larghezza della pagina
+				MaxWidth = MaxWidth.Medium       // Imposta una larghezza massima ragionevole (puoi usare anche Small, Large, ecc.)
+			};
+		return DialogService.ShowAsync<AddMansioneSede>("Simple Dialog", parameters, options);
+	}
+
 
 	private string ExtractNumber(string nome)
 	{
