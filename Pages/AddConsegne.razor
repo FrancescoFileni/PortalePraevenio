@@ -60,9 +60,7 @@
     private string userEmail;
     private Guid? azienda;
     private string clienteId;
-    private bool isLoading = false;
     private string idConsegnaCreata;
-    private string message = "Loading...";
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,7 +229,6 @@
     {
         try
         {
-            isLoading = true;
 
             var dizionario = new Dictionary<string, object>
             {
@@ -289,7 +286,7 @@
                 }
                 else
                 {
-                    message = $"Errore nell'invio: {response.ReasonPhrase}";
+                    await DialogService.ShowMessageBox("Errore", $"Errore nell'invio: {response.ReasonPhrase}");
                     logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
                     logger.LogError($"Dettagli risposta: {responseBody}");
                 }
@@ -303,7 +300,6 @@
         {
             logger.LogError($"Errore durante la creazione del record della consegna: {ex.Message}");
         }
-        isLoading = false;
     }
 
     private string BuildAziendaFetchXml(string email)

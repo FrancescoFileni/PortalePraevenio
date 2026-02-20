@@ -1,7 +1,335 @@
-﻿@page "/elencodpiasistema"
+@page "/elencodpiasistema"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using Microsoft.Extensions.Logging
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<ElencoDpiASistema> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
-<h3>Dpi a Sistema</h3>
+<link href="css/dpi-a-sistema.css?v=1" rel="stylesheet" />
+
+<AuthorizeView>
+	<Authorized>
+
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">DPI A SISTEMA</MudText>
+			</div>
+
+			@* <div class="toolbar-right">
+				<MudButton Variant="Variant.Filled"
+						   StartIcon="@Icons.Material.Filled.AssignmentTurnedIn"
+						   Color="Color.Error"
+						   Class="action-btn"
+						   OnClick="ApriDialog">
+					Consegna
+				</MudButton>
+			</div> *@
+		</MudPaper>
+
+		@if (dpiCollection?.value != null && dpiCollection.value.Length > 0)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco DPI a Sistema</div>
+
+				<MudTable T="Dpi"
+						  Items="dpiCollection.value"
+						  Dense="true"
+						  Hover="true"
+						  MultiSelection="true"
+						  @bind-SelectedItems="selectedItems"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh>Matricola</MudTh>
+						<MudTh>Nome</MudTh>
+						<MudTh>Sede</MudTh>
+						<MudTh>Taglia</MudTh>
+						<MudTh>Tipo</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="dpi">
+						<MudTd DataLabel="matricola">
+							<MudLink Href="@($"/dettagliodpi/id={dpi.cr4f9_dpifisicoid}")"
+									 Class="name-link">
+								@dpi.cr4f9_matricoladispositivo
+							</MudLink>
+						</MudTd>
+
+						<MudTd>@dpi.cr4f9_nomedeldispositivofisico</MudTd>
+
+						<MudTd>
+							<MudLink Href="@($"/dettagliosede/id={dpi.IdSede}")"
+									 Class="name-link">
+								@dpi.Localita
+							</MudLink>
+						</MudTd>
+
+						<MudTd>@dpi.cr4f9_taglia</MudTd>
+						<MudTd>@dpi.Tipo</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+
+				<!-- footer action (opzionale: se vuoi anche qui un bottone grande sotto) -->
+				@if (selectedItems != null && selectedItems.Any())
+				{
+					<div class="table-actions">
+						<MudButton Variant="Variant.Filled"
+								   StartIcon="@Icons.Material.Filled.AssignmentTurnedIn"
+								   Color="Color.Error"
+								   Class="action-btn"
+								   OnClick="ApriDialog">
+							Consegna DPI a Lavoratore
+						</MudButton>
+					</div>
+				}
+
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
+</AuthorizeView>
 
 @code {
+    private string userName;
+    private string userEmail;
+    private string role;
+    private Guid? azienda;
+    private string clienteId;
+    private string fetchXmlQuery;
+    private string message = "Loading...";
 
+    private DpiCollection dpiCollection = new DpiCollection();
+    private HashSet<Dpi> selectedItems = new HashSet<Dpi>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation();
+
+        fetchXmlQuery = BuildFetchXmlDpi();
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_dpifisicos?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                dpiCollection = await response.Content.ReadFromJsonAsync<DpiCollection>();
+            }
+            else
+            {
+                message = "An error occurred while fetching data.";
+                logger.LogError($"Error fetching data: {response.StatusCode}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating.";
+        }
+    }
+
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+            role = user.Claims.FirstOrDefault(c => c.Type == "roles")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+            logger.LogInformation("USER ROLES: " + string.Join(", ", role));
+        }
+        else
+        {
+            message = "User not authenticated.";
+        }
+        await CaricaClienteAssociato(userEmail);
+    }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildFetchXml(email);
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var jsonDocument = JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+                            {
+                                WriteIndented = true
+                            });
+                        logger.LogInformation("Entities JSON: " + entitiesJson);
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClientProperty))
+                        {
+                            clienteId = newClientProperty.GetString();
+                            azienda = newClientProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.StatusCode}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private string BuildFetchXmlDpi()
+    {
+        return $@"
+        <fetch>
+          <entity name='cr4f9_dpifisico'>
+            <attribute name='cr4f9_dpifisicoid' />
+            <attribute name='cr4f9_matricoladispositivo' />
+            <attribute name='cr4f9_nomedeldispositivofisico' />
+            <attribute name='cr4f9_taglia' />
+            <attribute name='createdon' />
+            <attribute name='cr4f9_tipologiadpi' alias='cr4f9_tipologiadpi'/>
+            <filter>
+              <condition attribute='cr4f9_cliente' operator='eq' value='{azienda}' />
+            </filter>
+            <link-entity name='cr4f9_tipologiadpiprv' from='cr4f9_tipologiadpiprvid' to='cr4f9_tipologiadpi' link-type='inner' alias='Tipologia'>
+              <attribute name='cr4f9_tipologia' alias='Tipo' />  
+              <attribute name='cr4f9_duratavitamesi' alias='Durata' />
+              <attribute name='cr4f9_periodicitacontrollimesi' alias='Periodicita' />
+            </link-entity>
+            <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sededelcliente' link-type='inner' alias='Sede'>
+              <attribute name='new_localita' alias='Localita'/>
+              <attribute name='new_sedeprvid' alias='IdSede'/>
+            </link-entity>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task StampaSelezionati()
+    {
+        var ids = selectedItems.Select(d => d.cr4f9_dpifisicoid);
+        logger.LogInformation("ID selezionati: " + string.Join(", ", ids));
+        await Task.CompletedTask;
+    }
+
+    private async Task ApriDialog()
+    {
+        if (selectedItems == null || !selectedItems.Any())
+        {
+            Snackbar.Add("Seleziona almeno un DPI da consegnare.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+    {
+        { "SelectedDpi", selectedItems.ToList() }
+    };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+        DialogService.Show<AddTestataConsegne>("Nuova Consegna", parameters, options);
+    }
+
+    public class Dpi
+    {
+        public Guid cr4f9_dpifisicoid { get; set; }
+        public string cr4f9_matricoladispositivo { get; set; }
+        public string cr4f9_nomedeldispositivofisico { get; set; }
+        public string cr4f9_taglia { get; set; }
+        public DateTime createdon { get; set; }
+
+        [JsonPropertyName("_cr4f9_tipologiadpi_value")]
+        public string cr4f9_tipologiadpi { get; set; }
+
+
+        public string Tipo { get; set; }
+        public int Durata { get; set; }
+        public int Periodicita { get; set; }
+        public string Localita { get; set; }
+        public string IdSede { get; set; }
+    }
+
+    public class DpiCollection
+    {
+        public Dpi[] value { get; set; }
+    }
 }

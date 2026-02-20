@@ -154,6 +154,7 @@
     [CascadingParameter]
     private MudDialogInstance MudDialog { get; set; }
     private MudForm form;
+    private bool isLoading = false;
 
     [Inject]
     private IDialogService DialogService { get; set; }
@@ -164,9 +165,7 @@
     private List<Mansione> mansioni = new List<Mansione>();
     private List<FattoreDiRischio> fattori = new List<FattoreDiRischio>();
     private List<Accertamenti> accertamenti = new List<Accertamenti>();
-    private bool isLoading = false;
-
-    private string message = "Loading...";
+    
     private string userName;
     private string userEmail;
     private string fetchXmlQuery;
@@ -195,6 +194,7 @@
     private string sedeVisita;
     private IBrowserFile? fileSelezionato;
     private string idVisitaCreata;
+    private bool visitaGiaCreata = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -202,7 +202,7 @@
 
         // Costruisci dinamicamente la query FetchXML
         fetchXmlQuery = $@"
-        <fetch>
+        <fetch distinct='true'>
             <entity name='cr4f9_contattoprv'>
                 <attribute name='cr4f9_calcolonomeecognome' />
                 <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
@@ -215,6 +215,7 @@
                             <filter>
                                 <condition attribute='new_email' operator='eq' value='{userEmail}' />
                             </filter>
+
                         </link-entity>
                     </link-entity>
                 </link-entity>
@@ -244,13 +245,13 @@
             }
             else
             {
-                message = "An error occurred.";
+                await DialogService.ShowMessageBox("ERRORE", "An error occurred.");
                 logger.LogError($"Error fetching data: {response.ReasonPhrase}");
             }
         }
         else
         {
-            message = "There was a problem authenticating.";
+            await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating.");
         }
     }
 
@@ -362,7 +363,6 @@
                 var fetchXml = BuildMansioniFetchXml(selectedLavoratore, azienda);
 
                 var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
-
 
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 
@@ -477,8 +477,6 @@
                                 {
                                     logger.LogWarning("Almeno una delle proprietà 'cr4f9_fattoredirischio' o 'cr4f9_fattoredirischioid' non è presente nel record.");
                                 }
-
-
                             }
                         }
                         else
@@ -812,8 +810,7 @@
 
             if (!form.IsValid)
             {
-                message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-                isLoading = false;
+                await DialogService.ShowMessageBox("ERRORE", "Il modulo non è valido. Compila tutti i campi richiesti.");
                 return;
             }
             // Ottieni il token di accesso
@@ -857,7 +854,7 @@
                 }
                 else
                 {
-                    message = $"Errore nell'invio: {response.ReasonPhrase}";
+                    await DialogService.ShowMessageBox("ERRORE", $"Errore nell'invio: {response.ReasonPhrase}");
                     logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
                     logger.LogError($"Dettagli risposta: {responseBody}");
                 }
@@ -942,6 +939,9 @@
 
     private async Task Submit()
     {
+        if (visitaGiaCreata)
+            return;
+
         if (selectedLavoratore != null)
         {
             var contattoId = selectedLavoratore.cr4f9_contattoprvid;
@@ -963,6 +963,8 @@
                 };
 
             await CreaVisitaMedica(visitaMedica);
+
+            visitaGiaCreata = true;
 
             if (!string.IsNullOrEmpty(idVisitaCreata) && fileSelezionato != null)
             {

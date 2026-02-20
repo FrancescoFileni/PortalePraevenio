@@ -1,0 +1,12 @@
+root = true
+
+[*.{cs,razor,cshtml}]
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+# Temporarily suppress noisy MudBlazor analyzers while we align attributes
+dotnet_diagnostic.MUD0001.severity = none
+dotnet_diagnostic.MUD0002.severity = none
+
+# You can re-enable these later after fixing component attribute casing

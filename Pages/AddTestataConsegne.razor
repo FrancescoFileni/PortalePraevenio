@@ -10,24 +10,27 @@
 @inject IHttpClientFactory ClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
-<MudDialog Class="custom-dialog-red-gray">
+
+<MudDialog>
 	<TitleContent>
-		<MudStack Direction="Row" Align="Center" JustifyContent="Center" Spacing="2">
-			<MudIcon Icon="@Icons.Material.Filled.WorkOutline" Color="Color.Error"/>
+		<MudStack>
+			<MudIcon Icon="@Icons.Material.Filled.Man" Color="Color.Error"/>
 			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
-				Inserisci Testata Consegne DPI
+				Crea nuova consegna DPi a lavoratore
 			</MudText>
 		</MudStack>
 	</TitleContent>
 	<DialogContent>
 		<MudPaper Class="content-area-red-gray" Elevation="1">
-			<MudForm @ref=form Valid="isFormValid"> 
+			<MudForm @ref="form" Valid="isFormValid">
 				<MudGrid>
 					<MudItem xs="12">
 						<MudSelect Variant="Variant.Outlined" T="Lavoratore" Label="Lavoratore" MultiSelection="false"
-						@bind-Value="@selectedLavoratore" @onchange="OnLavoratoreChanged" Required="true"
-						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona lavoratore">
+						@bind-Value="@selectedLavoratore" @onchange="OnLavoratoreChange" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona Lavoratore">
 							@foreach (var lavoratore in lavoratoriOrdinati.value)
 							{
 								<MudSelectItem Value="@lavoratore">
@@ -37,22 +40,12 @@
 						</MudSelect>
 					</MudItem>
 				</MudGrid>
-
-				<MudGrid>
-					<MudItem xs="12">
-						<MudDatePicker Label="Data Consegna" @bind-Date="dataConsegna" Orientation ="Orientation.Landscape" Color="Color.Error" Required="true"/>
-					</MudItem>
-				</MudGrid>
 			</MudForm>
 		</MudPaper>
 	</DialogContent>
 	<DialogActions>
-		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
-			Annulla
-		</MudButton>
-		<MudButton OnClick="Submit" Variant="Variant.Outlined" Color="Color.Error">
-			Conferma
-		</MudButton>
+		<MudButton OnClick="OnConfirmAsync" Color="Color.Primary">Conferma</MudButton>
+		<MudButton OnClick="Cancel" Color="Color.Secondary">Annulla</MudButton>
 	</DialogActions>
 </MudDialog>
 
@@ -60,26 +53,28 @@
 	[CascadingParameter]
 	private MudDialogInstance MudDialog { get; set; }
 
-	[Inject]
-	private IDialogService DialogService { get; set; }
+	[Parameter]
+	public List<ElencoDpiASistema.Dpi> SelectedDpi { get; set; } = new();
+
+	private MudForm form;
 
 	private string userName;
 	private string userEmail;
 	private Guid? azienda;
 	private string clienteId;
-	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
-	private LavoratoreCollection lavoratoriOrdinati = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
-	private bool isLoading = false;
-	private Lavoratore selectedLavoratore;
-	private MudForm form;
-	private DateTime? dataConsegna;
+    
+
 	private string idTestataCreata;
 
-	private string message = "Loading...";
+	private Lavoratore selectedLavoratore;
+	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
+	private LavoratoreCollection lavoratoriOrdinati = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
 
 	protected override async Task OnInitializedAsync()
 	{
 		await LoadUserInformation();
+		await CaricaListaLavoratori();
+
 	}
 
 	private async Task LoadUserInformation()
@@ -87,16 +82,13 @@
 		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 		var user = authState.User;
 
-		if(user.Identity.IsAuthenticated)
+		if (user.Identity.IsAuthenticated)
 		{
 			userName = user.Identity.Name;
 			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
-
 			logger.LogInformation("USER EMAIL: " + userEmail);
-
-			await CaricaClienteAssociato(userEmail);
-			await CaricaListaLavoratori(userEmail);
 		}
+		await CaricaClienteAssociato(userEmail);
 	}
 
 	private async Task CaricaClienteAssociato(string email)
@@ -108,9 +100,9 @@
 			{
 				var client = ClientFactory.CreateClient("DataverseClient");
 
-				var fetchXml = BuildAziendaFetchXml(email);
+				var fetchXml = BuildFetchXml(email);
 
-				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeUriString(fetchXml)}");
 				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 
 				var response = await client.SendAsync(request);
@@ -130,7 +122,7 @@
 
 						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
 							{
-								WriteIndented = true // Per una visualizzazione leggibile
+								WriteIndented = true
 							});
 						logger.LogInformation($"Entities JSON: {entitiesJson}");
 
@@ -141,17 +133,6 @@
 
 							logger.LogInformation($"Entities reference: {clienteId}");
 							logger.LogInformation($"Azienda reference: {azienda}");
-
-
-							if (Guid.TryParse(clienteId, out var newClienteGuid))
-							{
-								// lavoratore.cr4f9_aziendanome = newClienteGuid;
-								// logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
-							}
-							else
-							{
-								logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
-							}
 						}
 						else
 						{
@@ -179,7 +160,7 @@
 		}
 	}
 
-	private string BuildAziendaFetchXml(string email)
+	private string BuildFetchXml(string email)
 	{
 		return $@"
         <fetch>
@@ -192,57 +173,50 @@
         </fetch>";
 	}
 
-	private async Task CaricaListaLavoratori(string email)
+	public async Task CaricaListaLavoratori()
 	{
-		try
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildFetchXmlLavoratori(userEmail);
+		if (tokenResult.TryGetToken(out var token))
 		{
-			var fetchXml = BuildLavoratoriFetchXml(userEmail);
+			var client = ClientFactory.CreateClient("DataverseClient");
 
-			var tokenResult = await TokenProvider.RequestAccessToken();
-			if(tokenResult.TryGetToken(out var token))
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
 			{
-				var client = ClientFactory.CreateClient("DataverseClient");
-
-				var request = new HttpRequestMessage()
-					{
-						Method = HttpMethod.Get,
-						RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}")
-					};
-
-				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-				request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-				var response = await client.SendAsync(request);
-				if(response.IsSuccessStatusCode)
-				{
-					lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
-					lavoratoriOrdinati.value = lavoratori.value.OrderBy(l => l.cr4f9_calcolonomeecognome).ToArray();
-					logger.LogInformation($"Lista lavoratori caricata");
-				}
-				else
-				{
-					message = "An error occured.";
-					logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-				}
+				lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+				lavoratoriOrdinati.value = lavoratori.value.OrderBy(l => l.cr4f9_calcolonomeecognome).ToArray();
+				logger.LogInformation($"Lista lavoratori caricata");
 			}
 			else
 			{
-				message = "There was a problem authenticating";
+				await DialogService.ShowMessageBox("ERRORE", "An error occured.");
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 			}
 		}
-		catch (Exception ex)
+		else
 		{
-			logger.LogError($"Eccezione durante il caricamento dei lavoratori: {ex.Message}");
+			await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating.");
 		}
 	}
 
-	private string BuildLavoratoriFetchXml(string email)
+	private string BuildFetchXmlLavoratori(string email)
 	{
 		return $@"
-        <fetch>
+		<fetch>
             <entity name='cr4f9_contattoprv'>
                 <attribute name='cr4f9_calcolonomeecognome' />
-                <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
+                <attribute name='cr4f9_contattoprvid' />
                 <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
                     <filter>
                         <condition attribute='cr4f9_inforza' operator='eq' value='1' />
@@ -259,77 +233,251 @@
         </fetch>";
 	}
 
-	private void OnLavoratoreChanged()
+	private void OnLavoratoreChange()
 	{
-		if(selectedLavoratore != null)
+		if (selectedLavoratore != null)
 		{
 			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
-			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatti ID: {contattoId}");
 		}
 	}
 
-	private async Task CreaTestataConsegne(TestataConsegna testataConsegna)
+	private async Task OnConfirmAsync()
+	{
+		// 1) token e client Dataverse
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (!tokenResult.TryGetToken(out var token))
+		{
+			Snackbar.Add("Errore di autenticazione", Severity.Error);
+			return;
+		}
+		var client = ClientFactory.CreateClient("DataverseClient");
+		client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+		// 2) fetch unico per le tipologie DPI ammesse dalle mansioni del lavoratore
+		string fetchAllowedTipologie = $@"
+				<fetch>
+				  <entity name='new_lavorapressoprv'>
+					<filter>
+					  <condition attribute='new_lavoratore' operator='eq' value='{selectedLavoratore.cr4f9_contattoprvid}' />
+					  <condition attribute='new_azienda'   operator='eq' value='{azienda}' />
+					  <condition attribute='cr4f9_inforza'  operator='eq' value='1' />
+					</filter>
+					<link-entity
+						name='cr4f9_new_mansionetabellamaster_cr4f9_tipolog'
+						from='new_mansionetabellamasterid'
+						to='cr4f9_mansione'
+						link-type='inner' alias='Mansione'>
+					  <attribute name='cr4f9_tipologiadpiprvid' alias='Tipologia' />
+					</link-entity>
+				  </entity>
+				</fetch>";
+
+		var reqAllowed = new HttpRequestMessage(HttpMethod.Get,
+			$"{client.BaseAddress}new_lavorapressoprvs?fetchXml={Uri.EscapeDataString(fetchAllowedTipologie)}");
+		var respAllowed = await client.SendAsync(reqAllowed);
+		respAllowed.EnsureSuccessStatusCode();
+		var allowedBody = await respAllowed.Content.ReadFromJsonAsync<JsonElement>();
+
+		// Costruiamo l'insieme dei GUID (string) di tipologie permesse
+		var allowedTipologie = new HashSet<string>();
+		foreach (var item in allowedBody.GetProperty("value").EnumerateArray())
+		{
+			if (item.TryGetProperty("Tipologia", out var prop)
+				&& prop.ValueKind == JsonValueKind.String)
+			{
+				var tipo = prop.GetString();
+				allowedTipologie.Add(tipo);
+				logger.LogInformation($"[Debug] Tipologia ammessa trovata: {tipo}");
+			}
+			else
+			{
+				logger.LogWarning($"[Debug] Elemento senza campo 'Tipologia': {item}");
+			}
+		}
+
+		logger.LogInformation($"[Debug] Totale tipologie ammesse: {allowedTipologie.Count}");
+		logger.LogInformation($"[Debug] Elenco tipologie ammesse: {string.Join(", ", allowedTipologie)}");
+
+		// 3) Identifichiamo i DPI il cui Tipo non è ammesso
+		var dpiNonConsentiti = SelectedDpi
+			.Where(dpi => !allowedTipologie.Contains(dpi.cr4f9_tipologiadpi))
+			.ToList();
+
+		if (dpiNonConsentiti.Any())
+		{
+			// Prepara un elenco leggibile
+			var elenco = string.Join("\n",
+				dpiNonConsentiti.Select(d => $"{d.cr4f9_matricoladispositivo} ({d.Tipo})"));
+
+			bool? continua = await DialogService.ShowMessageBox(
+				"Attenzione: DPI non previsti",
+				$"I seguenti DPI non sono previsti dalle mansioni del lavoratore:\n\n{elenco}\n\nContinuare comunque?",
+				"Continua",
+				"Annulla");
+
+			if (continua != true)
+			{
+				Snackbar.Add("Operazione annullata dall’utente.", Severity.Info);
+				return;
+			}
+		}
+		// 2) flag per sapere quando abbiamo già creato la testata
+		bool testataCreata = false;
+
+		// 3) ciclo su ogni DPI selezionato
+		foreach (var dpi in SelectedDpi)
+		{
+			// — Fetch dei record non riconsegnati
+			string fetchCheck = $@"
+								<fetch>
+									<entity name='cr4f9_associazionedpialavoratore'>
+									<attribute name='cr4f9_associazionedpialavoratoreid' />
+									<filter>
+										<condition attribute='cr4f9_dpifisico' operator='eq' value='{dpi.cr4f9_dpifisicoid}' />
+										<condition attribute='cr4f9_riconsegnato' operator='eq' value='false' />
+									</filter>
+									</entity>
+								</fetch>";
+			var reqCheck = new HttpRequestMessage(HttpMethod.Get,
+				$"{client.BaseAddress}cr4f9_associazionedpialavoratores?fetchXml={Uri.EscapeDataString(fetchCheck)}");
+			var respCheck = await client.SendAsync(reqCheck);
+			respCheck.EnsureSuccessStatusCode();
+			var checkBody = await respCheck.Content.ReadFromJsonAsync<JsonElement>();
+			var existing = checkBody.GetProperty("value").EnumerateArray().ToList();
+
+			// — Se c'è almeno un record aperto, chiedi conferma e patch
+			if (existing.Count > 0)
+			{
+				bool? riconsegna = await DialogService.ShowMessageBox(
+					"DPI già consegnato",
+					$"Il DPI “{dpi.cr4f9_matricoladispositivo}” risulta già consegnato e non riconsegnato. " +
+					"Vuoi marcare la vecchia associazione come riconsegnata e proseguire?",
+					"Riconsegna",
+					"Annulla");
+
+				if (riconsegna == false)
+				{
+					Snackbar.Add("Operazione annullata per questo DPI", Severity.Info);
+					continue;
+				}
+				else
+				{
+					var existingId = existing[0].GetProperty("cr4f9_associazionedpialavoratoreid").GetString();
+					var patchPayload = new { cr4f9_riconsegnato = true };
+					var reqPatch = new HttpRequestMessage(HttpMethod.Patch,
+						$"{client.BaseAddress}cr4f9_associazionedpialavoratores({existingId})")
+						{
+							Content = JsonContent.Create(patchPayload)
+						};
+					reqPatch.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+					var respPatch = await client.SendAsync(reqPatch);
+					respPatch.EnsureSuccessStatusCode();
+				}
+
+				
+			}
+
+			// — Creazione della testata: solo la prima volta che entriamo qui
+			if (!testataCreata)
+			{
+				var headerDict = new Dictionary<string, object>
+					{
+						{ "cr4f9_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({selectedLavoratore.cr4f9_contattoprvid})" },
+						{ "cr4f9_Cliente@odata.bind", $"/cr4f9_clienteprvs({azienda})" },
+						{ "cr4f9_dataconsegna", DateTime.Today }
+					};
+
+				string headerJson = JsonConvert.SerializeObject(headerDict, Formatting.Indented);
+				logger.LogInformation($"Testata payload: {headerJson}");
+
+				var reqHeader = new HttpRequestMessage(HttpMethod.Post, $"{client.BaseAddress}cr4f9_testataconsegnas")
+				{
+					Content = JsonContent.Create(headerDict)
+				};
+				reqHeader.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var respHeader = await client.SendAsync(reqHeader);
+				respHeader.EnsureSuccessStatusCode();
+
+				if (respHeader.Headers.TryGetValues("OData-EntityId", out var vals))
+				{
+					var entityUrl = vals.First();
+					var start = entityUrl.IndexOf('(') + 1;
+					var len = entityUrl.IndexOf(')') - start;
+					idTestataCreata = entityUrl.Substring(start, len);
+					testataCreata = true;
+				}
+				else
+				{
+					throw new InvalidOperationException("Non ho trovato l'ID della testata creata.");
+				}
+			}
+
+			// — Infine, crea l'associazione DPI–Lavoratore legata alla testata
+			await CreaAssociazioneDpiLavoratore(dpi);
+		}
+
+		// 4) se abbiamo processato almeno un DPI, chiudi il dialog
+		if (testataCreata)
+			MudDialog.Close(DialogResult.Ok(true));
+		else
+			Snackbar.Add("Nessuna consegna creata: nessun DPI processato.", Severity.Warning);
+	}
+
+	private async Task CreaAssociazioneDpiLavoratore(ElencoDpiASistema.Dpi dpi)
 	{
 		try
 		{
-			isLoading = true;
+            
 
-			var dizionario = new Dictionary<string, object> //cr4f9_Cliente cr4f9_dataconsegna cr4f9_Lavoratore   cr4f9_testataconsegna
+			var dizionario = new Dictionary<string, object>
 			{
-				{"cr4f9_Lavoratore@odata.bind", $"/cr4f9_contattoprvs({testataConsegna.Lavoratore})"},
-				{"cr4f9_Cliente@odata.bind", $"/cr4f9_clienteprvs({testataConsegna.Azienda})"},
-				{"cr4f9_dataconsegna", testataConsegna.Data}
+				{"cr4f9_Lavoratorelookup@odata.bind" , $"/cr4f9_contattoprvs({selectedLavoratore.cr4f9_contattoprvid})" },
+				{"cr4f9_DPIfisico@odata.bind" , $"/cr4f9_dpifisicos({dpi.cr4f9_dpifisicoid})" },
+				{"cr4f9_Clientelookup@odata.bind" , $"/cr4f9_clienteprvs({azienda})" },
+				{"cr4f9_duratavitamesi", dpi.Durata },
+				{"cr4f9_numerodimatricola" , dpi.cr4f9_matricoladispositivo },
+				{"cr4f9_datadiconsegna", DateTime.Today },
+				{"cr4f9_datadiproduzione", dpi.createdon },
+				{"cr4f9_dataprossimocontrollo", DateTime.Today.AddMonths(dpi.Periodicita) },
+				{"cr4f9_datafinevita", dpi.createdon.AddMonths(dpi.Durata) },
+				{"cr4f9_periodicitacontrollimesi", dpi.Periodicita},
+				{"cr4f9_taglia", dpi.cr4f9_taglia},
+				{"cr4f9_quantita", 1},
+				{"cr4f9_riepilogoconsegnacalculated", $"Consegna del dispositivo {dpi.cr4f9_nomedeldispositivofisico} al lavoratore {selectedLavoratore.cr4f9_calcolonomeecognome}"},
+				{"cr4f9_riconsegnato", false},
+				{"cr4f9_RiferimentoTestata@odata.bind", $"/cr4f9_testataconsegnas({idTestataCreata})"}
 			};
 
 			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
 
 			logger.LogInformation($"Contenuto: {contenuto}");
 
-			await form.Validate();
-
-			if(!form.IsValid)
-			{
-				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-				isLoading = false;
-				return;
-			}
 			var tokenResult = await TokenProvider.RequestAccessToken();
-			if(tokenResult.TryGetToken(out var token))
+			if (tokenResult.TryGetToken(out var token))
 			{
 				var client = ClientFactory.CreateClient("DataverseClient");
 
-				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_testataconsegnas")
-					{
-						Content = JsonContent.Create(contenuto)
-					};
+				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_associazionedpialavoratores")
+						{
+							Content = JsonContent.Create(contenuto)
+						};
 
 				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 
 				var response = await client.SendAsync(request);
 				var responseBody = await response.Content.ReadAsStringAsync();
-				logger.LogInformation($"Payload invitato: {contenuto}");
+
+				logger.LogInformation("payload inviato: {@contenuto}");
 
 				if (response.IsSuccessStatusCode)
 				{
-					if(response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
-					{
-						var entityId = entityIdValues.FirstOrDefault();
-
-						if(entityId != null)
-						{
-							idTestataCreata = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
-							logger.LogInformation($"Record della testata creato con successo ID: {idTestataCreata}");
-						}
-					}
-					else
-					{
-						logger.LogWarning("Nessun ID trovato nell'header della risposta.");
-					}
-					testataConsegna = new();
+					dpi = new();
 				}
 				else
 				{
-					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("ERRORE", $"Errore nell'invio: {response.ReasonPhrase}");
 					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
 					logger.LogError($"Dettagli risposta: {responseBody}");
 				}
@@ -341,44 +489,18 @@
 		}
 		catch (Exception ex)
 		{
-			logger.LogError($"Errore durante la creazione del record della testata consegna: {ex.Message}");
+			logger.LogError($"Errore durante la creazione del record della visita medica: {ex.Message}");
 		}
+        
+
 	}
 
 	private void Cancel() => MudDialog.Cancel();
 
-	private async Task Submit()
-	{
-		if(selectedLavoratore != null)
-		{
-			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
-
-			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
-
-			var testataConsegne = new TestataConsegna
-			{
-				Lavoratore = contattoId,
-				Azienda = clienteId,
-				Data= dataConsegna
-			};
-
-			await CreaTestataConsegne(testataConsegne);
-
-			await DialogService.ShowMessageBox(
-				"INFO",
-				"Testata consegne inserita con successo",
-				yesText: "Chiudi");
-
-			MudDialog.Close(DialogResult.Ok(true));
-
-			Navigation.NavigateTo("/elencoconsegnedpi", forceLoad: true);
-		}
-	}
-
 	public class Lavoratore
 	{
-		public string cr4f9_calcolonomeecognome { get; set; }
 		public string cr4f9_contattoprvid { get; set; }
+		public string cr4f9_calcolonomeecognome { get; set; }
 	}
 
 	public class LavoratoreCollection
@@ -386,12 +508,6 @@
 		public Lavoratore[] value { get; set; }
 	}
 
-	public class TestataConsegna
-	{
-		public string Lavoratore { get; set; }
-		public string Azienda { get; set; }
-		public DateTime? Data { get; set; }
-	}
 }
 
 <style>

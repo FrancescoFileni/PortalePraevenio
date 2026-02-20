@@ -1,0 +1,201 @@
+﻿/* =========================================================
+   DETTAGLIO MACCHINARIO / IMPIANTO
+   Coerente con pagine DPI – Consegne – Lavoratori
+   ========================================================= */
+
+/* ===== Layout / wrapper pagina ===== */
+/* Se vuoi limitare la larghezza come da screenshot “bello” */
+.page-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 12px;
+}
+
+/* ===== Toolbar ===== */
+.toolbar {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin: 12px 0 22px 0;
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.back-btn {
+    border-radius: 12px;
+}
+
+.page-title {
+    color: #E53935;
+    font-weight: 900;
+    letter-spacing: .02em;
+    line-height: 1.2;
+}
+
+/* ===== Sezioni principali ===== */
+.section {
+    margin-bottom: 22px;
+}
+
+/* ===== Contenitore pagina (shell “soft”) ===== */
+.folder-container {
+    position: relative;
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
+    border: 1px solid rgba(229,57,53,.18);
+    box-shadow: 0 18px 40px rgba(0,0,0,.10);
+}
+
+/* ===== Card generica ===== */
+.table-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(0,0,0,.08);
+    box-shadow: 0 10px 26px rgba(0,0,0,.06);
+    overflow: hidden;
+}
+
+    .table-card.mt-4 {
+        margin-top: 18px;
+    }
+
+/* Header card */
+.table-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 18px 14px 18px;
+    gap: 16px;
+    background: linear-gradient(180deg, #fbfbfb 0%, #ffffff 100%);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+.table-card-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+    .table-card-title .mud-typography-h6 {
+        font-weight: 900 !important;
+    }
+
+.table-subtitle {
+    color: #757575;
+    font-weight: 700;
+}
+
+/* ===== Sezione contenuto ===== */
+.folder-section {
+    padding: 16px 18px 18px 18px;
+}
+
+/* ===== Grid dettagli ===== */
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.detail-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.08);
+    padding: 12px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.06);
+}
+
+    .detail-card.span-2 {
+        grid-column: span 2;
+    }
+
+@media (max-width: 900px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-card.span-2 {
+        grid-column: auto;
+    }
+}
+
+/* Miglior leggibilità dei MudTextField in readonly */
+.detail-card .mud-input-root,
+.detail-card .mud-input-control,
+.detail-card .mud-input-slot {
+    background: #fff !important;
+}
+
+/* ===== MudTable “pretty” ===== */
+/* ===== MudTable – Header ROSSO (FIX DEFINITIVO) ===== */
+
+/* Header thead */
+.pretty-table thead {
+    background-color: #E53935 !important;
+}
+
+    /* Celle header */
+    .pretty-table thead th,
+    .pretty-table thead .mud-table-cell {
+        background-color: #E53935 !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        letter-spacing: .02em;
+        border-bottom: none !important;
+        padding: 14px 14px !important;
+    }
+
+    /* Rimuove eventuali overlay o gradient di Mud */
+    .pretty-table thead tr {
+        background-color: #E53935 !important;
+    }
+
+    /* Icone sort */
+    .pretty-table thead .mud-table-sort-label,
+    .pretty-table thead .mud-icon-root {
+        color: #ffffff !important;
+    }
+
+    /* Hover header (evita che cambi colore) */
+    .pretty-table thead th:hover {
+        background-color: #E53935 !important;
+    }
+
+
+/* ===== Stato (pill) ===== */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+    .status-pill.ok {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .status-pill.ko {
+        background: #ffebee;
+        color: #d32f2f;
+    }
+
+/* ===== Utility ===== */
+.text-center {
+    text-align: center;
+}
+
+.my-6 {
+    margin: 24px 0;
+}

@@ -18,7 +18,7 @@
 		<MudStack>
 			<MudIcon Icon="@Icons.Material.Filled.Man" Color="Color.Error"/>
 			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
-				Associa nuovo lavoratore alla sede
+				Associa lavoratore alla sede
 			</MudText>
 		</MudStack>
 	</TitleContent>
@@ -89,8 +89,6 @@
 	private string userEmail;
 	private Guid? azienda;
 	private string clienteId;
-	private string message = "Loading...";
-	private bool isLoading = false;
 	private string idPrestazioneCreata;
 
 	private Lavoratore selectedLavoratore;
@@ -238,13 +236,13 @@
 			}
 			else
 			{
-				message = "An error occured.";
+				await DialogService.ShowMessageBox("Errore", $"Errore nel recupero dei lavoratori: {response.ReasonPhrase}");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "Problema di autenticazione durante il recupero lavoratori.");
 		}
 	}
 
@@ -254,7 +252,7 @@
 		<fetch>
             <entity name='cr4f9_contattoprv'>
                 <attribute name='cr4f9_calcolonomeecognome' />
-                <attribute name='cr4f9_contattoprvid' /> <!-- Aggiunto il campo -->
+                <attribute name='cr4f9_contattoprvid' />
                 <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
                     <filter>
                         <condition attribute='cr4f9_inforza' operator='eq' value='1' />
@@ -298,13 +296,13 @@
 			}
 			else
 			{
-				message = "An error occured.";
+				await DialogService.ShowMessageBox("Errore", $"Errore nel recupero delle mansioni: {response.ReasonPhrase}");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "Problema di autenticazione durante il recupero mansioni.");
 		}
 	}
 
@@ -350,14 +348,14 @@
 			}
 			else
 			{
-				message = "An error occured while fetching the sede.";
+				await DialogService.ShowMessageBox("Errore", $"Errore nel recupero della sede: {response.ReasonPhrase}");
 				logger.LogError($"Error fetching sede: {response.ReasonPhrase}");
 
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "Problema di autenticazione durante il recupero della sede.");
 		}
 	}
 
@@ -383,7 +381,7 @@
 	{
 		try
 		{
-			isLoading = true;
+            
 
 			var dizionario = new Dictionary<string, object>
 			{
@@ -402,8 +400,7 @@
 
 			if(!form.IsValid)
 			{
-				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-				isLoading = false;
+				await DialogService.ShowMessageBox("Errore", "Il modulo non è valido. Compila tutti i campi richiesti.");
 				return;
 			}
 
@@ -444,7 +441,7 @@
 				}
 				else
 				{
-					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("Errore", $"Errore nell'invio: {response.ReasonPhrase}");
 					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
 					logger.LogError($"Dettagli risposta: {responseBody}");
 				}
@@ -456,9 +453,8 @@
 		}
 		catch (Exception ex)
 		{
-			logger.LogError($"Errore durante la creazione del record della visita medica: {ex.Message}");
+			logger.LogError($"Errore durante la creazione del record della prestazione di lavoro: {ex.Message}");
 		}
-		isLoading = false;
 	}
 
 	private void OnLavoratoreChange()
@@ -470,7 +466,7 @@
 		}
 	}
 
-	private async Task Submit()
+	private async Task Submit() 
 	{
 		if (selectedLavoratore != null)
 		{

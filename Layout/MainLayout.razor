@@ -1,27 +1,179 @@
-﻿@inherits LayoutComponentBase
-@* Required *@
+@inherits LayoutComponentBase
+
 <MudThemeProvider />
 <MudPopoverProvider />
-
-@* Needed for dialogs *@
 <MudDialogProvider />
-
-@* Needed for snackbars *@
 <MudSnackbarProvider />
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+	<div class="sidebar">
+		<NavMenu />
+	</div>
 
-    <main>
-        <div class="top-row px-4 auth">
-            <LoginDisplay />
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+	<main>
+		<!-- Barra comandi in alto, a destra -->
+		<div class="top-right">
+			<LoginDisplay />
+			<a class="top-about" href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+		</div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+		<!-- Contenuto centrale -->
+		<article class="content">
+			@Body
+		</article>
+	</main>
 </div>
+
+<style>
+	:root {
+		--primary-red: #E53935;
+		--accent-green: #4CAF50;
+		--muted-gray: #f7f7f7;
+		--text-muted: #757575;
+		--border-soft: rgba(15, 23, 42, 0.08);
+		--shadow-soft: 0 14px 40px rgba(15, 23, 42, 0.12);
+	}
+
+	/* Layout generale */
+	.page {
+		display: flex;
+		min-height: 100vh;
+		background: radial-gradient(circle at top, #ffffff 0, #f5f5f5 45%, #ececec 100%);
+	}
+
+	main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		/* quasi niente padding laterale: spazio massimo per le pagine */
+		padding: 1rem 0.25rem 1.5rem 0.25rem;
+	}
+
+	/* ----- Barra con Login + About in alto a destra ----- */
+	.top-right {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 1rem;
+		margin-bottom: 0.75rem;
+		padding-inline: 0.25rem;
+	}
+
+		.top-right ::deep .user-display {
+			gap: 0.75rem;
+		}
+
+		.top-right ::deep .hello-text {
+			background: #ffffff;
+			border-radius: 999px;
+			border: 1px solid rgba(0,0,0,0.06);
+			padding: 6px 14px;
+			font-size: 0.9rem;
+			font-weight: 500;
+			color: #444;
+			box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+		}
+
+		.top-right ::deep .logout-btn {
+			font-size: 0.9rem;
+			font-weight: 500;
+			color: #444;
+			background: #ffffff;
+			padding: 6px 14px;
+			border-radius: 999px;
+			border: 1px solid rgba(0,0,0,0.12);
+			cursor: pointer;
+			transition: all 0.18s ease-out;
+		}
+
+			.top-right ::deep .logout-btn:hover {
+				color: var(--primary-red);
+				border-color: rgba(229,57,53,0.45);
+				background: rgba(229,57,53,0.06);
+				box-shadow: 0 4px 14px rgba(229,57,53,0.2);
+				transform: translateY(-1px);
+			}
+
+	/* Link About */
+	.top-about {
+		font-size: 0.9rem;
+		font-weight: 500;
+		color: #444;
+		text-decoration: none;
+		background: #ffffff;
+		padding: 6px 14px;
+		border-radius: 999px;
+		border: 1px solid rgba(0,0,0,0.12);
+		transition: all 0.18s ease-out;
+	}
+
+		.top-about:hover {
+			color: var(--primary-red);
+			border-color: rgba(229,57,53,0.45);
+			background: rgba(229,57,53,0.06);
+			box-shadow: 0 4px 14px rgba(229,57,53,0.2);
+			transform: translateY(-1px);
+		}
+
+	/* ----- Card centrale dove vive il contenuto delle pagine ----- */
+	article.content {
+		flex: 1;
+		width: 100%; /* prende tutta la larghezza del main */
+		max-width: 100%; /* nessun limite artificiale */
+		margin: 0; /* niente centratura stretta */
+		background: #ffffff;
+		border-radius: 22px;
+		border: 1px solid var(--border-soft);
+		box-shadow: var(--shadow-soft);
+		padding: 1rem 1rem 1.25rem 1rem; /* un po' meno padding interno */
+		position: relative;
+		overflow: hidden;
+	}
+
+		/* Accent rosso sottile in alto alla card */
+		article.content::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 4px;
+			background: linear-gradient(90deg, var(--primary-red), #ff8a80);
+		}
+
+	/* Nessuno styling generico sulle MudTable qui:
+		   la tabella viene personalizzata nei CSS delle singole pagine. */
+
+	article.content {
+		padding: 0.85rem;
+		border-radius: 16px;
+	}
+
+	}
+
+	/* --- OVERRIDE GLOBALE LARGHEZZA CONTENUTO --- */
+
+	/* main deve usare tutta la larghezza disponibile */
+	.page main {
+		max-width: 100% !important;
+		width: 100% !important;
+		padding-left: 0.25rem !important;
+		padding-right: 0.25rem !important;
+	}
+
+		/* la card centrale (article.content) non deve essere centrata/stretta */
+		.page main > article.content {
+			max-width: 100% !important;
+			width: 100% !important;
+			margin-left: 0 !important;
+			margin-right: 0 !important;
+		}
+
+	.sidebar {
+		width: 250px;
+		min-height: 100vh; /* la sidebar arriva sempre fino in fondo alla finestra */
+		background: linear-gradient(180deg, #f7f7f7, #e0e0e0); /* grigio coerente con il resto */
+		box-shadow: 4px 0 14px rgba(0,0,0,0.08);
+	}
+
+</style>

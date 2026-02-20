@@ -1,0 +1,202 @@
+﻿/* dettaglio-consegnadpi.css
+   Stile coerente con le altre pagine (toolbar + folder + card + tabelle)
+*/
+
+/* ===== Toolbar ===== */
+.toolbar {
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+.my-6 {
+    margin: 24px 0;
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.back-btn {
+    border-radius: 12px;
+}
+
+.page-title {
+    color: #E53935;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+/* ===== Tabs (accent rosso invece che viola) ===== */
+.mud-tab-slider {
+    background: #E53935 !important;
+}
+
+.mud-tab.mud-tab-active {
+    color: #E53935 !important;
+}
+
+/* ===== Folder container (shell pagina) ===== */
+.folder-container {
+    position: relative;
+    border-radius: 16px;
+    padding: 18px;
+    margin-top: 16px;
+    margin-bottom: 80px;
+    background: linear-gradient(180deg,#fff 0%,#f7f7f7 100%);
+    border: 1px solid rgba(229,57,53,.22);
+    box-shadow: 0 18px 40px rgba(0,0,0,.12);
+}
+
+/* Se vuoi “linguetta” stile cartella (opzionale) */
+.folder-tab {
+    position: absolute;
+    top: -16px;
+    left: 18px;
+    background: #E53935;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 10px 20px rgba(229,57,53,.25);
+}
+
+/* Sezioni interne (spaziatura) */
+.folder-section {
+    padding: 16px 18px 18px 18px;
+}
+
+/* ===== Dettagli testata (grid + card) ===== */
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.detail-card {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+    .detail-card.span-2 {
+        grid-column: span 2;
+    }
+
+@media (max-width: 900px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-card.span-2 {
+        grid-column: auto;
+    }
+}
+
+/* ===== Table card (contenitore tabelle coerente) ===== */
+.table-card {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 16px;
+    box-shadow: 0 10px 26px rgba(0,0,0,.06);
+    overflow: hidden;
+}
+
+    .table-card.mt-4 {
+        margin-top: 16px;
+    }
+
+.table-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    background: linear-gradient(180deg,#fafafa 0%,#fff 100%);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+.table-card-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.table-subtitle {
+    color: #757575;
+}
+
+/* Pulsanti azione (coerenti) */
+.action-btn {
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgba(0,0,0,.10);
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+/* ===== Pretty table (MudTable) ===== */
+/* Header rosso (robusto: funziona anche senza HeaderClass) */
+.pretty-table thead tr {
+    background-color: #E53935;
+}
+
+.pretty-table thead th,
+.pretty-table thead .mud-table-cell {
+    color: #fff !important;
+    font-weight: 800;
+    letter-spacing: .02em;
+    border-bottom: none !important;
+}
+
+/* Celle/righe */
+.pretty-table .mud-table-cell {
+    padding: 12px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+.pretty-table tbody tr:nth-child(even) {
+    background: rgba(0,0,0,.02);
+}
+
+/*.pretty-table .mud-table-row:hover {
+    background: rgba(229,57,53,.06) !important;
+}*/
+
+/* Fix: evita scroll interno indesiderato */
+.pretty-table .mud-table-container {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* (Opzionale) header sticky */
+.pretty-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Link tabella “clean” */
+.pretty-table .mud-link.mud-typography.mud-primary-text {
+    color: #2b2b2b !important;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-decoration: none;
+    display: inline-flex;
+}
+
+    .pretty-table .mud-link.mud-typography.mud-primary-text:hover {
+        text-decoration: underline;
+    }
+
+/* Utility */
+.text-center {
+    text-align: center;
+}

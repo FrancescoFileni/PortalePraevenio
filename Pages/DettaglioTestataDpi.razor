@@ -1,105 +1,299 @@
-﻿@page "/dettaglioTestataDpi/id={IdTestata}"
+@page "/dettaglioTestataDpi/id={IdTestata}"
+@using System
 @using System.Net.Http.Headers
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Json
+@using System.Linq
+@using System.IO
+@using DocumentFormat.OpenXml
+@using DocumentFormat.OpenXml.Packaging
+@using DocumentFormat.OpenXml.Wordprocessing
+@using A = DocumentFormat.OpenXml.Drawing
+
 @inject IHttpClientFactory ClientFactory
 @inject IAccessTokenProvider TokenProvider
 @inject ILogger<FetchSedi> logger
 @inject NavigationManager Navigation
 @inject IDialogService DialogService
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
 
-<button @onclick="GoBack">
-    <i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
-</button>
+<link href="css/dettaglio-consegnadpi.css" rel="stylesheet" />
 
-@* <MudButton Color="Color.Primary" OnClick="OpenAddConsegneDialog">
-    <i class="fas fa-plus"></i> Aggiungi DPI
-</MudButton> *@
+<div class="toolbar my-6">
+	<div class="toolbar-left">
+		<MudButton Variant="Variant.Text"
+				   Color="MudBlazor.Color.Error"
+				   Class="back-btn"
+				   StartIcon="@Icons.Material.Filled.ArrowBack"
+				   OnClick="GoBack">
+		</MudButton>
+
+
+		<MudText Typo="Typo.h5" Class="page-title">
+			Dettaglio consegna DPI
+		</MudText>
+	</div>
+</div>
 
 <MudTabs Elevation="2" Rounded="true" Class="my-6">
-    <MudTabPanel Icon="@Icons.Material.Filled.Info" Text="Dettagli Testata">
-        <div class="folder-container">
+	<MudTabPanel Icon="@Icons.Material.Filled.Info" Text="Dettagli Testata">
 
-            <div class="folder-container">
-                <div class="folder-tab">
-                    Dettaglio Testata Consegna DPI
-                </div>
+		<div class="folder-container">
 
-                <div class="folder-section">
-                    <MudTextField Label="ID Testata" Value="@codiceTestata" ReadOnly="true" Variant="Variant.Outlined"></MudTextField>
-                    <MudDatePicker Label="Data di Consegna" @bind-Date="dataConsegna" Format="dd/MM/yyyy" ReadOnly="true" />
-                    <MudTextField Label="Lavoratore" Value="@lavoratore" ReadOnly="true" Variant="Variant.Outlined"></MudTextField>
-                </div>
-            </div>
+			<div class="table-card">
+				<div class="table-card-header">
+					<div class="table-card-title">
+						<MudText Typo="Typo.h6">Dettaglio Testata Consegna DPI</MudText>
+						<MudText Typo="Typo.caption" Class="table-subtitle">
+							Riepilogo testata
+						</MudText>
+					</div>
 
-            <div class="folder-container">
-                <div class="folder-tab">
-                    Consegne DPI
-                </div>
+					<MudButton Color="MudBlazor.Color.Primary"
+							   Variant="Variant.Filled"
+							   StartIcon="@Icons.Material.Filled.Description"
+							   OnClick="ScaricaModuloWord">
+						Stampa modulo Word (test)
+					</MudButton>
+				</div>
 
-                <div class="folder-section">
-                    <MudTable Items="consegneDpi" Dense="true" HeaderClass="mud-table-header" Hover="true">
-                        <ToolBarContent>
-                            <MudText Typo="Typo.h6">Consegne DPI</MudText>
-                        </ToolBarContent>
-                        <HeaderContent>
-                            <MudTh>Codice DPI</MudTh>
-                            <MudTh>Data di Consegna</MudTh>
-                            <MudTh>Quantità</MudTh>
-                            <MudTh>Numero Matricola</MudTh>
-                        </HeaderContent>
-                        <RowTemplate Context="consegna">
-                            <MudTd DataLabel="Codice DPI">@consegna.nome</MudTd>
-                            <MudTd DataLabel="Data di Consegna">@consegna.cr4f9_datadiconsegna.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd DataLabel="Quantità">@consegna.cr4f9_quantita</MudTd>
-                            <MudTd DataLabel="Numero Matricola">@consegna.cr4f9_numerodimatricola</MudTd>
-                        </RowTemplate>
-                        <PagerContent>
-                            <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                        </PagerContent>
-                    </MudTable>
-                </div>
-            </div>
-        </div>
-    </MudTabPanel>
+				<div class="folder-section">
+					<div class="details-grid">
+						<div class="detail-card">
+							<MudTextField Label="ID Testata"
+										  Value="@codiceTestata"
+										  ReadOnly="true"
+										  Variant="Variant.Outlined" />
+						</div>
+
+						<div class="detail-card">
+							<MudDatePicker Label="Data di Consegna"
+										   @bind-Date="dataConsegna"
+										   Format="dd/MM/yyyy"
+										   ReadOnly="true" />
+						</div>
+
+						<div class="detail-card span-2">
+							<MudTextField Label="Lavoratore"
+										  Value="@lavoratore"
+										  ReadOnly="true"
+										  Variant="Variant.Outlined" />
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="table-card mt-4">
+				<div class="table-card-header">
+					<div class="table-card-title">
+						<MudText Typo="Typo.h6">Consegne DPI</MudText>
+						<MudText Typo="Typo.caption" Class="table-subtitle">
+							Elenco dispositivi consegnati
+						</MudText>
+					</div>
+				</div>
+
+				<MudTable Items="consegneDpi"
+						  Dense="true"
+						  Hover="true"
+						  Class="pretty-table">
+					<HeaderContent>
+						<MudTh>Codice DPI</MudTh>
+						<MudTh>Data di Consegna</MudTh>
+						<MudTh>Quantità</MudTh>
+						<MudTh>Numero Matricola</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="consegna">
+						<MudTd DataLabel="Codice DPI">@consegna.nome</MudTd>
+						<MudTd DataLabel="Data di Consegna">@consegna.cr4f9_datadiconsegna.ToString("dd/MM/yyyy")</MudTd>
+						<MudTd DataLabel="Quantità">@consegna.cr4f9_quantita</MudTd>
+						<MudTd DataLabel="Numero Matricola">@consegna.cr4f9_numerodimatricola</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+
+		</div>
+
+	</MudTabPanel>
 </MudTabs>
 
 @code {
-    [Parameter]
-    public string IdTestata { get; set; }
+	[Parameter] public string IdTestata { get; set; }
 
-    private Guid? idConsegnaTestata;
-    private string codiceTestata;
-    private DateTime? dataConsegna;
-    private string lavoratore;
-    private string id;
+	private Guid? idConsegnaTestata;
+	private string codiceTestata;
+	private DateTime? dataConsegna;
+	private string lavoratore;
+	private string id;
 
-    private List<ConsegnaDpi> consegneDpi = new List<ConsegnaDpi>();
+	private List<ConsegnaDpi> consegneDpi = new();
 
-    protected override async Task OnInitializedAsync()
-    {
-        logger.LogInformation($"Testata {idConsegnaTestata}  ---  {IdTestata}");
-        if (Guid.TryParse(IdTestata, out var testataId))
-        {
-            await LoadTestataDetails(testataId);
-            await LoadConsegneDpi(testataId);
-        }
-        else
-        {
-            logger.LogError("ID della testata non valido.");
-        }
-    }
+	// --- CAMPI CLIENTE ---
+	private string datoreDiLavoro;
+	private string citta;
+	private string ragioneSociale;
+	private string provincia;
+	private string via;
+	private byte[] logoBytes;
 
-    // Carica i dettagli della testata con i dati del lavoratore
-    private async Task LoadTestataDetails(Guid testataId)
-    {
-        var tokenResult = await TokenProvider.RequestAccessToken();
+	protected override async Task OnInitializedAsync()
+	{
+		logger.LogInformation($"Testata {idConsegnaTestata}  ---  {IdTestata}");
 
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
+		if (Guid.TryParse(IdTestata, out var testataId))
+		{
+			await LoadTestataDetails(testataId);
+			await LoadConsegneDpi(testataId);
+			await LoadDatiClientePerTestata(testataId);
+		}
+		else
+		{
+			logger.LogError("ID della testata non valido.");
+		}
+	}
 
-            // Usa la query Fetch aggiornata che include i dettagli del lavoratore
-            var fetchXmlTestata = $@"
+	private async Task ScaricaModuloWord()
+	{
+		if (string.IsNullOrEmpty(IdTestata) || !Guid.TryParse(IdTestata, out var testataGuid))
+		{
+			logger.LogError("IdTestata non valido per generare il modulo Word.");
+			return;
+		}
+
+		if (string.IsNullOrEmpty(lavoratore) || string.IsNullOrEmpty(codiceTestata))
+			await LoadTestataDetails(testataGuid);
+
+		if (consegneDpi == null || consegneDpi.Count == 0)
+			await LoadConsegneDpi(testataGuid);
+
+		if (string.IsNullOrEmpty(ragioneSociale) && string.IsNullOrEmpty(datoreDiLavoro))
+			await LoadDatiClientePerTestata(testataGuid);
+
+		try
+		{
+			using var templateStream = await Http.GetStreamAsync("template/b64encode.docx");
+			using var ms = new MemoryStream();
+			await templateStream.CopyToAsync(ms);
+			ms.Position = 0;
+
+			using (var wordDoc = WordprocessingDocument.Open(ms, true))
+			{
+				var body = wordDoc.MainDocumentPart.Document.Body;
+
+				ReplaceText(body, "cr4f9_calcolonomeecognome", lavoratore ?? string.Empty);
+				ReplaceText(body, "cr4f9_idtestata", codiceTestata ?? string.Empty);
+
+				ReplaceText(body, "cr4f9_datoredilavoro", datoreDiLavoro ?? string.Empty);
+				ReplaceText(body, "cr4f9_ragionesociale", ragioneSociale ?? string.Empty);
+				ReplaceText(body, "cr4f9_citta", citta ?? string.Empty);
+				ReplaceText(body, "cr4f9_provincia", provincia ?? string.Empty);
+				ReplaceText(body, "cr4f9_via", via ?? string.Empty);
+
+				foreach (var headerPart in wordDoc.MainDocumentPart.HeaderParts)
+				{
+					var header = headerPart.Header;
+					if (header == null) continue;
+
+					ReplaceText(header, "cr4f9_idtestata", codiceTestata ?? string.Empty);
+					ReplaceText(header, "cr4f9_datoredilavoro", datoreDiLavoro ?? string.Empty);
+					ReplaceText(header, "cr4f9_ragionesociale", ragioneSociale ?? string.Empty);
+					ReplaceText(header, "cr4f9_citta", citta ?? string.Empty);
+					ReplaceText(header, "cr4f9_provincia", provincia ?? string.Empty);
+					ReplaceText(header, "cr4f9_via", via ?? string.Empty);
+
+					if (logoBytes != null && logoBytes.Length > 0)
+					{
+						var drawing = header.Descendants<Drawing>().FirstOrDefault();
+						if (drawing != null)
+						{
+							var blip = drawing.Descendants<A.Blip>().FirstOrDefault();
+							if (blip?.Embed?.Value != null)
+							{
+								var relId = blip.Embed.Value;
+								var imagePart = (ImagePart)headerPart.GetPartById(relId);
+
+								using var imgStream = imagePart.GetStream(FileMode.Create, FileAccess.Write);
+								imgStream.SetLength(0);
+								imgStream.Write(logoBytes, 0, logoBytes.Length);
+							}
+						}
+					}
+
+					header.Save();
+				}
+
+				var table = body.Descendants<Table>()
+								.FirstOrDefault(t => t.InnerText.Contains("cr4f9_dpifisiconame"));
+
+				if (table != null && consegneDpi.Any())
+				{
+					var templateRow = table.Descendants<TableRow>()
+													.FirstOrDefault(r => r.InnerText.Contains("cr4f9_dpifisiconame"));
+
+					if (templateRow != null)
+					{
+						var rows = table.Descendants<TableRow>().ToList();
+						foreach (var r in rows.Skip(1).ToList())
+						{
+							if (!ReferenceEquals(r, templateRow))
+								r.Remove();
+						}
+
+						foreach (var dpi in consegneDpi)
+						{
+							var newRow = (TableRow)templateRow.CloneNode(true);
+
+							ReplaceText(newRow, "cr4f9_dpifisiconame", dpi.nome ?? string.Empty);
+							ReplaceText(newRow, "cr4f9_numerodimatricola", dpi.cr4f9_numerodimatricola ?? string.Empty);
+							ReplaceText(newRow, "cr4f9_quantita", dpi.cr4f9_quantita.ToString());
+							ReplaceText(newRow, "cr4f9_note", dpi.cr4f9_note ?? string.Empty);
+							ReplaceText(newRow, "cr4f9_taglia", dpi.cr4f9_taglia ?? string.Empty);
+
+							table.AppendChild(newRow);
+						}
+
+						templateRow.Remove();
+					}
+				}
+
+				wordDoc.MainDocumentPart.Document.Save();
+			}
+
+			var fileBytes = ms.ToArray();
+			var fileName = $"ConsegnaDPI_{(string.IsNullOrEmpty(codiceTestata) ? IdTestata : codiceTestata)}.docx";
+
+			await JSRuntime.InvokeVoidAsync("downloadFileFromStream", fileBytes, fileName);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(ex, "Errore durante la generazione del modulo Word.");
+		}
+	}
+
+	private void ReplaceText(OpenXmlElement root, string placeholder, string value)
+	{
+		var texts = root.Descendants<Text>()
+						.Where(t => t.Text != null && t.Text.Contains(placeholder));
+
+		foreach (var t in texts)
+			t.Text = t.Text.Replace(placeholder, value ?? string.Empty);
+	}
+
+	private async Task LoadTestataDetails(Guid testataId)
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXmlTestata = $@"
             <fetch>
               <entity name='cr4f9_testataconsegna'>
                 <attribute name='cr4f9_idtestata'/>
@@ -114,305 +308,236 @@
               </entity>
             </fetch>";
 
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_testataconsegnas?fetchXml={Uri.EscapeDataString(fetchXmlTestata)}")
-                };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_testataconsegnas?fetchXml={Uri.EscapeDataString(fetchXmlTestata)}")
+				};
 
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<TestataCollection>();
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                var resultJson = await response.Content.ReadAsStringAsync();
-                logger.LogInformation($"Risposta JSON: {resultJson}");
-                if (result?.value?.Length > 0)
-                {
-                    var testata = result.value[0];
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var result = await response.Content.ReadFromJsonAsync<TestataCollection>();
+				if (result?.value?.Length > 0)
+				{
+					var testata = result.value[0];
 
-                    lavoratore = testata.nome;
-                    id = testata.id;
+					lavoratore = testata.nome;
+					id = testata.id;
 
-                    // Log per verificare che il dato venga estratto
-                    logger.LogInformation($"Lavoratore: {lavoratore}");
+					codiceTestata = testata.cr4f9_idtestata;
+					dataConsegna = testata.cr4f9_dataconsegna;
+				}
+				else
+				{
+					logger.LogWarning("Nessuna testata trovata per l'ID specificato.");
+				}
+			}
+			else
+			{
+				logger.LogError($"Errore nel recupero dei dettagli della testata: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			logger.LogError("Token non ottenuto.");
+		}
+	}
 
-                    // Assicurati di ottenere i dati dalla risposta
-                    codiceTestata = testata.cr4f9_idtestata;
-                    dataConsegna = testata.cr4f9_dataconsegna;
+	private async Task LoadDatiClientePerTestata(Guid testataId)
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (!tokenResult.TryGetToken(out var token))
+		{
+			logger.LogError("Token non ottenuto in LoadDatiClientePerTestata.");
+			return;
+		}
 
-                    // Log per verificare i dati
-                    logger.LogInformation($"Testata ID: {codiceTestata}, Data Consegna: {dataConsegna}, Lavoratore: {lavoratore}");
-                }
-                else
-                {
-                    logger.LogWarning("Nessuna testata trovata per l'ID specificato.");
-                }
-            }
-            else
-            {
-                logger.LogError($"Errore nel recupero dei dettagli della testata: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            logger.LogError("Token non ottenuto.");
-        }
-    }
+		var client = ClientFactory.CreateClient("DataverseClient");
 
-    private void GoBack()
-    {
-        // Utilizza la navigazione per tornare indietro nella cronologia
-        Navigation.NavigateTo("javascript:history.back()");
-    }
+		var fetchXml = $@"
+        <fetch top='1'>
+          <entity name='cr4f9_testataconsegna'>
+            <attribute name='cr4f9_testataconsegnaid' />
+            <filter>
+              <condition attribute='cr4f9_testataconsegnaid' operator='eq' value='{testataId}' />
+            </filter>
+            <link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_riferimentotestata' to='cr4f9_testataconsegnaid' link-type='inner' alias='Consegna'>
+              <link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='cr4f9_clientelookup' link-type='inner' alias='Cliente'>
+                <attribute name='cr4f9_clienteprvid' alias='clienteid' />
+                <attribute name='cr4f9_datoredilavoro' alias='datoredilavoro' />
+                <attribute name='cr4f9_citta' alias='citta' />
+                <attribute name='cr4f9_ragionesociale' alias='ragionesociale' />
+                <attribute name='cr4f9_provincia' alias='provincia' />
+                <attribute name='cr4f9_via' alias='via' />
+              </link-entity>
+            </link-entity>
+          </entity>
+        </fetch>";
 
-    // Carica le consegne DPI
-    private async Task LoadConsegneDpi(Guid testataId)
-    {
-        var tokenResult = await TokenProvider.RequestAccessToken();
+		var request = new HttpRequestMessage
+			{
+				Method = HttpMethod.Get,
+				RequestUri = new Uri($"{client.BaseAddress}cr4f9_testataconsegnas?fetchXml={Uri.EscapeDataString(fetchXml)}")
+			};
 
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+		request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var fetchXmlConsegne = $@"
-                <fetch>
-                  <entity name='cr4f9_associazionedpialavoratore'>
-                    <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='DPI'>
-                      <attribute name='cr4f9_nomedeldispositivofisico' alias='nome' />
-                    </link-entity>
-                    <attribute name='cr4f9_datadiconsegna' />
-                    <attribute name='cr4f9_quantita' />
-                    <attribute name='cr4f9_numerodimatricola' />
-                    <filter>
-                      <condition attribute='cr4f9_riferimentotestata' operator='eq' value='{testataId}' />
-                    </filter>
-                  </entity>
-                </fetch>";
+		var response = await client.SendAsync(request);
+		var json = await response.Content.ReadAsStringAsync();
 
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_associazionedpialavoratores?fetchXml={Uri.EscapeDataString(fetchXmlConsegne)}")
-                };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		if (!response.IsSuccessStatusCode)
+		{
+			logger.LogError($"Errore nel recupero dei dati cliente: {response.ReasonPhrase}");
+			return;
+		}
 
-            var response = await client.SendAsync(request);
-            var resultJson = await response.Content.ReadAsStringAsync();
-            logger.LogInformation($"Risposta JSON: {resultJson}");
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<ConsegnaCollection>();
-                if (result?.value?.Length > 0)
-                {
-                    consegneDpi = result.value.ToList();
-                }
-            }
-            else
-            {
-                logger.LogError($"Errore nel recupero delle consegne DPI: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            logger.LogError("Token non ottenuto.");
-        }
-    }
+		var result = System.Text.Json.JsonSerializer.Deserialize<DatiClienteCollection>(json);
 
-    private async Task OpenAddConsegneDialog()
-    {
-        var parameters = new DialogParameters
-        {
-            {"IdTestata", IdTestata},
-            {"Lavoratore", id},
-            {"DataConsegna",dataConsegna}
-        };
-        // Mostra il dialog e attende il risultato
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-        var dialog = DialogService.Show<AddConsegne>("Aggiungi Consegne DPI", parameters, options);
-        var result = await dialog.Result;
-    }
+		var record = result?.value?.FirstOrDefault();
+		if (record == null)
+		{
+			logger.LogWarning("Nessun dato cliente trovato per la testata.");
+			return;
+		}
 
-    public class Testata
-    {
-        public string cr4f9_idtestata { get; set; }
-        public Guid? cr4f9_testataconsegnaid { get; set; }
-        public DateTime cr4f9_dataconsegna { get; set; }
-        public string nome { get; set; }
-        public string id { get; set; }
-    }
+		datoreDiLavoro = record.datoredilavoro;
+		citta = record.citta;
+		ragioneSociale = record.ragionesociale;
+		provincia = record.provincia;
+		via = record.via;
 
-    public class Lavoratore
-    {
-        public string cr4f9_calcolonomeecognome { get; set; }
-    }
+		if (record.clienteid != Guid.Empty)
+			await LoadLogoCliente(record.clienteid);
+	}
 
-    public class TestataCollection
-    {
-        public Testata[] value { get; set; }
-    }
+	private async Task LoadLogoCliente(Guid clienteId)
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (!tokenResult.TryGetToken(out var token))
+		{
+			logger.LogError("Token non ottenuto in LoadLogoCliente.");
+			return;
+		}
 
-    public class ConsegnaDpi
-    {
-        public string nome { get; set; }
-        public DateTime cr4f9_datadiconsegna { get; set; }
-        public int cr4f9_quantita { get; set; }
-        public string cr4f9_numerodimatricola { get; set; }
-    }
+		var client = ClientFactory.CreateClient("DataverseClient");
 
-    public class ConsegnaCollection
-    {
-        public ConsegnaDpi[] value { get; set; }
-    }
+		var request = new HttpRequestMessage
+			{
+				Method = HttpMethod.Get,
+				RequestUri = new Uri($"{client.BaseAddress}cr4f9_clienteprvs({clienteId})/cr4f9_logo/$value")
+			};
+
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+		var response = await client.SendAsync(request);
+		if (!response.IsSuccessStatusCode)
+		{
+			logger.LogError($"Errore nel recupero del logo cliente: {response.ReasonPhrase}");
+			return;
+		}
+
+		logoBytes = await response.Content.ReadAsByteArrayAsync();
+	}
+
+	private void GoBack() => Navigation.NavigateTo("javascript:history.back()");
+
+	private async Task LoadConsegneDpi(Guid testataId)
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXmlConsegne = $@"
+            <fetch>
+              <entity name='cr4f9_associazionedpialavoratore'>
+                <attribute name='cr4f9_note' />
+                <attribute name='cr4f9_datadiconsegna' />
+                <attribute name='cr4f9_quantita' />
+                <attribute name='cr4f9_numerodimatricola' />
+                <attribute name='cr4f9_taglia' />
+                <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='DPI'>
+                  <attribute name='cr4f9_nomedeldispositivofisico' alias='nome' />
+                </link-entity>
+                <filter>
+                  <condition attribute='cr4f9_riferimentotestata' operator='eq' value='{testataId}' />
+                </filter>
+              </entity>
+            </fetch>";
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_associazionedpialavoratores?fetchXml={Uri.EscapeDataString(fetchXmlConsegne)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var result = await response.Content.ReadFromJsonAsync<ConsegnaCollection>();
+				consegneDpi = result?.value?.ToList() ?? new List<ConsegnaDpi>();
+			}
+			else
+			{
+				logger.LogError($"Errore nel recupero delle consegne DPI: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			logger.LogError("Token non ottenuto.");
+		}
+	}
+
+	public class Testata
+	{
+		public string cr4f9_idtestata { get; set; }
+		public Guid? cr4f9_testataconsegnaid { get; set; }
+		public DateTime cr4f9_dataconsegna { get; set; }
+		public string nome { get; set; }
+		public string id { get; set; }
+	}
+
+	public class TestataCollection
+	{
+		public Testata[] value { get; set; }
+	}
+
+	public class ConsegnaDpi
+	{
+		public string nome { get; set; }
+		public DateTime cr4f9_datadiconsegna { get; set; }
+		public int cr4f9_quantita { get; set; }
+		public string cr4f9_numerodimatricola { get; set; }
+		public string cr4f9_note { get; set; }
+		public string cr4f9_taglia { get; set; }
+	}
+
+	public class ConsegnaCollection
+	{
+		public ConsegnaDpi[] value { get; set; }
+	}
+
+	public class DatiClienteRecord
+	{
+		public Guid clienteid { get; set; }
+		public string datoredilavoro { get; set; }
+		public string citta { get; set; }
+		public string ragionesociale { get; set; }
+		public string provincia { get; set; }
+		public string via { get; set; }
+	}
+
+	public class DatiClienteCollection
+	{
+		public DatiClienteRecord[] value { get; set; }
+	}
 }
-
-<style>
-
-    /* Contenitore a forma di cartella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
-        margin-bottom: 100px;
-    }
-
-    /* Linguetta in alto a sinistra */
-    .folder-tab {
-        position: absolute;
-        top: -25px; /* Altezza sopra il contenitore */
-        left: 20px; /* Regola la posizione più verso sinistra */
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
-    }
-
-    /* Stile per la sezione aggiuntiva */
-    .folder-section {
-        margin-top: 16px;
-        padding-top: 8px;
-        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
-    }
-
-    /* Stile per le informazioni del corso */
-    .course-info {
-        font-size: 1rem;
-        color: #333;
-        margin-bottom: 12px;
-    }
-
-    /* Pulsante di azione */
-    button {
-        font-size: 1rem;
-        background-color: #E53935; /* Stesso colore della linguetta */
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-        background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
-    }
-
-    /* Contenitore delle informazioni del corso */
-    .course-info {
-        display: flex;
-        align-items: center;
-        font-size: 1.2rem;
-        font-weight: bold;
-        margin: 12px 0;
-        padding: 8px;
-        border-radius: 8px;
-        background-color: #f9f9f9;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    /* Stile generale per lo stato */
-    .course-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* Stile per stato positivo */
-    .course-status.success {
-        color: #2e7d32; /* Verde scuro */
-        background-color: #e8f5e9; /* Verde chiaro */
-        border-left: 4px solid #2e7d32;
-        padding-left: 12px;
-    }
-
-    /* Stile per stato negativo */
-    .course-status.failure {
-        color: #d32f2f; /* Rosso scuro */
-        background-color: #ffebee; /* Rosso chiaro */
-        border-left: 4px solid #d32f2f;
-        padding-left: 12px;
-    }
-
-    /* Icone */
-    .course-status .mud-icon {
-        font-size: 1.5rem;
-    }
-
-    .mud-tab-slider {
-        position: absolute;
-        background: #A9A9A9;
-    }
-
-    .mud-tab.mud-tab-active {
-        color: currentColor;
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: center;
-    }
-
-    /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-</style>

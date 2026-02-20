@@ -14,21 +14,23 @@
 	<i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
 </button>
 
-<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color=#E53935;" @onclick="OpenDialogAsync">Nuovo File Sede</MudButton>
+<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935; margin-left: 16px" @onclick="OpenDialogAsync">Nuovo File Sede</MudButton>
 
-<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color:#E53935;" @onclick="DownloadAllFiles">
+<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color:#E53935; margin-left: 16px" @onclick="DownloadAllFiles">
 	Scarica Cartella
 </MudButton>
 
 <div class="folder-container">
-	<div class="folder-tab">Elenco FIle</div>
+	<div class="folder-tab">Elenco File</div>
 	@if (files?.value != null && files.value.Length > 0)
 	{
 		<MudTable Items="files.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
 			<HeaderContent>
 				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
+				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
 				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
-				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.createdon)">Data Caricamento File</MudTableSortLabel></MudTh>
+				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.createdon)">Data Caricamento</MudTableSortLabel></MudTh>
+				<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_datascadenza)">Data Scadenza</MudTableSortLabel></MudTh>
 			</HeaderContent>
 			<RowTemplate Context="file">
 				<MudTd>
@@ -36,11 +38,22 @@
 						@file.cr4f9_name
 					</a>
 				</MudTd>
+				<MudTd>@file.cr4f9_nome</MudTd>
 				<MudTd>@file.cr4f9_notedocumento</MudTd>
 				<MudTd>
 					@if (file.createdon.HasValue)
 					{
 						@file.createdon.Value.ToString("dd/MM/yyyy")
+					}
+					else
+					{
+						<em>Data non disponibile</em>
+					}
+				</MudTd>
+				<MudTd>
+					@if (file.cr4f9_datascadenza.HasValue)
+					{
+						@file.cr4f9_datascadenza.Value.ToString("dd/MM/yyyy")
 					}
 					else
 					{
@@ -108,12 +121,17 @@
 					  <entity name='cr4f9_filedocumentosede'>
 						<attribute name='cr4f9_filedocumentosedeid' />
 						<attribute name='cr4f9_name' />
+						<attribute name='cr4f9_nome' />
 						<attribute name='cr4f9_file' />
 						<attribute name='cr4f9_notedocumento' />
 						<attribute name='createdon' />
+						<attribute name='cr4f9_datascadenza' />
 						<filter>
 						  <condition attribute='cr4f9_cartelladocumentosede' operator='eq' value='{cartellaId}' />
 						</filter>
+						<link-entity name='cr4f9_cartelladocumentosede' from='cr4f9_cartelladocumentosedeid' to='cr4f9_cartelladocumentosede' link-type='inner' alias='Cartella'>
+						  <attribute name='cr4f9_name' alias='NomeCartella'/>
+						</link-entity>
 					  </entity>
 					</fetch>";
 
@@ -222,10 +240,19 @@
 
 		string mimeType = GetMimeTypeFromBytes(fileBytes);
 		string extension = GetExtensionFromMimeType(mimeType);
-
-		string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
-							? $"downloadFile{extension}"
-							: file.cr4f9_name + extension;
+		string fileName;
+		if (!string.IsNullOrWhiteSpace(file.cr4f9_nome))
+		{
+			fileName = file.cr4f9_nome + extension;
+		}
+		else if (!string.IsNullOrWhiteSpace(file.cr4f9_name))
+		{
+			fileName = file.cr4f9_name + extension;
+		}
+		else
+		{
+			fileName = $"downloadedFile{extension}";
+		}
 
 		string base64 = Convert.ToBase64String(fileBytes);
 		await JS.InvokeVoidAsync("downloadFileFromBase64", base64, mimeType, fileName);
@@ -377,9 +404,12 @@
 			}
 			string mimeType = GetMimeTypeFromBytes(fileBytes);
 			string extension = GetExtensionFromMimeType(mimeType);
-			string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
-								? $"downloadedFile{extension}"
-								: file.cr4f9_name + extension;
+			var nomeBase = !string.IsNullOrWhiteSpace(file.cr4f9_nome)
+					? file.cr4f9_nome
+					: file.cr4f9_name;
+			string fileName = (string.IsNullOrWhiteSpace(nomeBase)
+									? $"downloadedFile{extension}"
+									: nomeBase + extension);
 
 			string base64 = Convert.ToBase64String(fileBytes);
 			fileDataList.Add(new FileData { FileName = fileName, Base64Data = base64, MimeType = mimeType });
@@ -397,9 +427,12 @@
 	{
 		public Guid? cr4f9_filedocumentosedeid { get; set; }
 		public string cr4f9_name { get; set; }
+		public string cr4f9_nome { get; set; }
 		public string cr4f9_file { get; set; }
 		public string cr4f9_notedocumento { get; set; }
 		public DateTime? createdon { get; set; }
+		public DateTime? cr4f9_datascadenza { get; set; }
+		public string NomeCartella { get; set; }
 	}
 
 	public class FileData

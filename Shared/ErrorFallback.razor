@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+
+<div class="error-fallback" role="alert">
+    <h3>Si è verificato un errore nell'applicazione</h3>
+    <p>Ricarica la pagina o contatta l'amministratore se il problema persiste.</p>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Reload">Ricarica</MudButton>
+</div>
+
+@code {
+    void Reload() => NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+}

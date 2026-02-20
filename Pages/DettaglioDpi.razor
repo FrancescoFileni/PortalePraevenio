@@ -1,0 +1,639 @@
+@page "/dettagliodpi/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.Xrm.Sdk
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddTestataConsegne> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<link href="css/dettagliodpi.css" rel="stylesheet" />
+
+@if (!datiCaricati)
+{
+	<MudText>Caricamento in corso…</MudText>
+}
+else if (dpiCollection.value.Length == 0)
+{
+	<MudText>Non ci sono controlli DPI da mostrare.</MudText>
+}
+else
+{
+	<!-- Toolbar -->
+	<div class="toolbar my-6">
+		<div class="toolbar-left">
+			<MudButton Variant="Variant.Filled"
+					   Color="Color.Error"
+					   Class="back-btn"
+					   StartIcon="@Icons.Material.Filled.ArrowBack"
+					   OnClick="GoBack">
+			</MudButton>
+
+			<MudText Typo="Typo.h5" Class="page-title">
+				@dpiCollection.value[0].cr4f9_matricoladispositivo - @dpiCollection.value[0].cr4f9_nomedeldispositivofisico
+			</MudText>
+		</div>
+	</div>
+
+	<div class="folder-container">
+
+		<!-- CARD: dettagli DPI -->
+		<div class="table-card">
+			<div class="table-card-header">
+				<div class="table-card-title">
+					<MudText Typo="Typo.h6">Dettaglio DPI</MudText>
+					<MudText Typo="Typo.caption" Class="table-subtitle">
+						Dati del dispositivo
+					</MudText>
+				</div>
+			</div>
+
+			<div class="folder-section">
+				<div class="details-grid">
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].cr4f9_matricoladispositivo"
+									  Label="Matricola"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].cr4f9_nomedeldispositivofisico"
+									  Label="Nome"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].cr4f9_taglia"
+									  Label="Taglia"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].createdon"
+									  Label="Data di creazione"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].Tipo"
+									  Label="Tipo"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].Durata"
+									  Label="Durata (mesi)"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField Value="@(dpiCollection.value[0].createdon.AddMonths(dpiCollection.value[0].Durata))"
+									  Label="Data di fine vita"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+
+					<div class="detail-card">
+						<MudTextField @bind-Value="dpiCollection.value[0].Periodicita"
+									  Label="Periodicità controllo (mesi)"
+									  Variant="Variant.Outlined"
+									  Disabled="true" />
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- CARD: possessore -->
+		<div class="table-card mt-4">
+			<div class="table-card-header">
+				<div class="table-card-title">
+					<MudText Typo="Typo.h6">Possessore</MudText>
+					<MudText Typo="Typo.caption" Class="table-subtitle">
+						Lavoratore associato al dispositivo
+					</MudText>
+				</div>
+			</div>
+
+			<div class="folder-section">
+				@if (lavoratori?.value?.Length > 0)
+				{
+					<MudLink Href="@($"/dettagliolavoratore/id={lavoratori.value[0].LavoratoreId}")"
+							 Class="possessore-link">
+						@lavoratori.value[0].Nome
+						<span class="possessore-date">
+							— @lavoratori.value[0].cr4f9_datadiconsegna.AddDays(1).ToString("dd/MM/yyyy")
+						</span>
+					</MudLink>
+				}
+				else
+				{
+					<MudText Typo="Typo.body2" Class="muted">
+						Nessun possessore trovato.
+					</MudText>
+				}
+			</div>
+		</div>
+
+		<!-- CARD: controlli -->
+		<div class="table-card mt-4">
+			<div class="table-card-header">
+				<div class="table-card-title">
+					<MudText Typo="Typo.h6">Controlli</MudText>
+					<MudText Typo="Typo.caption" Class="table-subtitle">
+						Scadenze ed esecuzioni
+					</MudText>
+				</div>
+
+				@if (ControlloImminente is not null)
+				{
+					<MudChip T="string" Color="Color.Error" Variant="Variant.Filled" Size="Size.Small" Class="imminente-chip">
+						Controllo imminente: @ControlloImminente.cr4f9_datascadenzacontrollo?.ToString("dd/MM/yyyy")
+					</MudChip>
+				}
+			</div>
+
+			<div class="folder-section">
+				<MudGrid>
+					<!-- COLONNA: Da eseguire (sempre visibile) -->
+					<MudItem xs="12" md="6">
+						<div class="mini-card">
+							<div class="mini-card-title">Da eseguire</div>
+
+							@{
+								var daEseguire = controlliCollection?.value?
+								.Where(c => !c.cr4f9_eseguito)
+								.ToList() ?? new List<Controllo>();
+							}
+
+							<MudTable T="Controllo"
+									  Items="daEseguire"
+									  Dense="true"
+									  Hover="true"
+									  Class="pretty-table"
+									  RowClassFunc="@( (c, _) => GetRowClass(c) )">
+
+								<HeaderContent>
+									<MudTh>Stato</MudTh>
+									<MudTh>Data Scadenza</MudTh>
+									<MudTh></MudTh>
+								</HeaderContent>
+
+								<RowTemplate Context="controllo">
+									<MudTd DataLabel="Stato">
+										<span style="color:@GetEseguitoColor(controllo)">Da eseguire</span>
+									</MudTd>
+									<MudTd>
+										@controllo.cr4f9_datascadenzacontrollo?.ToString("dd/MM/yyyy")
+									</MudTd>
+									<MudTd>
+										<MudLink Href="@($"/dettagliocontrollodpi/id={controllo.cr4f9_elencocontrollidpiid}")">
+											<MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+										</MudLink>
+									</MudTd>
+								</RowTemplate>
+
+								<PagerContent>
+									<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+								</PagerContent>
+							</MudTable>
+
+							@if (!daEseguire.Any())
+							{
+								<div class="empty-state">
+									Nessun controllo da eseguire.
+								</div>
+							}
+
+							<div class="color-legend">
+								<span class="legend-label">Giorni alla scadenza:</span>
+
+								<div class="legend-item bg-red-light"></div>
+								<span>Scaduto</span>
+
+								<div class="legend-item bg-orange-light"></div>
+								<span>0–6</span>
+
+								<div class="legend-item bg-yellow-light"></div>
+								<span>7–30</span>
+
+								<div class="legend-item bg-green-light"></div>
+								<span>&gt;30</span>
+							</div>
+
+						</div>
+					</MudItem>
+
+					<!-- COLONNA: Eseguiti (sempre visibile) -->
+					<MudItem xs="12" md="6">
+						<div class="mini-card">
+							<div class="mini-card-title">Eseguiti</div>
+
+							@{
+								var eseguiti = controlliCollection?.value?
+								.Where(c => c.cr4f9_eseguito)
+								.ToList() ?? new List<Controllo>();
+							}
+
+							<MudTable T="Controllo"
+									  Items="eseguiti"
+									  Dense="true"
+									  Hover="true"
+									  Class="pretty-table">
+								<HeaderContent>
+									<MudTh>Stato</MudTh>
+									<MudTh>Data Esecuzione</MudTh>
+									<MudTh></MudTh>
+								</HeaderContent>
+
+								<RowTemplate Context="controllo">
+									<MudTd>
+										<span class="done">Eseguito</span>
+									</MudTd>
+									<MudTd>
+										@controllo.cr4f9_dataesecuzione?.ToString("dd/MM/yyyy")
+									</MudTd>
+									<MudTd>
+										<MudLink Href="@($"/dettagliocontrollodpi/id={controllo.cr4f9_elencocontrollidpiid}")">
+											<MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+										</MudLink>
+									</MudTd>
+								</RowTemplate>
+
+								<PagerContent>
+									<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+								</PagerContent>
+							</MudTable>
+
+							@if (!eseguiti.Any())
+							{
+								<div class="empty-state">
+									Nessun controllo eseguito.
+								</div>
+							}
+						</div>
+					</MudItem>
+				</MudGrid>
+			</div>
+
+		</div>
+
+	</div>
+}
+
+@code {
+	[Parameter] public string id { get; set; }
+
+	private string clienteId;
+	private Guid? azienda;
+	private string userName;
+	private string userEmail;
+
+	private bool editMode = false;
+	private bool datiCaricati = false;
+
+	private ControlliCollection controlliCollection = new ControlliCollection();
+	private DpiCollection dpiCollection = new DpiCollection();
+	private LavoratoreCollection lavoratori = new LavoratoreCollection();
+
+	private Controllo? ControlloImminente => controlliCollection.value
+		.Where(c => !c.cr4f9_eseguito && c.cr4f9_datascadenzacontrollo.HasValue)
+		.OrderBy(c => c.cr4f9_datascadenzacontrollo)
+		.FirstOrDefault();
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+		await CaricaControllo();
+		await CaricaDpi();
+		await CaricaLavoratore();
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+		await CaricaClienteAssociato(userEmail);
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildAziendaFetchXml(email);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+					var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					if (entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+						{
+							clienteId = newClienteProperty.GetString();
+							azienda = newClienteProperty.GetGuid();
+						}
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildAziendaFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	private async Task CaricaDpi()
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			var fetchXml = BuildDpiFetchXml();
+
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_dpifisicos?fetchXml={Uri.EscapeDataString(fetchXml)}");
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+				request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					dpiCollection = await response.Content.ReadFromJsonAsync<DpiCollection>();
+					datiCaricati = true;
+				}
+				else
+				{
+					await DialogService.ShowMessageBox("ERRORE", "An error occured while fetching data.");
+					logger.LogError($"Errore durante il recupero dei DPI: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError("There was a problem authenticating.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento dei DPI: {ex.Message}");
+		}
+	}
+
+	private string BuildDpiFetchXml()
+	{
+		return $@"
+                <fetch>
+                  <entity name='cr4f9_dpifisico'>
+                    <attribute name='cr4f9_matricoladispositivo' />
+                    <attribute name='cr4f9_nomedeldispositivofisico' />
+                    <attribute name='cr4f9_taglia' />
+                    <attribute name='createdon' />
+                    <filter>
+                      <condition attribute='cr4f9_dpifisicoid' operator='eq' value='{id}' />
+                    </filter>
+                    <link-entity name='cr4f9_tipologiadpiprv' from='cr4f9_tipologiadpiprvid' to='cr4f9_tipologiadpi' link-type='inner' alias='Tipologia'>
+                      <attribute name='cr4f9_tipologia' alias='Tipo' />
+                      <attribute name='cr4f9_duratavitamesi' alias='Durata' />
+                      <attribute name='cr4f9_periodicitacontrollimesi' alias='Periodicita' />
+                    </link-entity>
+                  </entity>
+                </fetch>";
+	}
+
+	private async Task CaricaControllo()
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			var fetchXmlQuery = BuildControlliFetchXml();
+
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollidpis?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+				request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					controlliCollection = await response.Content.ReadFromJsonAsync<ControlliCollection>();
+				}
+				else
+				{
+					await DialogService.ShowMessageBox("ERRORE", "An error occured while fetching data");
+					logger.LogError($"Errore durante il recupero del controllo DPI: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del controllo DPI: {ex.Message}");
+		}
+	}
+
+	private string BuildControlliFetchXml()
+	{
+		return $@"
+                <fetch>
+                  <entity name='cr4f9_elencocontrollidpi'>
+                    <attribute name='cr4f9_elencocontrollidpiid' />
+                    <attribute name='cr4f9_periodicitadelcontrolloinmesi' />
+                    <attribute name='cr4f9_datascadenzacontrollo' />
+                    <attribute name='cr4f9_eseguito' />
+                    <attribute name='cr4f9_dataesecuzione' />
+                    <link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_associazionedpialavoratoreid' to='cr4f9_dispositivoconsegnato' link-type='inner' alias='DpiConsegnato'>
+                      <filter>
+                        <condition attribute='cr4f9_dpifisico' operator='eq' value='{id}' />
+                      </filter>
+                    </link-entity>
+                  </entity>
+                </fetch>";
+	}
+
+	public async Task CaricaLavoratore()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildLavoratoreFetchXml();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_associazionedpialavoratores?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				lavoratori = await response.Content.ReadFromJsonAsync<LavoratoreCollection>();
+			}
+			else
+			{
+				await DialogService.ShowMessageBox("ERRORE", "An error occured while fetching data");
+				logger.LogError($"Errore durante il recupero dei lavoratori: {response.ReasonPhrase}");
+				return;
+			}
+		}
+		else
+		{
+			await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating");
+		}
+	}
+
+	private string BuildLavoratoreFetchXml()
+	{
+		return $@"
+                <fetch>
+                  <entity name='cr4f9_associazionedpialavoratore'>
+                      <attribute name='cr4f9_lavoratorelookup' alias='LavoratoreId' />
+                      <attribute name='cr4f9_datadiconsegna' />
+                    <filter>
+                      <condition attribute='cr4f9_dpifisico' operator='eq' value='{id}' />
+                    </filter>
+                    <filter>
+                      <condition attribute='cr4f9_riconsegnato' operator='eq' value='0' />
+                    </filter>
+                    <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratorelookup' link-type='inner' alias='Lavoratore'>
+                      <attribute name='cr4f9_nomeecognomecalcolato' alias='Nome' />
+                    </link-entity>
+                  </entity>
+                </fetch>";
+	}
+
+	private string GetRowClass(Controllo c)
+	{
+		if (!c.cr4f9_datascadenzacontrollo.HasValue)
+			return string.Empty;
+
+		var days = (c.cr4f9_datascadenzacontrollo.Value - DateTime.Now).Days;
+		if (days < 0) return "bg-red-light";
+		if (days > 30) return "bg-green-light";
+		if (days >= 7) return "bg-yellow-light";
+		if (days >= 0) return "bg-orange-light";
+		return string.Empty;
+	}
+
+	private string GetEseguitoColor(Controllo controllo)
+	{
+		if (controllo == null || !controllo.cr4f9_datascadenzacontrollo.HasValue)
+			return "black";
+
+		var giorni = (controllo.cr4f9_datascadenzacontrollo.Value.Date - DateTime.Today).TotalDays;
+		return giorni > 30 ? "black" : "red";
+	}
+
+	private void GoBack() => Navigation.NavigateTo("javascript:history.back()");
+
+	public class Controllo
+	{
+		public Guid cr4f9_elencocontrollidpiid { get; set; }
+		public int cr4f9_periodicitadelcontrolloinmesi { get; set; }
+		public DateTime? cr4f9_datascadenzacontrollo { get; set; }
+		public bool cr4f9_eseguito { get; set; }
+		public DateTime? cr4f9_dataesecuzione { get; set; }
+	}
+
+	public class ControlliCollection
+	{
+		public Controllo[] value { get; set; } = Array.Empty<Controllo>();
+	}
+
+	public class Dpi
+	{
+		public string cr4f9_matricoladispositivo { get; set; }
+		public string cr4f9_nomedeldispositivofisico { get; set; }
+		public string cr4f9_taglia { get; set; }
+		public DateTime createdon { get; set; }
+		public string Tipo { get; set; }
+		public int Durata { get; set; }
+		public int Periodicita { get; set; }
+	}
+
+	public class DpiCollection
+	{
+		public Dpi[] value { get; set; } = Array.Empty<Dpi>();
+	}
+
+	public class Lavoratore
+	{
+		public string LavoratoreId { get; set; }
+		public DateTime cr4f9_datadiconsegna { get; set; }
+		public string Nome { get; set; }
+	}
+
+	public class LavoratoreCollection
+	{
+		public Lavoratore[] value { get; set; } = Array.Empty<Lavoratore>();
+	}
+}

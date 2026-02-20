@@ -80,12 +80,11 @@
 
 	private CorsoCollection corsi = new CorsoCollection { value = Array.Empty<Corso>() };
 	private CorsoCollection corsiOrdinati = new CorsoCollection { value = Array.Empty<Corso>() };
-	private string message = "Loading...";
 
 	private Lavoratore selectedLavoratore;
 	private Corso selectedCorso;
 
-	private bool isLoading = false;
+	
 	private MudForm form;
 	private string idPartecipazioneCreata;
 
@@ -150,13 +149,13 @@
 				}
 				else
 				{
-					message = "An error occureed.";
+					await DialogService.ShowMessageBox("ERRORE", "An error occureed.");
 					logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 				}
 			}
 			else
 			{
-				message = "There was a problem authenticating";
+				await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating");
 			}
 		}
 		catch(Exception ex)
@@ -194,13 +193,13 @@
 				}
 				else
 				{
-					message = "An error occured.";
+					await DialogService.ShowMessageBox("ERRORE", "An error occured.");
 					logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 				}
 			}
 			else
 			{
-				message = "There was a problem authe authenticating";
+				await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating");
 			}
 		}
 		catch(Exception ex)
@@ -267,7 +266,7 @@
 	{
 		try
 		{
-			isLoading = true;
+			
 
 			var dizionario = new Dictionary<string, object>
 			{
@@ -285,10 +284,10 @@
 
 			await form.Validate();
 
+			await form.Validate();
 			if(!form.IsValid)
 			{
-				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-				isLoading = false;
+				await DialogService.ShowMessageBox("ERRORE", "Il modulo non è valido. Compila tutti i campi richiesti.");
 				return;
 			}
 
@@ -329,7 +328,7 @@
 				}
 				else
 				{
-					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("ERRORE", $"Errore nell'invio: {response.ReasonPhrase}");
 					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
 					logger.LogError($"Dettagli risposta: {responseBody}");
 				}
@@ -349,35 +348,30 @@
 
 	private async Task Submit()
 	{
-		if(selectedLavoratore != null && selectedCorso != null)
+		var contattoId = selectedLavoratore?.cr4f9_contattoprvid;
+		var corsoId = selectedCorso?.cr4f9_corsoprvid;
+		var aziendaId = selectedCorso?.new_clienteassociato;
+
+		logger.LogInformation($"Azienda: {aziendaId}");
+		logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore?.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
+		logger.LogInformation($"Corso selezionato: {selectedCorso?.cr4f9_titolocorso}, Corso ID: {corsoId}");
+
+		var partecipazioneCorso = new PartecipazioneCorso
 		{
-			var contattoId = selectedLavoratore.cr4f9_contattoprvid;
-			var corsoId = selectedCorso.cr4f9_corsoprvid;
-			var aziendaId = selectedCorso.new_clienteassociato;
+			Lavoratore = contattoId,
+			Azienda = aziendaId,
+			Corso = corsoId,
+			DataInizio = dataInizioCorso,
+			Superato = superato,
+			DataFine = dataFineCorso
+		};
 
-			logger.LogInformation($"Azienda: {aziendaId}");
-			logger.LogInformation($"Lavoratore selezionato: {selectedLavoratore.cr4f9_calcolonomeecognome}, Contatto ID: {contattoId}");
-			logger.LogInformation($"Corso selezionato: {selectedCorso.cr4f9_titolocorso}, Corso ID: {corsoId}");
+		await CreaPartecipazioneCorso(partecipazioneCorso);
 
-			var partecipazioneCorso = new PartecipazioneCorso
-				{
-					Lavoratore = contattoId,
-					Azienda = aziendaId,
-					Corso = corsoId,
-					DataInizio = dataInizioCorso,
-					Superato = superato,
-					DataFine = dataFineCorso
-				};
-
-			await CreaPartecipazioneCorso(partecipazioneCorso);
-
-			await DialogService.ShowMessageBox(
-				"INFO",
-				"Partecipazione corso inserita con successo",
-				yesText: "Chiudi");
-
+		if(!string.IsNullOrEmpty(idPartecipazioneCreata))
+		{
+			await DialogService.ShowMessageBox("INFO", "Partecipazione corso inserita con successo", yesText: "Chiudi");
 			MudDialog.Close(DialogResult.Ok(true));
-
 			Navigation.NavigateTo("/elencocorsi", forceLoad: true);
 		}
 	}

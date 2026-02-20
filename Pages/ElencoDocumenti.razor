@@ -1,4 +1,4 @@
-﻿@page "/elencotestatedocumenti"
+@page "/elencotestatedocumenti"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using Microsoft.Extensions.Logging
 @using System.Net.Http.Headers
@@ -10,321 +10,235 @@
 @inject IHttpClientFactory ClientFactory
 @inject IDialogService DialogService
 
+<link href="css/testate-documenti.css?v=1" rel="stylesheet" />
+
 <AuthorizeView>
-    <Authorized>
-        <h3>Testate Documenti</h3>
+	<Authorized>
 
-        <!-- Bottone per aggiungere una nuova testata -->
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color=#E53935;" @onclick="OpenDialogAsync">Nuova Testata</MudButton>
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">TESTATE DOCUMENTI</MudText>
+			</div>
 
-        @if (testate != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Testate Documenti</div>
-                <MudTable Items="testate.value" Dense = "true" HeaderClass="mud-table-header" Hover="true">
-                    <HeaderContent>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumenti, object>(x=>x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumenti, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumenti, object>(x=>x.cr4f9_email)">Email</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumenti, object>(x=>x.cr4f9_note)">Note</MudTableSortLabel></MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="testata">
-                        <MudLink Href="@($"/dettagliotestatadocumenti/id={testata.cr4f9_testatadocumentoclienteid}&numero={ExtractNumber(testata.cr4f9_name)}")">@ExtractNumber(testata.cr4f9_name)</MudLink>
-                        <MudTd DataLabel="Testata">@testata.cr4f9_nome</MudTd>
-                        <MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
-                        <MudTd DataLabel="Note">@testata.cr4f9_note</MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
-            </div>
-        }
-        else
-        {
-            <p><em>@message</em></p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Filled"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   Color="Color.Error"
+						   Class="action-btn"
+						   OnClick="OpenDialogAsync">
+					Nuova
+				</MudButton>
+			</div>
+		</MudPaper>
+
+		@if (testate != null)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Testate Documenti</div>
+
+				<MudTable T="TestataDocumenti"
+						  Items="testate.value"
+						  Dense="true"
+						  Hover="true"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel InitialDirection="SortDirection.Ascending"
+											   SortBy="new Func<TestataDocumenti, object>(x => x.cr4f9_name)">
+								Id
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel InitialDirection="SortDirection.Ascending"
+											   SortBy="new Func<TestataDocumenti, object>(x => x.cr4f9_nome)">
+								Nome
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel InitialDirection="SortDirection.Ascending"
+											   SortBy="new Func<TestataDocumenti, object>(x => x.cr4f9_email)">
+								Email
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel InitialDirection="SortDirection.Ascending"
+											   SortBy="new Func<TestataDocumenti, object>(x => x.cr4f9_note)">
+								Note
+							</MudTableSortLabel>
+						</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="testata">
+						<MudTd DataLabel="Id">
+							<MudLink Class="name-link"
+									 Href="@($"/dettagliotestatadocumenti/id={testata.cr4f9_testatadocumentoclienteid}&numero={ExtractNumber(testata.cr4f9_name)}")">
+								@ExtractNumber(testata.cr4f9_name)
+							</MudLink>
+						</MudTd>
+
+						<MudTd DataLabel="Nome">@testata.cr4f9_nome</MudTd>
+						<MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
+						<MudTd DataLabel="Note">@testata.cr4f9_note</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
-    private TestataCollection testate;
-    private string message = "Loading...";
-    private string userName;
-    private string userEmail;
-    private string clienteId;
-    private Guid? azienda;
-    private string fetchXmlQuery;
+	private TestataCollection testate;
+	private string message = "Loading...";
+	private string userName;
+	private string userEmail;
+	private string clienteId;
+	private Guid? azienda;
+	private string fetchXmlQuery;
 
-    protected override async Task OnInitializedAsync() 
-    {
-        await LoadUserInformation();
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
 
-        if (string.IsNullOrEmpty(clienteId))
-        {
-            message = "Cliente non trovato.";
-            return;
-        }
+		if (string.IsNullOrEmpty(clienteId))
+		{
+			message = "Cliente non trovato.";
+			return;
+		}
 
-        fetchXmlQuery = $@"
-                    <fetch>
-                        <entity name='cr4f9_testatadocumentocliente'>
-                            <attribute name='cr4f9_testatadocumentoclienteid' />
-                            <attribute name='cr4f9_name' />
-                            <attribute name='cr4f9_nome' />
-                            <attribute name='cr4f9_email' />
-                            <attribute name='cr4f9_note' />
-                        <filter>
-                            <condition attribute='cr4f9_cliente' operator='eq' value='{azienda}' />
-                        </filter>
-                        </entity>
-                    </fetch>";
-
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if(tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
-
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_testatadocumentoclientes?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
-
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                testate = await response.Content.ReadFromJsonAsync<TestataCollection>();
-            }
-            else
-            {
-                message = "An error occured while fetching data.";
-                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            message = "There was a problem authenticating";
-        }
-    }
-
-    private async Task LoadUserInformation()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
-        {
-            userName = user.Identity.Name;
-            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
-
-            logger.LogInformation("USER EMAIL: " + userEmail);
-
-            await CaricaClienteAssociato(userEmail);
-        }
-    }
-
-    private Task OpenDialogAsync()
-    {
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-
-        return DialogService.ShowAsync<AddTestataDocumenti>("Simple Dialog", options);
-    }
-
-    private string ExtractNumber(string nome)
-    {
-        var match = System.Text.RegularExpressions.Regex.Match(nome, @"-(\d+)$");
-        return match.Success ? match.Groups[1].Value : string.Empty;
-    }
-
-    private async Task CaricaClienteAssociato(string email)
-    {
-        try
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (tokenResult.TryGetToken(out var token))
-            {
-                var client = ClientFactory.CreateClient("DataverseClient");
-
-                var fetchXml = BuildAziendaFetchXml(email);
-
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-
-                var response = await client.SendAsync(request);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseBody = await response.Content.ReadAsStringAsync();
-
-                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
-                    var entities = jsonDocument.RootElement.GetProperty("value");
-
-                    logger.LogInformation("FETCH: " + fetchXml);
-
-                    if (entities.GetArrayLength() > 0)
-                    {
-                        var entity = entities[0];
-
-                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
-                            {
-                                WriteIndented = true // Per una visualizzazione leggibile
-                            });
-                        logger.LogInformation($"Entities JSON: {entitiesJson}");
-
-                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
-                        {
-                            clienteId = newClienteProperty.GetString();
-                            azienda = newClienteProperty.GetGuid();
-
-                            logger.LogInformation($"Entities reference: {clienteId}");
-                            logger.LogInformation($"Azienda reference: {azienda}");
-
-
-                            if (Guid.TryParse(clienteId, out var newClienteGuid))
-                            {
-                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
-                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
-                            }
-                            else
-                            {
-                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
-                            }
-                        }
-                        else
-                        {
-                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("Nessun record trovato per l'email fornita.");
-                    }
-                }
-                else
-                {
-                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
-                }
-            }
-            else
-            {
-                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
-        }
-    }
-
-    // Costruisce il FetchXML per ottenere il cliente/azienda in base all'email
-    private string BuildAziendaFetchXml(string email)
-    {
-        return $@"
+		fetchXmlQuery = $@"
             <fetch>
-              <entity name='new_emailautorizzazioniprv'>
-                <attribute name='new_cliente' />
+              <entity name='cr4f9_testatadocumentocliente'>
+                <attribute name='cr4f9_testatadocumentoclienteid' />
+                <attribute name='cr4f9_name' />
+                <attribute name='cr4f9_nome' />
+                <attribute name='cr4f9_email' />
+                <attribute name='cr4f9_note' />
                 <filter>
-                  <condition attribute='new_email' operator='eq' value='{email}' />
+                  <condition attribute='cr4f9_cliente' operator='eq' value='{azienda}' />
                 </filter>
               </entity>
             </fetch>";
-    }
 
-    public class TestataDocumenti
-    {
-        public Guid? cr4f9_testatadocumentoclienteid { get; set; }
-        public string cr4f9_name { get; set; }
-        public string cr4f9_nome { get; set; }
-        public string cr4f9_email { get; set; }
-        public string cr4f9_note { get; set; }
-    }
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage(HttpMethod.Get,
+				$"{client.BaseAddress}cr4f9_testatadocumentoclientes?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
 
-    public class TestataCollection
-    {
-        public TestataDocumenti[] value { get; set; }
-    }
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+				testate = await response.Content.ReadFromJsonAsync<TestataCollection>();
+			else
+			{
+				message = "An error occured while fetching data.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else message = "There was a problem authenticating";
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+			await CaricaClienteAssociato(userEmail);
+		}
+	}
+
+	private Task OpenDialogAsync()
+	{
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+		return DialogService.ShowAsync<AddTestataDocumenti>("Simple Dialog", options);
+	}
+
+	private string ExtractNumber(string nome)
+	{
+		var match = System.Text.RegularExpressions.Regex.Match(nome ?? "", @"-(\d+)$");
+		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token)) return;
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildAziendaFetchXml(email);
+
+			var request = new HttpRequestMessage(HttpMethod.Get,
+				$"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var response = await client.SendAsync(request);
+			if (!response.IsSuccessStatusCode) return;
+
+			var responseBody = await response.Content.ReadAsStringAsync();
+			var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+			var entities = jsonDocument.RootElement.GetProperty("value");
+
+			if (entities.GetArrayLength() == 0) return;
+
+			var entity = entities[0];
+			if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+			{
+				clienteId = newClienteProperty.GetString();
+				azienda = newClienteProperty.GetGuid();
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildAziendaFetchXml(string email) => $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+
+	public class TestataDocumenti
+	{
+		public Guid? cr4f9_testatadocumentoclienteid { get; set; }
+		public string cr4f9_name { get; set; }
+		public string cr4f9_nome { get; set; }
+		public string cr4f9_email { get; set; }
+		public string cr4f9_note { get; set; }
+	}
+
+	public class TestataCollection
+	{
+		public TestataDocumenti[] value { get; set; }
+	}
 }
-
-<style>
-    /* Contenitore principale della tabella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    /* Tabella principale */
-    .mud-table {
-        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
-        border-radius: 8px;
-        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-        vertical-align: central;
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        vertical-align: central;
-        margin-top: 8px;
-        margin-left: 16px;
-    }
-
-        /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    /* Contenitore della tabella */
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Nascondi informazioni di paginazione */
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-</style>

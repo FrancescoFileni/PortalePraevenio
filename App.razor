@@ -1,5 +1,6 @@
 ﻿<CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(App).Assembly">
+    <ErrorBoundary ErrorContent="@(context => (RenderFragment)(builder => { builder.OpenComponent(0, typeof(BlazorPortal.Shared.ErrorFallback)); builder.CloseComponent(); }))">
+        <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
@@ -22,4 +23,5 @@
             </LayoutView>
         </NotFound>
     </Router>
+    </ErrorBoundary>
 </CascadingAuthenticationState>

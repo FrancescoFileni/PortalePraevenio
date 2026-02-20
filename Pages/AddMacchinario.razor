@@ -1,0 +1,480 @@
+﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using System.Text.Json
+@using System.Text
+@using Newtonsoft.Json
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<AddMacchinarioSede> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<MudDialog Class="custom-dialog-red-gray">
+	<TitleContent>
+		<MudStack>
+			<MudIcon Icon="@Icons.Material.Filled.PrecisionManufacturing" Color="Color.Error"/>
+			<MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">
+				Crea nuovo macchinario o impianto
+			</MudText>
+		</MudStack>
+	</TitleContent>
+	<DialogContent>
+		<MudPaper Class="content-area-red-gray" Elevation="1">
+			<MudForm @ref="form" Valid="isFormValid"> 
+				<MudGrid>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="TipoMacchinario" Label="TipoMacchinario" MultiSelection="false"
+						@bind-Value="@selectedMacchinariTipo" @onchange="OnTipoChanged" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona tipo macchinario o impianto">
+							@foreach (var tipo in macchinariTipoOrdinati.value)
+							{
+								<MudSelectItem T="TipoMacchinario" Value="@tipo">
+									@tipo.cr4f9_nome
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+					<MudItem xs="12">
+						<MudSelect Variant="Variant.Outlined" T="Sede" Label="Sede" MultiSelection="false"
+						@bind-Value="@selectedSede" @onchange="OnSedeChanged" Required="true"
+						Virtualized="true" Searchable="true" Class="custom-select" AnchorOrigin="Origin.BottomCenter" Placeholder="Seleziona sede">
+							@foreach (var sede in sediOrdinati.value)
+							{
+								<MudSelectItem T="Sede" Value="@sede">
+									@sede.new_localita
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+				<MudGrid>
+					<MudItem xs="12" md="6">
+						<MudTextField T="string" @bind-Value="nomeMacchinario" Label="Nome macchinario o impianto" Variant="Variant.Outlined" Lines="5" Class="form-field" />
+					</MudItem>
+					<MudItem xs="12" md="6">
+						<MudTextField T="string" @bind-Value="matricolaMacchinario" Label="Matricola macchinario o impianto" Variant="Variant.Outlined" Lines="5" Class="form-field" />
+					</MudItem>
+				</MudGrid>
+			</MudForm>
+		</MudPaper>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+			Annulla
+		</MudButton>
+		<MudButton Color="Color.Error" OnClick="Submit" Variant="Variant.Filled">
+			Conferma
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	private MudDialogInstance MudDialog { get; set; }
+
+	private MudForm form;
+
+	private string userName;
+	private string userEmail;
+	private Guid? azienda;
+	private string clienteId;
+
+	private string idMacchinarioCreato;
+
+	private TipoMacchinario selectedMacchinariTipo;
+	private TipoMacchinarioCollection macchinariTipo = new TipoMacchinarioCollection { value = Array.Empty<TipoMacchinario>() };
+	private TipoMacchinarioCollection macchinariTipoOrdinati = new TipoMacchinarioCollection { value = Array.Empty<TipoMacchinario>() };
+
+	private Sede selectedSede;
+	private SedeCollection sedi = new SedeCollection { value = Array.Empty<Sede>() };
+	private SedeCollection sediOrdinati = new SedeCollection { value = Array.Empty<Sede>() };
+
+	private string nomeMacchinario;
+	private string matricolaMacchinario;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+		await CaricaClienteAssociato(userEmail);
+		await CaricaSede();
+		await CaricaListaMacchinariTipo();
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildAziendaFetchXml(email);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+
+					var jsonDocument = JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					logger.LogInformation("FETCH: " + fetchXml);
+
+					if (entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+							{
+								WriteIndented = true // Per una visualizzazione leggibile
+							});
+						logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+						if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+						{
+							clienteId = newClienteProperty.GetString();
+							azienda = newClienteProperty.GetGuid();
+
+							logger.LogInformation($"Entities reference: {clienteId}");
+							logger.LogInformation($"Azienda reference: {azienda}");
+
+
+							if (Guid.TryParse(clienteId, out var newClienteGuid))
+							{
+								// lavoratore.cr4f9_aziendanome = newClienteGuid;
+								// logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+							}
+							else
+							{
+								logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+							}
+						}
+						else
+						{
+							logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun record trovato per l'email fornita.");
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildAziendaFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	public async Task CaricaListaMacchinariTipo()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildFetchXmlMacchinariTipo();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_macchinarioeimpiantos?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				macchinariTipo = await response.Content.ReadFromJsonAsync<TipoMacchinarioCollection>();
+				macchinariTipoOrdinati.value = macchinariTipo.value.OrderBy(c => c.cr4f9_nome).ToArray();
+				logger.LogInformation($"Lista corsi tipo caricata");
+			}
+			else
+			{
+				await DialogService.ShowMessageBox("Errore", $"Errore nel recupero dei tipi: {response.ReasonPhrase}");
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			await DialogService.ShowMessageBox("Errore", "Problema di autenticazione durante il recupero tipi macchinario.");
+		}
+	}
+
+	private string BuildFetchXmlMacchinariTipo()
+	{
+		return $@"
+		<fetch>
+		  <entity name='cr4f9_macchinarioeimpianto'>
+			<attribute name='cr4f9_macchinarioeimpiantoid' />
+			<attribute name='cr4f9_nome' />
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXml = BuildFetchXmlSedeeAzienda();
+
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_sedeprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				sedi = await response.Content.ReadFromJsonAsync<SedeCollection>();
+				sediOrdinati.value = sedi.value.OrderBy(c => c.new_localita).ToArray();
+				logger.LogInformation($"Lista sedi caricata");
+			}
+			else
+			{
+				await DialogService.ShowMessageBox("Errore", $"Errore nel recupero delle sedi: {response.ReasonPhrase}");
+				logger.LogError($"Error fetching sede: {response.ReasonPhrase}");
+
+			}
+		}
+		else
+		{
+			await DialogService.ShowMessageBox("Errore", "Problema di autenticazione durante il recupero sedi.");
+		}
+	}
+
+	private string BuildFetchXmlSedeeAzienda()
+	{
+		return $@"
+		<fetch>
+		  <entity name='new_sedeprv'>
+			<attribute name='new_sedeprvid' />
+			<attribute name='new_localita' />
+			<filter>
+			  <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+			</filter>
+		  </entity>
+		</fetch>";
+	}
+
+	private void OnTipoChanged()
+	{
+		if (selectedMacchinariTipo != null)
+		{
+			var tipoId = selectedMacchinariTipo.cr4f9_macchinarioeimpiantoid;
+			logger.LogInformation($"Tipo selezionato: {selectedMacchinariTipo.cr4f9_macchinarioeimpiantoid}");
+		}
+	}
+
+	private void OnSedeChanged()
+	{
+		if (selectedSede != null)
+		{
+			var sedeId = selectedSede.new_sedeprvid;
+			logger.LogInformation($"Sede selezionata: {selectedSede.new_sedeprvid}");
+		}
+	}
+
+	private async Task CreaMacchinario(Macchinario macchinario)
+	{
+		try
+		{
+			logger.LogInformation($"Creazione macchinario: {macchinario.Nome}");
+
+			var dizionario = new Dictionary<string, object>
+			{
+				{ "cr4f9_Sede@odata.bind", $"/new_sedeprvs({macchinario.Sede})"},
+				{ "cr4f9_Tipologiadimacchinariooimpianto@odata.bind", $"/cr4f9_macchinarioeimpiantos({macchinario.Tipo})"},
+				{ "cr4f9_matricola", macchinario.Matricola},
+				{ "cr4f9_nome", macchinario.Nome}
+			};
+
+			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
+
+			logger.LogInformation($"Contenuto: {contenuto}");
+
+			await form.Validate();
+
+			if (!form.IsValid)
+			{
+				await DialogService.ShowMessageBox("Errore", "Il modulo non è valido. Compila tutti i campi richiesti.");
+				return;
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var request = new HttpRequestMessage(HttpMethod.Post, "cr4f9_macchinarioimpiantofisicos")
+					{
+						Content = JsonContent.Create(dizionario)
+					};
+
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("Payload inviato: {@contenuto}");
+
+				if (response.IsSuccessStatusCode)
+				{
+					if (response.Headers.TryGetValues("OData-EntityId", out var entityIdValues))
+					{
+						var entityId = entityIdValues.FirstOrDefault();
+
+						if (entityId != null)
+						{
+							idMacchinarioCreato = entityId.Split('(').LastOrDefault()?.TrimEnd(')');
+							logger.LogInformation($"ID Macchinario creato: {idMacchinarioCreato}");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun ID trovato nell'header della risposta.");
+					}
+					macchinario = new();
+				}
+				else
+				{
+					await DialogService.ShowMessageBox("Errore", $"Errore nell'invio: {response.ReasonPhrase}");
+					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
+					logger.LogError($"Dettagli risposta: {responseBody}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante la creazione del record.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Errore durante la creazione del record del macchinario: {ex.Message}");
+		}
+	}
+
+	private async Task Submit()
+	{
+		if (selectedMacchinariTipo != null)
+		{
+			var tipoId = selectedMacchinariTipo.cr4f9_macchinarioeimpiantoid;
+			var sedeId = selectedSede.new_sedeprvid;
+
+			logger.LogInformation($"Tipo selezionato: {tipoId}");
+			logger.LogInformation($"Sede selezionata: {sedeId}");
+
+			var macchinario = new Macchinario
+				{
+					Sede = sedeId,
+					Nome = nomeMacchinario,
+					Tipo = tipoId,
+					Matricola = matricolaMacchinario
+				};
+
+			await CreaMacchinario(macchinario);
+
+			if (!string.IsNullOrEmpty(idMacchinarioCreato))
+			{
+				await DialogService.ShowMessageBox(
+					"INFO",
+					"Macchinario creato con successo",
+					yesText: "Chiudi");
+
+				MudDialog.Close(DialogResult.Ok(true));
+
+				Navigation.NavigateTo($"/elencomacchinarieimpianti", forceLoad: true);
+			}
+			else
+			{
+				await DialogService.ShowMessageBox(
+				"ERRORE",
+				"Macchinario non inserito",
+				yesText: "Chiudi");
+			}
+		}
+		else
+		{
+			logger.LogWarning("Nessun tipo selezionato.");
+		}
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	public class Sede
+	{
+		public string new_sedeprvid { get; set; }
+		public string new_localita { get; set; }
+		public string new_cliente { get; set; }
+		public string Azienda { get; set; }
+	}
+
+	public class SedeCollection
+	{
+		public Sede[] value { get; set; }
+	}
+
+	public class Macchinario
+	{
+		public string Sede { get; set; }
+		public string Nome { get; set; }
+		public string Tipo { get; set; }
+		public string Matricola { get; set; }
+	}
+
+	public class TipoMacchinario
+	{
+		public string cr4f9_macchinarioeimpiantoid { get; set; }
+		public string cr4f9_nome { get; set; }
+	}
+
+	public class TipoMacchinarioCollection
+	{
+		public TipoMacchinario[] value { get; set; }
+	}
+}

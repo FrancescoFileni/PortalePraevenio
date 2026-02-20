@@ -1,109 +1,329 @@
-﻿<link href="https://use.fontawesome.com/releases/v5.14.0/css/all.css" rel="stylesheet">
+@using BlazorPortal.Models
+@using BlazorPortal.Services
+@inject IPermessiService PermessiService
 
-<!-- Logo centrato -->
-<div class="menu-header">
-    <MudImage Src="images/praevenio_logo.png" Alt="Praevenio Logo" Elevation="25" Class="logo-img" />
-</div>
+<link href="https://use.fontawesome.com/releases/v5.14.0/css/all.css" rel="stylesheet">
 
-    <MudNavLink Href="/dashboard" Icon=@Icons.Material.Filled.Dashboard IconColor="Color.Dark">Dashboard</MudNavLink>
-    <MudNavGroup Title="Sedi" Icon=@Icons.Material.Filled.Place IconColor="Color.Dark" Expanded="false" Match="NavLinkMatch.Prefix" Class="custom-navgroup">
-        <MudNavLink Href="/fetchsedi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Sedi</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="Lavoratori" Icon=@Icons.Material.Filled.PeopleAlt Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencolavoratori" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Lavoratori</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="Visite Mediche" Icon=@Icons.Material.Filled.MonitorHeart Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/visitemediche" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Visite Mediche</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="DPI" Icon=@Icons.Material.Filled.WorkOutline Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencoconsegnedpi" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Consegne DPI</MudNavLink>
-        <MudNavLink Href="/elencodpiasistema" Icon="@Icons.Material.Filled.ViewList" IconColor="Color.Dark" Class="custom-navlink">Elenco Dpi a Sistema</MudNavLink>
-        <MudNavLink Href="/elencocontrollidpi" Icon="@Icons.Material.Filled.ViewList" IconColor="Color.Dark" Class="custom-navlink">Elenco Controlli DPI</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="Macchinari e Impianti" Icon="@Icons.Material.Filled.PrecisionManufacturing" Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencomacchinarieimpianti" Icon="@Icons.Material.Filled.ViewList" IconColor="Color.Dark" Class="custom-navlink">Elenco Macchinari e Impianti</MudNavLink>
-        <MudNavLink Href="/elencocontrollimacchinarieimpianti" Icon="@Icons.Material.Filled.ViewList" IconColor="Color.Dark" Class="custom-navlink">Elenco Controlli Macchinari e Impianti</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="Formazione" Icon=@Icons.Material.Filled.School Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencopartecipazioni" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Elenco Partecipazioni</MudNavLink>
-    </MudNavGroup>
-    <MudNavGroup Title="Documenti" Icon=@Icons.Material.Filled.FileOpen Expanded="false" IconColor="Color.Dark" Class="custom-navgroup">
-        <MudNavLink Href="/elencotestatedocumenti" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Documenti Clienti</MudNavLink>
-        <MudNavLink Href="/elencotestatedocumentisede" Icon=@Icons.Material.Filled.ViewList IconColor="Color.Dark" Class="custom-navlink">Documenti Sede</MudNavLink>
-    </MudNavGroup>
+<MudNavMenu Class="side-nav">
+
+	<!-- HEADER LOGO -->
+	<div class="menu-header">
+		<img src="images/praevenio_logo.png"
+			 alt="Praevenio Logo"
+			 class="logo-img"
+			 loading="lazy" />
+	</div>
+
+	<MudDivider Class="nav-divider" />
+
+	<!-- DASHBOARD (sempre visibile) -->
+	<MudNavLink Href="/"
+				Icon="@Icons.Material.Filled.Dashboard"
+				IconColor="Color.Inherit"
+				Class="nav-link-item"
+				Match="NavLinkMatch.All">
+		Dashboard
+	</MudNavLink>
+
+	@* Evita flicker: renderizza le sezioni solo quando i permessi sono caricati *@
+	@if (loaded)
+	{
+		<!-- SEDI -->
+		@if (permessi.Sedi)
+		{
+			<MudNavGroup Title="Sedi"
+						 Icon="@Icons.Material.Filled.Place"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/fetchsedi"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Sedi
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- LAVORATORI -->
+		@if (permessi.Lavoratori)
+		{
+			<MudNavGroup Title="Lavoratori"
+						 Icon="@Icons.Material.Filled.PeopleAlt"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/elencolavoratori"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Lavoratori
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- VISITE MEDICHE (regola: visibile se Lavoratori = true) -->
+		@if (permessi.Lavoratori)
+		{
+			<MudNavGroup Title="Visite Mediche"
+						 Icon="@Icons.Material.Filled.MonitorHeart"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/visitemediche"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Visite Mediche
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- DPI -->
+		@if (permessi.Dpi)
+		{
+			<MudNavGroup Title="DPI"
+						 Icon="@Icons.Material.Filled.WorkOutline"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/elencoconsegnedpi"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Consegne DPI
+				</MudNavLink>
+				<MudNavLink Href="/elencodpiasistema"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Dpi a Sistema
+				</MudNavLink>
+				<MudNavLink Href="/elencocontrollidpi"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Controlli DPI
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- MACCHINARI E IMPIANTI -->
+		@if (permessi.ImpiantiMacchinari)
+		{
+			<MudNavGroup Title="Macchinari e Impianti"
+						 Icon="@Icons.Material.Filled.PrecisionManufacturing"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/elencomacchinarieimpianti"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Macchinari e Impianti
+				</MudNavLink>
+				<MudNavLink Href="/elencocontrollimacchinarieimpianti"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Controlli Macchinari e Impianti
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- FORMAZIONE -->
+		@if (permessi.Formazione)
+		{
+			<MudNavGroup Title="Formazione"
+						 Icon="@Icons.Material.Filled.School"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+				<MudNavLink Href="/elencopartecipazioni"
+							Icon="@Icons.Material.Filled.ViewList"
+							IconColor="Color.Inherit"
+							Class="nav-link-item">
+					Elenco Partecipazioni
+				</MudNavLink>
+			</MudNavGroup>
+		}
+
+		<!-- DOCUMENTI (mostra solo se Cliente OR Sedi) -->
+		@if (permessi.Cliente || permessi.Sedi)
+		{
+			<MudNavGroup Title="Documenti"
+						 Icon="@Icons.Material.Filled.FileOpen"
+						 IconColor="Color.Inherit"
+						 Expanded="false"
+						 Class="nav-group">
+
+				@if (permessi.Cliente)
+				{
+					<MudNavLink Href="/elencotestatedocumenti"
+								Icon="@Icons.Material.Filled.ViewList"
+								IconColor="Color.Inherit"
+								Class="nav-link-item">
+						Documenti Clienti
+					</MudNavLink>
+				}
+
+				@if (permessi.Sedi)
+				{
+					<MudNavLink Href="/elencotestatedocumentisede"
+								Icon="@Icons.Material.Filled.ViewList"
+								IconColor="Color.Inherit"
+								Class="nav-link-item">
+						Documenti Sede
+					</MudNavLink>
+				}
+			</MudNavGroup>
+		}
+	}
+</MudNavMenu>
+
+@code {
+	private PermessiUtente permessi = new();
+	private bool loaded;
+
+	protected override async Task OnInitializedAsync()
+	{
+		permessi = await PermessiService.GetPermessiAsync();
+		loaded = true;
+	}
+}
+
 
 <style>
-    /* Header del menu */
-    .menu-header {
-        text-align: center;
-        margin-bottom: 1rem;
-        padding: 1rem 0;
-    }
+	:root {
+		--primary-red: #E53935;
+		--muted-gray: #f7f7f7;
+		--sidebar-bg-top: #f7f7f7;
+		--sidebar-bg-bottom: #e0e0e0;
+		--sidebar-text: #444444;
+		--sidebar-muted: #8a8a8a;
+	}
 
-    .logo-img {
-        width: auto;
-        height: 3.5rem; 
-        border-radius: 15px; 
-        overflow: hidden; 
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); 
-    }
-
-    .custom-navmenu {
-        background-color: #f8f8f8; 
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .custom-navlink {
-        color: #505050;
-        font-weight: 500;
-        padding: 0.5rem 1rem;
-        transition: background-color 0.3s ease, color 0.3s ease;
-        border-radius: 5px;
-    }
+	/* CONTENITORE NAV (MudNavMenu di default) */
+	.mud-navmenu {
+		background: transparent; /* niente più background qui */
+		padding: 0.75rem 0.6rem 1.5rem 0.6rem;
+		box-sizing: border-box;
+		border-right: none; /* il bordo/ombra li gestisce la .sidebar */
+		box-shadow: none;
+	}
 
 
-    .custom-navlink:hover {
-        background-color: #f0f0f0 !important; /* Mantieni lo sfondo chiaro o trasparente */
-        color: #808080 !important; /* Colore del testo su argento durante l'hover */
-    }
+	/* HEADER LOGO */
+	.menu-header {
+		text-align: center;
+		padding: 0.9rem 0 0.6rem 0;
+	}
 
-    .custom-navgroup {
-        margin-bottom: 0.5rem;
-    }
+	.logo-img {
+		height: 44px;
+		width: auto;
+		object-fit: contain;
+		border-radius: 10px;
+		background: #ffffff;
+		padding: 0.25rem 0.5rem;
+		box-shadow: 0 4px 10px rgba(0,0,0,0.10);
+		border: 1px solid rgba(229,57,53,0.20);
+	}
 
-    .mud-navmenu .mud-nav-group .mud-nav-group-title {
-        font-weight: bold;
-        font-size: 1.1rem;
-        color: #404040;
-    }
+	/* GRUPPI (Sedi, Lavoratori, ...) */
+	.custom-navgroup {
+		margin-top: 0.15rem;
+		margin-bottom: 0.3rem;
+	}
 
-    .divider-style {
-        border-color: #c0c0c0;
-        margin: 1rem 0;
-    }
+	/* Titolo del gruppo (MudNavGroup Title) */
+	.mud-navmenu .mud-nav-group .mud-nav-group-title {
+		font-size: 0.72rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--sidebar-muted);
+		padding: 0.35rem 0.55rem 0.15rem 0.55rem;
+	}
 
-    .mud-navmenu .mud-nav-group-items {
-        transition: max-height 0.3s ease, opacity 0.3s ease;
-        overflow: hidden;
-    }
+	/* Contenitore voci dentro al gruppo */
+	.mud-navmenu .mud-nav-group-items {
+		margin-left: 0.4rem;
+		padding-left: 0.5rem;
+		border-left: 1px solid rgba(0,0,0,0.06);
+	}
 
-    .mud-navmenu .mud-nav-group.expanded .mud-nav-group-items {
-        max-height: 100vh;
-        opacity: 1;
-    }
+	/* LINK DI NAVIGAZIONE */
+	.custom-navlink,
+	.mud-navmenu > .mud-nav-link {
+		color: var(--sidebar-text);
+		font-weight: 500;
+		font-size: 0.92rem;
+		padding: 0.40rem 0.6rem;
+		margin: 0.08rem 0.25rem;
+		border-radius: 8px;
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		transition: background 0.16s ease-out, color 0.16s ease-out, transform 0.10s ease-out;
+	}
 
-    .mud-navmenu .mud-nav-group:not(.expanded) .mud-nav-group-items {
-        max-height: 0;
-        opacity: 0;
-    }
+	/* Icone (usiamo il colore del testo) */
+	.mud-navmenu .mud-nav-link .mud-nav-link-icon {
+		color: inherit;
+		min-width: 20px;
+		display: flex;
+		justify-content: center;
+	}
 
-    .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
-        color: #404040;
-    }
+	/* HOVER LINK */
+	.mud-navmenu .custom-navlink:hover,
+	.mud-navmenu > .mud-nav-link:hover {
+		background: rgba(229,57,53,0.08);
+		color: var(--primary-red);
+		transform: translateX(2px);
+	}
 
-    .mud-navmenu.mud-navmenu-default .mud-nav-link-expand-icon.mud-transform {
-        fill: #404040;
-    }
+	/* LINK ATTIVO (pagina corrente) */
+	.mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
+		background: var(--primary-red);
+		color: #ffffff;
+		border-radius: 8px;
+		box-shadow: 0 6px 14px rgba(229,57,53,0.35);
+		transform: translateX(1px);
+	}
+
+	.mud-navmenu.mud-navmenu-default .mud-nav-link.active .mud-nav-link-icon {
+		color: #ffffff;
+	}
+
+	/* Piccolo accento a sinistra sul link attivo */
+	.mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled)::before {
+		content: "";
+		position: absolute;
+		left: 6px;
+		top: 6px;
+		bottom: 6px;
+		width: 3px;
+		border-radius: 999px;
+		background: #ffffff;
+		opacity: 0.9;
+	}
+
+	/* Per fare funzionare bene ::before, il link deve essere relative */
+	.mud-navmenu .mud-nav-link {
+		position: relative;
+	}
+
+	/* Iconcina di espansione gruppi (freccetta) */
+	.mud-navmenu.mud-navmenu-default .mud-nav-link-expand-icon {
+		fill: var(--sidebar-muted);
+		transition: transform 0.16s ease-out, fill 0.16s ease-out;
+	}
+
+	.mud-navmenu .mud-nav-group.expanded .mud-nav-link-expand-icon {
+		transform: rotate(90deg);
+		fill: var(--primary-red);
+	}
 </style>
+

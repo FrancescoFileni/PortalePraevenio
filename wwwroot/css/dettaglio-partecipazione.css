@@ -1,0 +1,157 @@
+﻿/* =========================================================
+   DETTAGLIO PARTECIPAZIONE
+   (coerente con Dettaglio DPI / Macchinario / Consegna)
+   ========================================================= */
+
+/* ===== Toolbar ===== */
+.toolbar {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin: 18px 0 24px 0;
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.back-btn {
+    border-radius: 10px;
+}
+
+.page-title {
+    color: #E53935;
+    font-weight: 800;
+    letter-spacing: .02em;
+    line-height: 1.2;
+}
+
+/* ===== Shell pagina ===== */
+.page-shell {
+    margin-bottom: 60px;
+}
+
+/* ===== Card principale ===== */
+.table-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(0,0,0,.08);
+    box-shadow: 0 10px 26px rgba(0,0,0,.06);
+    overflow: hidden;
+}
+
+.table-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    gap: 16px;
+    background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+.table-card-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.table-subtitle {
+    color: #757575;
+    font-weight: 600;
+}
+
+/* corpo */
+.card-body {
+    padding: 16px 18px 18px 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
+}
+
+/* ===== Grid dettagli ===== */
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+@media (max-width: 900px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-card.span-2 {
+        grid-column: auto;
+    }
+}
+
+.detail-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.08);
+    padding: 14px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+    .detail-card.span-2 {
+        grid-column: span 2;
+    }
+
+/* Migliora il date range picker */
+.range-picker {
+    width: 100%;
+}
+
+/* righe info */
+.info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.label {
+    color: #757575;
+    font-weight: 800;
+    font-size: .95rem;
+}
+
+.value {
+    color: #2b2b2b;
+    font-weight: 800;
+}
+
+/* ===== Stato (pill) ===== */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+    .status-pill.ok {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .status-pill.ko {
+        background: #ffebee;
+        color: #d32f2f;
+    }
+
+/* ===== Hint ===== */
+.hint {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(229,57,53,.06);
+    border: 1px solid rgba(229,57,53,.18);
+    color: #8a1c1a;
+    font-weight: 700;
+}

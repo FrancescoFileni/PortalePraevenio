@@ -25,9 +25,6 @@
 					<MudItem xs="12">
 						<MudTextField T="string" Label="Nome Cartella" @bind-Value="cartella.cr4f9_nomecartella" Required="true" Variant="Variant.Outlined" />
 					</MudItem>
-					<MudItem xs="12">
-						<MudDatePicker T="DateTime?" Label="Data Scadenza" @bind-Date="cartella.cr4f9_datascadenza" Required="true" Orientation="Orientation.Landscape" Variant="Variant.Outlined" />
-					</MudItem>
 				</MudGrid>
 			</MudForm>
 		</MudPaper>
@@ -59,8 +56,7 @@
 	private MudForm form;
 	private bool isFormValid = false;
 	private Cartella cartella = new();
-	private bool isLoading = false;
-	private string message;
+	
 
 	private void Cancel() => MudDialog.Cancel();
 
@@ -76,11 +72,9 @@
 
 		if(!form.IsValid)
 		{
-			message = "Il modulo non è valido. Compila tutti i campi richiesti.";
+			await DialogService.ShowMessageBox("Errore", "Il modulo non è valido. Compila tutti i campi richiesti.");
 			return;
 		}
-
-		isLoading = true;
 
 		var payload = new Dictionary<string, object>
 		{
@@ -108,32 +102,31 @@
 
 				if(response.IsSuccessStatusCode)
 				{
-					message = "Cartella creata correttamente.";
 					await DialogService.ShowMessageBox(
-					"INFO",
-					"Cartella inserita con successo",
-					yesText: "Chiudi");
+						"INFO",
+						"Cartella inserita con successo",
+						yesText: "Chiudi");
 
 					Navigation.NavigateTo($"/dettagliotestatadocumentisede/id={IdTestata}&numero={NumeroEstratto}", forceLoad: true);
 				}
 				else
 				{
-					message = $"Errore durante il salvataggio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("Errore", $"Errore durante il salvataggio: {response.ReasonPhrase}");
 					logger.LogError("Errore API: {StatusCode} - {ReasonPhrase}. Dettagli: {ResponseBody}",
 						response.StatusCode, response.ReasonPhrase, responseBody);
 				}
 			}
 			catch (Exception ex)
 			{
-				message = "Errore durante il salvataggio della cartella.";
+				await DialogService.ShowMessageBox("Errore", "Errore durante il salvataggio della cartella.");
 				logger.LogError("Eccezione: {Exception}", ex.Message);
 			}
 		}
 		else
 		{
-			message = "Token non ottenuto.";
+			await DialogService.ShowMessageBox("Errore", "Token non ottenuto.");
 		}
-		isLoading = false;
+
 	}
 
 	public class Cartella

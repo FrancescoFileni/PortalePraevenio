@@ -33,7 +33,7 @@
 						<MudTextField T="string" Label="Email" @bind-Value="testata.Email" Required="true" Variant="Variant.Outlined" />
 					</MudItem>
 					<MudItem xs="12">
-						<MudTextField T="string" Label="Note" @bind-Value="testata.Note" Required="true" Variant="Variant.Outlined" />
+						<MudTextField T="string" Label="Note" @bind-Value="testata.Note" Required="false" Variant="Variant.Outlined" />
 					</MudItem>
 				</MudGrid>
 			</MudForm>
@@ -57,6 +57,7 @@
 	private string userName;
 	private string userEmail;
 	private bool isLoading;
+	
 	private Guid? azienda;
 	private string clienteId;
 
@@ -87,10 +88,8 @@
 
 		await form.Validate();
 
-		if (!form.IsValid)
-		{
-			message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-			isLoading = false;
+		if (!form.IsValid) {
+			await DialogService.ShowMessageBox("ERRORE", "Il modulo non è valido. Compila tutti i campi richiesti.");
 			return;
 		}
 
@@ -113,7 +112,7 @@
 
 				if (response.IsSuccessStatusCode)
 				{
-					message = "Testata salvata correttamente.";
+					await DialogService.ShowMessageBox("INFO", "Testata salvata correttamente.");
 					testata = new();
 
 					await DialogService.ShowMessageBox(
@@ -125,18 +124,17 @@
 				}
 				else
 				{
-					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("ERRORE", $"Errore nell'invio: {response.ReasonPhrase}");
 					logger.LogError($"Errore API: {response.StatusCode} - {response.ReasonPhrase}");
 					logger.LogError($"Dettagli risposta: {responseBody}");
 				}
 			}
 			catch (Exception ex)
 			{
-				message = "Errore di autenticazione";
+				await DialogService.ShowMessageBox("ERRORE", "Errore di autenticazione");
 			}
-			isLoading = false;
+			}
 		}
-	}
 
 	private async Task LoadUserInformation()
 	{

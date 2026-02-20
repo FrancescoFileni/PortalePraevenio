@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using BlazorPortal.Services;
 using BlazorPortal;
 using MudBlazor.Services;
 
@@ -29,9 +30,20 @@ builder.Services.AddHttpClient("DataverseClient", client =>
 
 builder.Services.AddMsalAuthentication(options =>
 {
+    
     builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
+
+        // usa il redirect invece del popup (necessario per il caching in localStorage)
+    options.ProviderOptions.LoginMode = "redirect";
+    
+        // memorizza i token in localStorage anziché in memory
+    options.ProviderOptions.Cache.CacheLocation = "localStorage";
+
     options.ProviderOptions.DefaultAccessTokenScopes
         .Add($"{resourceUrl}/user_impersonation");
 });
+
+builder.Services.AddScoped<IPermessiService, PermessiService>();
+
 
 await builder.Build().RunAsync();

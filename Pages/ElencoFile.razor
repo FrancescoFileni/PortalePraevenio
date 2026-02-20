@@ -1,61 +1,67 @@
 ﻿@page "/elencofile/id={IdCartella}&titolo={Titolo}"
-@using System.Net.Http.Headers
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
-@using System.Text
-@inject ILogger<ElencoFile> logger
-@inject IHttpClientFactory ClientFactory
+@using Microsoft.AspNetCore.Components
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using ClosedXML.Excel
 @inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<FetchSedi> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
 
-<h3>@Titolo</h3>
+<AuthorizeView>
+    <Authorized>
 
-<button @onclick="GoBack">
-    <i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
-</button>
+        <button @onclick="GoBack">
+            <i class="fas fa-arrow-left" style="font-size: 24px; color: white;"></i>
+        </button>
 
-<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935;" @onclick="OpenDialogAsync">Nuovo File</MudButton>
+        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935; margin-left: 16px;" @onclick="OpenDialogAsync">Nuovo File</MudButton>
 
-<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color:#E53935;" @onclick="DownloadAllFiles">
-    Scarica Cartella
-</MudButton>
+        <h3 style="margin-top: 16px;">@Titolo</h3>
 
-<div class="folder-container">
-    <div class="folder-tab">Elenco File</div>
-    @if (files?.value != null && files.value.Length > 0)
-    {
-        <MudTable Items="files.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
-            <HeaderContent>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<File, object>(x=>x.createdon)">Data Caricamento File</MudTableSortLabel></MudTh>
-            </HeaderContent>
-            <RowTemplate Context="file">
-                <MudTd>
-                    <!-- Cliccando sul nome si scarica il file -->
-                    <a href="javascript:void(0)" @onclick="() => DownloadFile(file)" style="text-decoration: underline; color: blue;">
-                        @file.cr4f9_name
-                    </a>
-                </MudTd>
-                <MudTd>@file.cr4f9_notedocumento</MudTd>
-                <MudTd>
-                    @if (file.createdon.HasValue)
-                    {
-                        @file.createdon.Value.ToString("dd/MM/yyyy")
-                    }
-                    else
-                    {
-                        <em>Data non disponibile</em>
-                    }
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    }
-    else
-    {
-        <p>Non ci sono file in questa cartella</p>
-    }
-</div>
+        @if(files != null)
+        {
+            <div class="folder-container">
+                <div class="folder-tab">Elenco File</div>
+                <MudTable Items="files.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Id</MudTh>
+                        <MudTh>Note</MudTh>
+                        <MudTh>Data Creazione</MudTh>
+                        <MudTh>Data Scadenza</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="file">
+                        <MudTd>
+                            <MudLink Href="@($"/elencoversionifile/id={file.cr4f9_filedocumentoid}")">
+                                @file.cr4f9_name
+                            </MudLink>
+                        </MudTd>
+                        <MudTd>@file.cr4f9_notedocumento</MudTd>
+                        <MudTd>@file.createdon.ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd>@file.cr4f9_datascadenza.ToString("dd/MM/yyyy")</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+        }
+        else
+        {
+            <p><em>@message</em></p>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h3>Authentication Failure!</h3>
+        <p>You're not signed in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
 
 @code {
     [Parameter]
@@ -67,360 +73,205 @@
     [Inject]
     private IDialogService DialogService { get; set; }
 
-    private FileCollection files = new FileCollection { value = Array.Empty<File>() };
+    private string userName;
+    private string userEmail;
+    private string message = "Loading...";
+    private string clienteId;
+    private Guid? azienda;
+    private FileCollection files;
 
     protected override async Task OnInitializedAsync()
     {
-        if (Guid.TryParse(IdCartella, out var cartellaId))
-        {
-            await LoadFile(cartellaId);
-        }
-        else
-        {
-            logger.LogInformation("Id della cartella non valido");
-        }
+        await LoadUserInformation();
     }
 
-    private async Task OpenDialogAsync()
+    private async Task LoadUserInformation()
     {
-        var parameters = new DialogParameters
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
         {
-            { "IdCartella", IdCartella },
-            {"Titolo", Titolo}
-        };
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
 
-        var options = new DialogOptions { CloseOnEscapeKey = true };
+            logger.LogInformation("USER EMAIL: " + userEmail);
 
-        var dialog = DialogService.Show<AddFile>("Nuovo File", parameters, options);
-        var result = await dialog.Result;
-
-        // Puoi gestire il risultato qui, ad esempio ricaricare i file
+            await CaricaClienteAssociato(userEmail);
+            await CaricaElencoFIle(IdCartella);
+        }
     }
 
-    private async Task LoadFile(Guid cartellaId)
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task CaricaElencoFIle(string CartellaId)
     {
         var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
+
+        if(tokenResult.TryGetToken(out var token))
         {
             var client = ClientFactory.CreateClient("DataverseClient");
 
-            // Aggiunto il campo createdon per la data di creazione
-            var fetchXmlFile = $@"
-                <fetch>
-                  <entity name='cr4f9_filedocumento'>
-                    <attribute name='cr4f9_filedocumentoid' />
-                    <attribute name='cr4f9_name' />
-                    <attribute name='cr4f9_file' />
-                    <attribute name='cr4f9_notedocumento' />
-                    <attribute name='createdon' />
-                    <filter>
-                      <condition attribute='cr4f9_cartella' operator='eq' value='{cartellaId}' />
-                    </filter>
-                    <link-entity name='cr4f9_cartelladocumenti' from='cr4f9_cartelladocumentiid' to='cr4f9_cartella' link-type='inner' alias='Cartella'>
-                      <attribute name='cr4f9_name' />
-                    </link-entity>
-                  </entity>
-                </fetch>";
+            var fetchXml = $@"
+                        <fetch>
+                          <entity name='cr4f9_filedocumento'>
+                            <attribute name='cr4f9_filedocumentoid' />
+                            <attribute name='cr4f9_name' />
+                            <attribute name='cr4f9_notedocumento' />
+                            <attribute name='createdon' />
+                            <attribute name='cr4f9_datascadenza' />
+                            <filter>
+                              <condition attribute='cr4f9_cartella' operator='eq' value='{CartellaId}' />
+                            </filter>
+                          </entity>
+                        </fetch>";
 
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_filedocumentos?fetchXml={Uri.EscapeUriString(fetchXmlFile)}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_filedocumentos?fetchXml={Uri.EscapeDataString(fetchXml)}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            // Se necessario, modifica il media type per il tuo ambiente
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await client.SendAsync(request);
-            var resultJson = await response.Content.ReadAsStringAsync();
-            logger.LogInformation($"Risposta JSON: {resultJson}");
             if (response.IsSuccessStatusCode)
             {
                 files = await response.Content.ReadFromJsonAsync<FileCollection>();
             }
             else
             {
-                logger.LogError($"Errore nel recupero dei file: {response.ReasonPhrase}");
+                message = "An error occurred while fetching data.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
             }
         }
         else
         {
-            logger.LogError("Token non ottenuto");
+            message = "There was a problem authenticating.";
         }
     }
-
-    private async Task DownloadFile(File file)
-    {
-        logger.LogInformation($"Download del file con ID: {file.cr4f9_filedocumentoid}");
-
-        byte[] fileBytes = null;
-        // Gestione differenziata a seconda della stringa contenuta in cr4f9_file
-        if (file.cr4f9_file.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (!tokenResult.TryGetToken(out var token))
-            {
-                logger.LogError("Token non ottenuto per il download del file.");
-                return;
-            }
-            var client = ClientFactory.CreateClient("DataverseClient");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            var response = await client.GetAsync(file.cr4f9_file);
-            if (response.IsSuccessStatusCode)
-            {
-                fileBytes = await response.Content.ReadAsByteArrayAsync();
-            }
-            else
-            {
-                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
-                return;
-            }
-        }
-        else if (file.cr4f9_file.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = file.cr4f9_file.Split("base64,");
-            if (parts.Length == 2)
-            {
-                try
-                {
-                    fileBytes = Convert.FromBase64String(parts[1]);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Errore nella decodifica Base64: {ex.Message}");
-                    return;
-                }
-            }
-            else
-            {
-                logger.LogError("Formato data URI non valido.");
-                return;
-            }
-        }
-        else
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (!tokenResult.TryGetToken(out var token))
-            {
-                logger.LogError("Token non ottenuto per il download del file.");
-                return;
-            }
-            var client = ClientFactory.CreateClient("DataverseClient");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-
-            var downloadUrl = $"{client.BaseAddress}cr4f9_filedocumentos({file.cr4f9_filedocumentoid})/cr4f9_file/$value";
-            var response = await client.GetAsync(downloadUrl);
-            if (response.IsSuccessStatusCode)
-            {
-                fileBytes = await response.Content.ReadAsByteArrayAsync();
-            }
-            else
-            {
-                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
-                return;
-            }
-        }
-
-        if (fileBytes == null || fileBytes.Length == 0)
-        {
-            logger.LogError("File vuoto o non recuperato correttamente.");
-            return;
-        }
-
-        // Determina il MIME type in base al contenuto del file
-        string mimeType = GetMimeTypeFromBytes(fileBytes);
-        // Determina un'estensione da usare per il file (utile per il nome)
-        string extension = GetExtensionFromMimeType(mimeType);
-        string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
-                            ? $"downloadedFile{extension}"
-                            : file.cr4f9_name + extension;
-
-        string base64 = Convert.ToBase64String(fileBytes);
-        await JS.InvokeVoidAsync("downloadFileFromBase64", base64, mimeType, fileName);
-    }
-
-    private string GetMimeTypeFromBytes(byte[] fileBytes)
-    {
-        if (fileBytes.Length >= 4)
-        {
-            var header = BitConverter.ToString(fileBytes.Take(4).ToArray());
-            switch (header)
-            {
-                case "50-4B-03-04": // ZIP header (usato da .docx, .xlsx, .pptx)
-                    return DetectOfficeFileType(fileBytes);
-                case "D0-CF-11-E0": // Vecchi formati Microsoft Office
-                    return "application/msword"; // Potrebbe essere Word, Excel o PowerPoint
-                case "25-50-44-46": // PDF: %PDF
-                    return "application/pdf";
-                case "89-50-4E-47": // PNG file header
-                    return "image/png";
-            }
-        }
-        return "application/octet-stream";
-    }
-
-
-    // Funzione per identificare se il file ZIP è DOCX, XLSX o PPTX
-    private string DetectOfficeFileType(byte[] fileBytes)
-    {
-        string content = Encoding.ASCII.GetString(fileBytes);
-        if (content.Contains("[Content_Types].xml"))
-        {
-            if (content.Contains("word/"))
-                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; // .docx
-            if (content.Contains("xl/"))
-                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // .xlsx
-            if (content.Contains("ppt/"))
-                return "application/vnd.openxmlformats-officedocument.presentationml.presentation"; // .pptx
-        }
-        return "application/zip"; // Se non riconosciuto
-    }
-
-
-    private string GetExtensionFromMimeType(string mimeType)
-    {
-        return mimeType switch
-        {
-            "application/pdf" => ".pdf",
-            "image/png" => ".png",
-            "image/jpeg" => ".jpg",
-            "image/gif" => ".gif",
-            "text/plain" => ".txt",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" => ".pptx",
-            "application/msword" => ".doc",
-            "application/vnd.ms-excel" => ".xls",
-            "application/vnd.ms-powerpoint" => ".ppt",
-            _ => ".bin"
-        };
-    }
-
-    private async Task<byte[]> GetFileBytes(File file)
-    {
-        if (file == null || string.IsNullOrEmpty(file.cr4f9_file))
-        {
-            logger.LogError("Il file o il suo URL è null.");
-            return null;
-        }
-
-        byte[] fileBytes = null;
-        if (file.cr4f9_file.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (!tokenResult.TryGetToken(out var token))
-            {
-                logger.LogError("Token non ottenuto per il download del file.");
-                return null;
-            }
-            var client = ClientFactory.CreateClient("DataverseClient");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            var response = await client.GetAsync(file.cr4f9_file);
-            if (response.IsSuccessStatusCode)
-            {
-                fileBytes = await response.Content.ReadAsByteArrayAsync();
-            }
-            else
-            {
-                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
-                return null;
-            }
-        }
-        else if (file.cr4f9_file.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = file.cr4f9_file.Split("base64,");
-            if (parts.Length == 2)
-            {
-                try
-                {
-                    fileBytes = Convert.FromBase64String(parts[1]);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Errore nella decodifica Base64: {ex.Message}");
-                    return null;
-                }
-            }
-            else
-            {
-                logger.LogError("Formato data URI non valido.");
-                return null;
-            }
-        }
-        else
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (!tokenResult.TryGetToken(out var token))
-            {
-                logger.LogError("Token non ottenuto per il download del file.");
-                return null;
-            }
-            var client = ClientFactory.CreateClient("DataverseClient");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            var downloadUrl = $"{client.BaseAddress}cr4f9_filedocumentos({file.cr4f9_filedocumentoid})/cr4f9_file/$value";
-            var response = await client.GetAsync(downloadUrl);
-            if (response.IsSuccessStatusCode)
-            {
-                fileBytes = await response.Content.ReadAsByteArrayAsync();
-            }
-            else
-            {
-                logger.LogError($"Errore nel download del file: {response.ReasonPhrase}");
-                return null;
-            }
-        }
-        return fileBytes;
-    }
-
-
-
-    private async Task DownloadAllFiles()
-    {
-        var fileDataList = new List<FileData>();
-
-        foreach (var file in files.value)
-        {
-            var fileBytes = await GetFileBytes(file);
-            if (fileBytes == null || fileBytes.Length == 0)
-            {
-                logger.LogError($"File {file.cr4f9_name} vuoto o non recuperato.");
-                continue;
-            }
-            string mimeType = GetMimeTypeFromBytes(fileBytes);
-            string extension = GetExtensionFromMimeType(mimeType);
-            string fileName = string.IsNullOrWhiteSpace(file.cr4f9_name)
-                                ? $"downloadedFile{extension}"
-                                : file.cr4f9_name + extension;
-
-            string base64 = Convert.ToBase64String(fileBytes);
-            fileDataList.Add(new FileData { FileName = fileName, Base64Data = base64, MimeType = mimeType });
-        }
-
-        await JS.InvokeVoidAsync("zipAndDownloadFiles", Titolo, fileDataList);
-    }
-
 
     private void GoBack()
     {
+        // Torna indietro nella cronologia
         Navigation.NavigateTo("javascript:history.back()");
+    }
+
+    private async Task OpenDialogAsync()
+    {
+        var parameters = new DialogParameters
+        {
+            {"IdCartella", IdCartella},
+            {"Titolo", Titolo}
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        var dialog = DialogService.Show<AddFile>("Nuovo File", parameters, options);
+        var result = await dialog.Result;
     }
 
     public class File
     {
         public Guid? cr4f9_filedocumentoid { get; set; }
         public string cr4f9_name { get; set; }
-        public string cr4f9_file { get; set; }
         public string cr4f9_notedocumento { get; set; }
-        public DateTime? createdon { get; set; } // Data di creazione
-    }
-
-    public class FileData
-    {
-        public string FileName { get; set; }
-        public string Base64Data { get; set; }
-        public string MimeType { get; set; }
+        public DateTime createdon { get; set; }
+        public DateTime cr4f9_datascadenza { get; set; }
     }
 
     public class FileCollection
     {
         public File[] value { get; set; }
     }
+
+    
 }
 
 <style>
@@ -560,7 +411,7 @@
         color: #757575 !important;
         font-weight: bold;
         display: block;
-        text-align: center;
+        text-align: left;
     }
 
     /* Hover sui link */
@@ -569,4 +420,51 @@
         cursor: pointer;
     }
 
+    .color-legend .legend-item {
+        width: 16px;
+        height: 16px;
+        border: 1px solid #888;
+        margin-right: 4px;
+    }
+
+    .bg-red-light {
+        background-color: #ffcccc;
+    }
+
+    .bg-orange-light {
+        background-color: #ffe5b4;
+    }
+
+    .bg-yellow-light {
+        background-color: #ffffcc;
+    }
+
+    .bg-green-light {
+        background-color: #e0e0e0;
+    }
+
+    /* Colori leggermente più saturi ma tenui */
+    .bg-green-light {
+        background-color: #e0e0e0;
+    }
+    /* verde tenue leggermente più visibile */
+    .bg-yellow-light {
+        background-color: #ffffcc;
+    }
+    /* giallo pastello più saturo */
+    .bg-orange-light {
+        background-color: #ffe5b4;
+    }
+    /* arancione pastello più saturo */
+    .bg-red-light {
+        background-color: #ffcccc; /* rosso pastello */
+    }
+
+    .color-legend {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+        font-size: 0.9rem;
+    }
 </style>

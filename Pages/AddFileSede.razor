@@ -19,30 +19,40 @@
 	</TitleContent>
 
 	<DialogContent>
-		<MudPaper Class="content-area-red-gray" Elevation="1">
+		<MudPaper Class="content-area-red-gray" Elevation="1" Style="padding: 16px;">
 			<MudForm @ref="form" Valid="isFormValid">
-				<MudItem xs="12" md="6">
-					<MudTextField T="string" @bind-Value="noteFile" Label="Note File" Variant="Variant.Outlined" Lines="5" Class="form-filed"/>
-				</MudItem>
-				<MudItem xs="12" md="6">
-					<MudFileUpload T="IBrowserFile" OnFilesChanged="HandleFileSelected">
-						<ActivatorContent>
-							<MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CloudUpload" Style="height: 40px; margin-left: 16px;">
-								Carica File
-							</MudButton>
-						</ActivatorContent>
-					</MudFileUpload>
-				</MudItem>
+				<MudGrid Spacing="3">
+					<MudItem xs="12">
+						<MudTextField T="string" @bind-Value="fileName" Label="Nome File" Variant="Variant.Outlined" Lines="1" Class="form-filed" />
+					</MudItem>
+					<MudItem xs="12">
+						<MudTextField T="string" @bind-Value="noteFile" Label="Note File" Variant="Variant.Outlined" Lines="1" Class="form-filed" />
+					</MudItem>
+					<MudItem xs="12">
+						<MudDatePicker @bind-Date="dataScadenza" Label="Data Scadenza" Variant="Variant.Outlined" />
+					</MudItem>
+					<MudItem xs="12" md="6">
+						<MudFileUpload T="IBrowserFile" OnFilesChanged="HandleFileSelected" Accept="*/*">
+							<ActivatorContent>
+								<MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CloudUpload" Style="height: 40px;">
+									Carica File
+								</MudButton>
+							</ActivatorContent>
+						</MudFileUpload>
+					</MudItem>
+				</MudGrid>
 			</MudForm>
 		</MudPaper>
 	</DialogContent>
 	<DialogActions>
-		<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
-			Annulla
-		</MudButton>
-		<MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Error">
-			Conferma
-		</MudButton>
+		<div class="d-flex justify-content-end" style="gap: 8px;">
+			<MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Dark">
+				Annulla
+			</MudButton>
+			<MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Error">
+				Conferma
+			</MudButton>
+		</div>
 	</DialogActions>
 </MudDialog>
 
@@ -62,11 +72,11 @@
 	private MudForm form;
 	private bool idFormValid = false;
 	private File file = new();
-	private bool isLoading = false;
-	private string message;
 	private IBrowserFile? fileSelezionato;
 	private string idFileCreato;
 	private string noteFile;
+	private string? fileName;
+	private DateTime? dataScadenza;
 
 	private async Task HandleFileSelected(InputFileChangeEventArgs e)
 	{
@@ -92,12 +102,13 @@
 	{
 		try
 		{
-			isLoading = true;
 
 			var dizionario = new Dictionary<string, object>
 			{
 				{"cr4f9_CartellaDocumentoSede@odata.bind", $"/cr4f9_cartelladocumentosedes({file.Cartella})"},
-				{"cr4f9_notedocumento", file.Note}
+				{"cr4f9_notedocumento", file.Note},
+				{ "cr4f9_nome", file.Nome },
+				{ "cr4f9_datascadenza", file.DataScadenza }
 			};
 
 			string contenuto = JsonConvert.SerializeObject(dizionario, Formatting.Indented);
@@ -108,8 +119,7 @@
 
 			if(!form.IsValid)
 			{
-				message = "Il modulo non è valido. Compila tutti i campi richiesti.";
-				isLoading = false;
+				await DialogService.ShowMessageBox("Errore", "Il modulo non è valido. Compila tutti i campi richiesti.");
 				return;
 			}
 
@@ -149,7 +159,7 @@
 				}
 				else
 				{
-					message = $"Errore nell'invio: {response.ReasonPhrase}";
+					await DialogService.ShowMessageBox("Errore", $"Errore nell'invio: {response.ReasonPhrase}");
 					logger.LogError($"Error Api: {response.StatusCode} - {response.ReasonPhrase}");
 					logger.LogError($"Dettagli risposta: {responseBody}");
 				}
@@ -163,7 +173,6 @@
 		{
 			logger.LogError($"Errore durante la creazione del record del file: {ex.Message}");
 		}
-		isLoading = false;
 	}
 
 	private async Task CaricaFile(string idFileCreato, IBrowserFile file)
@@ -229,7 +238,9 @@
 			var file = new File
 				{
 					Cartella = cartellaId,
-					Note = noteFile
+					Note = noteFile,
+					Nome = fileName,
+					DataScadenza = dataScadenza
 				};
 
 			await CreaRecordFile(file);
@@ -250,7 +261,7 @@
 			else
 			{
 				if (string.IsNullOrEmpty(idFileCreato))
-					logger.LogWarning("ID fil enon valido. Assicurati che la creazione del record sia riuscita");
+					logger.LogWarning("ID fil non valido. Assicurati che la creazione del record sia riuscita");
 
 				if(fileSelezionato == null)
 				{
@@ -285,6 +296,8 @@
 	public class File
 	{
 		public string Cartella { get; set; }
+		public string Nome { get; set; }
 		public string Note { get; set; }
+		public DateTime? DataScadenza { get; set; }
 	}
 }

@@ -1,0 +1,453 @@
+@page "/dettagliomacchinario/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.Xrm.Sdk
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddTestataConsegne> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<link href="css/dettaglio-macchinario.css" rel="stylesheet" />
+
+	@if (!datiCaricati)
+	{
+		<MudProgressCircular Indeterminate="true" />
+	}
+	else if (macchinariEImpiantiCollection?.value?.Length == 0)
+	{
+		<MudText>Non ci sono macchinari o impianti da mostrare</MudText>
+	}
+	else
+	{
+		<div class="toolbar">
+			<div class="toolbar-left">
+				<MudButton Variant="Variant.Text"
+						   Color="Color.Error"
+						   Class="back-btn"
+						   StartIcon="@Icons.Material.Filled.ArrowBack"
+						   OnClick="GoBack" />
+				<MudText Typo="Typo.h5" Class="page-title">
+					@macchinariEImpiantiCollection.value[0].cr4f9_nome
+				</MudText>
+			</div>
+		</div>
+
+		<div class="folder-container">
+
+			<div class="table-card">
+				<div class="table-card-header">
+					<div class="table-card-title">
+						<MudText Typo="Typo.h6">Dettaglio Macchinario / Impianto</MudText>
+						<MudText Typo="Typo.caption" Class="table-subtitle">
+							@macchinariEImpiantiCollection.value[0].cr4f9_matricola - @macchinariEImpiantiCollection.value[0].TipologiaDescrizione
+						</MudText>
+					</div>
+				</div>
+
+				<div class="folder-section">
+					<div class="details-grid">
+						<div class="detail-card">
+							<MudTextField Value="@macchinariEImpiantiCollection.value[0].cr4f9_codiceidentificativoid"
+										  Label="Id"
+										  Variant="Variant.Outlined"
+										  Disabled="true" />
+						</div>
+
+						<div class="detail-card">
+							<MudTextField Value="@macchinariEImpiantiCollection.value[0].cr4f9_matricola"
+										  Label="Matricola"
+										  Variant="Variant.Outlined"
+										  Disabled="true" />
+						</div>
+
+						<div class="detail-card span-2">
+							<MudTextField Value="@macchinariEImpiantiCollection.value[0].cr4f9_nome"
+										  Label="Nome"
+										  Variant="Variant.Outlined"
+										  Disabled="true" />
+						</div>
+
+						<div class="detail-card span-2">
+							<MudTextField Value="@macchinariEImpiantiCollection.value[0].TipologiaDescrizione"
+										  Label="Tipo"
+										  Variant="Variant.Outlined"
+										  Disabled="true" />
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="table-card mt-4">
+				<div class="table-card-header">
+					<div class="table-card-title">
+						<MudText Typo="Typo.h6">Controlli</MudText>
+						<MudText Typo="Typo.caption" Class="table-subtitle">
+							Scadenze ed esecuzioni
+						</MudText>
+					</div>
+				</div>
+
+				<MudTable Items="controlliCollection.value"
+						  Dense="true"
+						  Hover="true"
+						  Class="pretty-table">
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Controllo, object>(c => c.TipoControllo)">
+								Tipo Controllo
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Controllo, object>(c => c.cr4f9_datadiscadenza)">
+								Data Scadenza
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Controllo, object>(c => c.cr4f9_eseguito)">
+								Stato
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Controllo, object>(c => c.cr4f9_datadiesecuzione)">
+								Data Esecuzione
+							</MudTableSortLabel>
+						</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="controllo">
+						<MudTd>@controllo.TipoControllo</MudTd>
+						<MudTd>@controllo.cr4f9_datadiscadenza?.ToString("dd/MM/yyyy")</MudTd>
+						<MudTd>
+							@if (controllo.cr4f9_eseguito)
+							{
+								<span class="status-pill ok">Eseguito</span>
+							}
+							else
+							{
+								<span class="status-pill ko">Non eseguito</span>
+							}
+						</MudTd>
+						<MudTd>@controllo.cr4f9_datadiesecuzione?.ToString("dd/MM/yyyy")</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+
+		</div>
+	}
+
+@code {
+
+    [Parameter]
+    public string id { get; set; }
+
+    private string message = "Loading...";
+    private string clienteId;
+    private Guid? azienda;
+    private string userName;
+    private string userEmail;
+
+    private bool datiCaricati = false;
+
+    private MacchinariEImpiantiCollection macchinariEImpiantiCollection = new MacchinariEImpiantiCollection();
+    private ControlliCollection controlliCollection = new ControlliCollection();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation();
+    }
+
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+        await CaricaClienteAssociato(userEmail);
+        await CaricaMacchinario();
+        await CaricaControlli();
+    }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task CaricaMacchinario()
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+
+            var fetchXml = BuildFetchXmlMacchinariEImpianti();
+
+            if(tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_macchinarioimpiantofisicos?fetchXml={Uri.EscapeDataString(fetchXml)}");
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.SendAsync(request);
+
+                if(response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                    macchinariEImpiantiCollection = await response.Content.ReadFromJsonAsync<MacchinariEImpiantiCollection>();
+                    datiCaricati = true;
+                }
+                else
+                {
+                    message = "An error occured while fetching data.";
+                    logger.LogError($"Errore durante il recupero del macchinario: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("There was a problem authenticating.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del macchinario: {ex.Message}");
+        }
+    }
+
+    private string BuildFetchXmlMacchinariEImpianti()
+    {
+        return $@"
+        <fetch>
+          <entity name='cr4f9_macchinarioimpiantofisico'>
+            <attribute name='cr4f9_codiceidentificativoid' />
+            <attribute name='cr4f9_nome' />
+            <attribute name='cr4f9_matricola' />
+            <filter>
+              <condition attribute='cr4f9_macchinarioimpiantofisicoid' operator='eq' value='{id}' />
+            </filter>
+            <link-entity name='cr4f9_macchinarioeimpianto' from='cr4f9_macchinarioeimpiantoid' to='cr4f9_tipologiadimacchinariooimpianto' link-type='inner' alias='Tipologia'>
+              <attribute name='cr4f9_tipologia' alias='Tipo' />
+            </link-entity>
+            <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+              <attribute name='new_localita' alias='Localita' />
+            </link-entity>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task CaricaControlli()
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+
+            var fetchXmlQuery = BuildFetchXmlControlli();
+
+            if(tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollimacchinarieimpiantis?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                    controlliCollection = await response.Content.ReadFromJsonAsync<ControlliCollection>();
+                    datiCaricati = true;
+                }
+                else
+                {
+                    message = "An error occured while fetching data";
+                    logger.LogError($"Errore durante il recupero del controllo DPI: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                message = "There was a problem authenticating";
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del controllo DPI: {ex.Message}");
+        }
+    }
+
+    private string BuildFetchXmlControlli()
+    {
+        return $@"
+        <fetch>
+          <entity name='cr4f9_elencocontrollimacchinarieimpianti'>
+            <attribute name='cr4f9_datadiesecuzione' />
+            <attribute name='cr4f9_datadiscadenza' />
+            <attribute name='cr4f9_eseguito' />
+            <link-entity name='cr4f9_macchinarioimpiantofisico' from='cr4f9_macchinarioimpiantofisicoid' to='cr4f9_macchinariooimpianto' link-type='inner' alias='Macchinario'>
+                <filter>
+                    <condition attribute='cr4f9_macchinarioimpiantofisicoid' operator='eq' value='{id}' />
+                </filter>
+              <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+                <filter>
+                  <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+                </filter>
+              </link-entity>
+            </link-entity>
+            <link-entity name='cr4f9_tipologiedicontrollo' from='cr4f9_tipologiedicontrolloid' to='cr4f9_controllo' link-type='inner' alias='Controllo'>
+              <attribute name='cr4f9_tipocontrollo' alias='TipoControllo'/>
+            </link-entity>
+          </entity>
+        </fetch>";
+    }
+
+    private void GoBack()
+    {
+        // Utilizza la navigazione per tornare indietro nella cronologia
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
+    public class MacchinariEImpianti
+    {
+        public string cr4f9_codiceidentificativoid { get; set; }
+        public string cr4f9_nome { get; set; }
+        public string cr4f9_matricola { get; set; }
+        public int Tipo { get; set; }
+        public string Localita { get; set; }
+
+        public string TipologiaDescrizione =>
+            Tipo switch
+            {
+                644840000 => "IMPIANTO FOTOVOLTAICO",
+                644840001 => "ROBOT INCISIVO",
+                _ => "Tipo sconosciuto"
+            };
+    }
+
+    public class MacchinariEImpiantiCollection
+    {
+        public MacchinariEImpianti[] value { get; set; } = Array.Empty<MacchinariEImpianti>();
+    }
+
+    public class Controllo
+    {
+        public DateTime? cr4f9_datadiesecuzione { get; set; }
+        public DateTime? cr4f9_datadiscadenza { get; set; }
+        public bool cr4f9_eseguito { get; set; }
+        public string TipoControllo { get; set; }
+    }
+
+    public class ControlliCollection
+    {
+        public Controllo[] value { get; set; } = Array.Empty<Controllo>();
+    }
+}

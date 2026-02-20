@@ -1,9 +1,10 @@
-﻿@page "/visitemediche"
+@page "/visitemediche"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.Extensions.Logging
 @using System.Text.Json.Serialization
+@using System.Text.Json
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
@@ -12,166 +13,233 @@
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
+<link href="css/visite-mediche.css?v=1" rel="stylesheet" />
+
 <AuthorizeView>
-    <Authorized>
-        <h3>Visite Mediche</h3>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935;" @onclick="OpenDialogAsync">
-            Nuova visita medica
-        </MudButton>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.FileDownload"
-                   Style="color:#4CAF50; margin-left: 4px;" @onclick="ExportToExcel">
-            Esporta in Excel
-        </MudButton>
+	<Authorized>
+		@if (accessoNegato)
+		{
+			<MudAlert Severity="Severity.Error" Variant="Variant.Filled" Color="Color.Error">
+				@message
+			</MudAlert>
+		}
+		else
+		{
+			<MudPaper Class="toolbar" Elevation="1">
+				<div class="toolbar-left">
+					<MudText Typo="Typo.h5" Class="page-title">VISITE MEDICHE</MudText>
+				</div>
 
-        <!-- Pulsante per mostrare/nascondere i filtri -->
-        <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" OnClick="ToggleFilters"
-                       Class="mt-4" Style="color: #E53935; margin-bottom: 12px;" />
+				<div class="toolbar-right">
+					<MudButton Variant="Variant.Filled"
+							   StartIcon="@Icons.Material.Filled.Add"
+							   Color="Color.Error"
+							   Class="action-btn"
+							   OnClick="OpenDialogAsync">
+						Nuova
+					</MudButton>
 
-        @if (showFilters)
-        {
-            <div class="folder-container compact">
-                <div class="folder-tab">Filtri</div>
-                <!-- Prima riga -->
-                <MudGrid GutterSize="8">
-                    <!-- Riepilogo Visita -->
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Nome o Cognome</MudText>
-                        <MudTextField @bind-Value="searchRiepilogo"
-                                      Placeholder="Cerca per nome o cognome"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;"/>
-                    </MudItem>
+					<MudButton Variant="Variant.Outlined"
+							   StartIcon="@Icons.Material.Filled.FileDownload"
+							   Color="Color.Success"
+							   Class="action-btn"
+							   OnClick="ExportToExcel">
+						Esporta
+					</MudButton>
 
-                    <!-- Data Visita -->
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Data Visita</MudText>
-                        <MudGrid GutterSize="4">
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataVisitaFrom"
-                                               Label="Da"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataVisitaTo"
-                                               Label="A"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                        </MudGrid>
-                    </MudItem>
+					<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+								   Color="Color.Error"
+								   OnClick="ToggleFilters"
+								   Class="filter-btn" />
+				</div>
+			</MudPaper>
 
-                    <!-- Prossima Visita -->
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Prossima Visita</MudText>
-                        <MudGrid GutterSize="4">
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="prossimaVisitaFrom"
-                                               Label="Da"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="prossimaVisitaTo"
-                                               Label="A"
-                                               Variant="Variant.Outlined"
-                                               Class="white-input"
-                                               Clearable="true"
-                                               ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                        </MudGrid>
-                    </MudItem>
 
-                    <MudItem xs="12" md="12">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Note del Medico</MudText>
-                        <MudTextField @bind-Value="searchNotaMedico"
-                                      Placeholder="Cerca per nota"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;" />
-                    </MudItem>
-                </MudGrid>
+			<MudCollapse Expanded="@showFilters">
+				<MudPaper Class="filters-panel" Elevation="0">
+					<MudGrid GutterSize="8">
+						<MudItem xs="12" md="4">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Nome o Cognome
+							</MudText>
+							<MudTextField @bind-Value="searchRiepilogo"
+										  Placeholder="Cerca per nome o cognome"
+										  Variant="Variant.Outlined"
+										  Immediate="true"
+										  Class="white-input" />
+						</MudItem>
 
-                <!-- Seconda riga: Tipologia ed Esito Visita -->
-                <MudGrid GutterSize="8" Class="mt-2">
-                    <MudItem xs="12" md="6">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1 red-label" Style="color: #E53935; margin-left: 4px;">Tipologia Visita</MudText>
-                        <MudSelect T="string" @bind-Value="selectedTipologia"
-                                   Variant="Variant.Outlined"
-                                   Class="white-input">
-                            <MudSelectItem Value="@("all")">Tutti</MudSelectItem>
-                            <MudSelectItem Value="@("Preassuntiva")">Preassuntiva</MudSelectItem>
-                            <MudSelectItem Value="@("Periodica")">Periodica</MudSelectItem>
-                            <MudSelectItem Value="@("Su richiesta")">Su richiesta</MudSelectItem>
-                            <MudSelectItem Value="@("Rientro da malattia/infortunio")">Rientro</MudSelectItem>
-                            <MudSelectItem Value="@("Fine rapporto")">Fine</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                    <MudItem xs="12" md="6">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1 red-label" Style="color: #E53935;">Esito Visita</MudText>
-                        <MudSelect T="string" @bind-Value="selectedEsito"
-                                   Variant="Variant.Outlined"
-                                   Class="white-input">
-                            <MudSelectItem Value="@("all")">Tutti</MudSelectItem>
-                            <MudSelectItem Value="@("Idoneo")">Idoneo</MudSelectItem>
-                            <MudSelectItem Value="@("Idoneo con prescrizioni")">Idoneo con prescrizioni</MudSelectItem>
-                            <MudSelectItem Value="@("Idoneo con limitazioni")">Idoneo con limitazioni</MudSelectItem>
-                            <MudSelectItem Value="@("Non idoneo temporaneamente")">Non idoneo temporaneamente</MudSelectItem>
-                            <MudSelectItem Value="@("Non idoneo permanentemente")">Non idoneo permanentemente</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                </MudGrid>
-            </div>
-        }
+						<MudItem xs="12" md="4">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Data Visita
+							</MudText>
+							<MudGrid GutterSize="4">
+								<MudItem xs="6">
+									<MudDatePicker @bind-Date="dataVisitaFrom"
+												   Label="Da"
+												   Variant="Variant.Outlined"
+												   Class="white-input"
+												   Clearable="true" />
+								</MudItem>
+								<MudItem xs="6">
+									<MudDatePicker @bind-Date="dataVisitaTo"
+												   Label="A"
+												   Variant="Variant.Outlined"
+												   Class="white-input"
+												   Clearable="true" />
+								</MudItem>
+							</MudGrid>
+						</MudItem>
 
-        @if (visite != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Visite Mediche</div>
-                <MudTable Items="visite.value" Dense="true" HeaderClass="mud-table-header" Hover="true" Filter="FilterFunc">
-                    <HeaderContent>
-                        <MudTh>Riepilogo visita</MudTh>
-                        <MudTh>Data visita</MudTh>
-                        <MudTh>Data prossima visita</MudTh>
-                        <MudTh>Tipologia visita</MudTh>
-                        <MudTh>Esito visita</MudTh>
-                        <MudTh>Nota del Medico</MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="visitaMedica">
-                        <MudLink DataLabel="riepilogo" Href="@($"/dettagliovisita/id={visitaMedica.cr4f9_visitamedicadellavoratoreid}")">
-                            @visitaMedica.cr4f9_riepilogovisita
-                        </MudLink>
-                        <MudTd DataLabel="datavisita">@visitaMedica.checkDate</MudTd>
-                        <MudTd DataLabel="dataprossimavisita">@visitaMedica.nextCheckDate</MudTd>
-                        <MudTd DataLabel="tipologiavisita">@visitaMedica.TipologiaDescrizione</MudTd>
-                        <MudTd DataLabel="esitovisita">@visitaMedica.EsitoDescrizione</MudTd>
-                        <MudTd DataLabel="notedelmedico">@visitaMedica.cr4f9_notedelmedico</MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
+						<MudItem xs="12" md="4">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Prossima Visita
+							</MudText>
+							<MudGrid GutterSize="4">
+								<MudItem xs="6">
+									<MudDatePicker @bind-Date="prossimaVisitaFrom"
+												   Label="Da"
+												   Variant="Variant.Outlined"
+												   Class="white-input"
+												   Clearable="true" />
+								</MudItem>
+								<MudItem xs="6">
+									<MudDatePicker @bind-Date="prossimaVisitaTo"
+												   Label="A"
+												   Variant="Variant.Outlined"
+												   Class="white-input"
+												   Clearable="true" />
+								</MudItem>
+							</MudGrid>
+						</MudItem>
 
-            </div>
-        }
-        else
-        {
-            <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+						<MudItem xs="12">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Note del Medico
+							</MudText>
+							<MudTextField @bind-Value="searchNotaMedico"
+										  Placeholder="Cerca per nota"
+										  Variant="Variant.Outlined"
+										  Immediate="true"
+										  Class="white-input" />
+						</MudItem>
+
+						<MudItem xs="12" md="6">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Tipologia Visita
+							</MudText>
+							<MudSelect T="string" @bind-Value="selectedTipologia"
+									   Variant="Variant.Outlined"
+									   Class="white-input">
+								<MudSelectItem Value="@("all")">Tutti</MudSelectItem>
+								<MudSelectItem Value="@("Preassuntiva")">Preassuntiva</MudSelectItem>
+								<MudSelectItem Value="@("Periodica")">Periodica</MudSelectItem>
+								<MudSelectItem Value="@("Su richiesta")">Su richiesta</MudSelectItem>
+								<MudSelectItem Value="@("Rientro da malattia/infortunio")">Rientro</MudSelectItem>
+								<MudSelectItem Value="@("Fine rapporto")">Fine</MudSelectItem>
+							</MudSelect>
+						</MudItem>
+
+						<MudItem xs="12" md="6">
+							<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+								Esito Visita
+							</MudText>
+							<MudSelect T="string" @bind-Value="selectedEsito"
+									   Variant="Variant.Outlined"
+									   Class="white-input">
+								<MudSelectItem Value="@("all")">Tutti</MudSelectItem>
+								<MudSelectItem Value="@("Idoneo")">Idoneo</MudSelectItem>
+								<MudSelectItem Value="@("Idoneo con prescrizioni")">Idoneo con prescrizioni</MudSelectItem>
+								<MudSelectItem Value="@("Idoneo con limitazioni")">Idoneo con limitazioni</MudSelectItem>
+								<MudSelectItem Value="@("Non idoneo temporaneamente")">Non idoneo temporaneamente</MudSelectItem>
+								<MudSelectItem Value="@("Non idoneo permanentemente")">Non idoneo permanentemente</MudSelectItem>
+							</MudSelect>
+						</MudItem>
+					</MudGrid>
+
+					<div class="mt-4 filters-actions">
+						<MudButton Variant="Variant.Outlined"
+								   Color="Color.Primary"
+								   StartIcon="@Icons.Material.Filled.Refresh"
+								   OnClick="ResetFilters">
+							Ripristina
+						</MudButton>
+					</div>
+				</MudPaper>
+			</MudCollapse>
+
+
+			@if (visite != null)
+			{
+				<div class="folder-container">
+					<div class="folder-tab">Elenco Visite Mediche</div>
+					<MudTable T="Visita"
+							  Items="visite.value"
+							  Dense="true"
+							  Hover="true"
+							  Filter="FilterFunc"
+							  Class="modern-table">
+
+						<HeaderContent>
+							<MudTh>Riepilogo visita</MudTh>
+							<MudTh>Data visita</MudTh>
+							<MudTh>Data prossima visita</MudTh>
+							<MudTh>Tipologia visita</MudTh>
+							<MudTh>Esito visita</MudTh>
+							<MudTh>Nota del Medico</MudTh>
+							<MudTh>Allegato</MudTh>
+						</HeaderContent>
+
+						<RowTemplate Context="visitaMedica">
+
+							<!-- ✅ ORA È DENTRO MudTd -->
+							<MudTd DataLabel="riepilogo">
+								<MudLink Href="@($"/dettagliovisita/id={visitaMedica.cr4f9_visitamedicadellavoratoreid}")"
+										 Class="name-link row-truncate">
+									@visitaMedica.cr4f9_riepilogovisita
+								</MudLink>
+							</MudTd>
+
+							<MudTd DataLabel="datavisita">@visitaMedica.checkDate</MudTd>
+							<MudTd DataLabel="dataprossimavisita">@visitaMedica.nextCheckDate</MudTd>
+							<MudTd DataLabel="tipologiavisita">@visitaMedica.TipologiaDescrizione</MudTd>
+							<MudTd DataLabel="esitovisita">@visitaMedica.EsitoDescrizione</MudTd>
+							<MudTd DataLabel="notedelmedico">@visitaMedica.cr4f9_notedelmedico</MudTd>
+
+							<MudTd DataLabel="allegato" Align="Align.Center">
+								<div class="allegato-cell">
+									@if (visitaMedica.HasAllegato)
+									{
+										<MudIconButton Icon="@Icons.Material.Filled.Attachment"
+													   Size="Size.Small"
+													   Class="allegato-icon" />
+									}
+									else
+									{
+										<span>-</span>
+									}
+								</div>
+							</MudTd>
+
+						</RowTemplate>
+
+						<PagerContent>
+							<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+						</PagerContent>
+					</MudTable>
+
+				</div>
+			}
+			else
+			{
+				<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+			}
+		}
+	</Authorized>
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
@@ -196,13 +264,29 @@
     private string selectedEsito = "all";
     private bool showFilters = false;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadUserInformation();
+	private bool? autorizzatoLavoratori;
+	private bool accessoNegato;
 
-        // Costruisci dinamicamente la query FetchXML
-        fetchXmlQuery = $@"
-        <fetch>
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+
+		// 1) Verifica autorizzazione alla visualizzazione dei lavoratori / visite
+		autorizzatoLavoratori = await VerificaAutorizzazioneLavoratori(userEmail);
+
+		if (autorizzatoLavoratori != true)
+		{
+			accessoNegato = true;
+			message = "Non sei autorizzato a visualizzare le visite mediche dei lavoratori.";
+			logger.LogWarning($"Utente {userEmail} non autorizzato alla visualizzazione delle visite mediche.");
+			return;
+		}
+
+		// 2) Solo se autorizzato, procedi con il caricamento delle visite
+		// Costruisci dinamicamente la query FetchXML
+		fetchXmlQuery = $@"
+        <fetch distinct='true'>
             <entity name='cr4f9_visitamedicadellavoratore'>
                 <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' alias='contatto'>
                     <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' alias='lavoraPresso'>
@@ -218,35 +302,37 @@
             </entity>
         </fetch>";
 
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
-                };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+				};
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
-                logger.LogInformation($"Visita: {visite.value}");
-            }
-            else
-            {
-                message = "An error occurred.";
-                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            message = "There was a problem authenticating.";
-        }
-    }
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
+				logger.LogInformation($"Visita: {visite.value}");
+				logger.LogInformation(JsonSerializer.Serialize(visite.value));
+			}
+			else
+			{
+				message = "An error occurred.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
+
 
     private async Task LoadUserInformation()
     {
@@ -259,6 +345,85 @@
             logger.LogInformation("USER EMAIL: " + userEmail);
         }
     }
+
+	private async Task<bool> VerificaAutorizzazioneLavoratori(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				logger.LogError("Errore di autenticazione durante la verifica autorizzazione lavoratori.");
+				return false;
+			}
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var fetchXml = $@"
+        <fetch top='1'>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_lavoratori' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+
+			var request = new HttpRequestMessage(HttpMethod.Get,
+				$"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var response = await client.SendAsync(request);
+			if (!response.IsSuccessStatusCode)
+			{
+				logger.LogError($"Errore durante la verifica autorizzazione lavoratori: {response.ReasonPhrase}");
+				return false;
+			}
+
+			var responseBody = await response.Content.ReadAsStringAsync();
+			var jsonDocument = JsonDocument.Parse(responseBody);
+			var entities = jsonDocument.RootElement.GetProperty("value");
+
+			if (entities.GetArrayLength() == 0)
+			{
+				logger.LogWarning("Nessun record emailautorizzazioni trovato per l'email fornita.");
+				return false;
+			}
+
+			var entity = entities[0];
+
+			if (entity.TryGetProperty("new_lavoratori", out var newLavoratoriProperty))
+			{
+				bool flag = false;
+
+				// Caso classico: booleano JSON
+				if (newLavoratoriProperty.ValueKind == JsonValueKind.True ||
+					newLavoratoriProperty.ValueKind == JsonValueKind.False)
+				{
+					flag = newLavoratoriProperty.GetBoolean();
+				}
+				// In caso arrivasse come stringa "1"/"0" o "true"/"false"
+				else if (newLavoratoriProperty.ValueKind == JsonValueKind.String)
+				{
+					var val = newLavoratoriProperty.GetString();
+					flag = val == "1" ||
+									string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
+				}
+
+				logger.LogInformation($"Autorizzazione new_lavoratori per {email}: {flag}");
+				return flag;
+			}
+
+			logger.LogWarning("Il campo 'new_lavoratori' non è presente nel record.");
+			return false;
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante la verifica autorizzazione lavoratori: {ex.Message}");
+			return false;
+		}
+	}
+
 
     private Task OpenDialogAsync()
     {
@@ -287,6 +452,18 @@
     }
 
     private void ToggleFilters() => showFilters = !showFilters;
+
+    private void ResetFilters()
+    {
+        searchRiepilogo = string.Empty;
+        searchNotaMedico = string.Empty;
+        dataVisitaFrom = null;
+        dataVisitaTo = null;
+        prossimaVisitaFrom = null;
+        prossimaVisitaTo = null;
+        selectedTipologia = "all";
+        selectedEsito = "all";
+    }
 
     // Funzione di filtro applicata ad ogni riga della tabella
     private bool FilterFunc(Visita visitaMedica)
@@ -350,6 +527,7 @@
         public int cr4f9_tipologiadivisita { get; set; }
         public int cr4f9_esitodellavisita { get; set; }
         public string cr4f9_notedelmedico { get; set; }
+		public string cr4f9_certificato { get; set; }
 
         public TipologiaVisita Tipologia
         {
@@ -383,6 +561,7 @@
 
         public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
         public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
+        public bool HasAllegato => !string.IsNullOrEmpty(cr4f9_certificato);
     }
 
     public class VisitaCollection
@@ -408,104 +587,3 @@
         NonIdoneoPermanentemente = 644840003
     }
 }
-
-<style>
-
-    /* Contenitore principale della tabella e dei filtri */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    .folder-container.compact {
-        padding: 8px;
-        margin-top: 20px;
-    }
-
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-        font-size: 0.9rem;
-        padding: 4px 12px;
-    }
-
-    .mb-1 {
-        margin-bottom: 4px;
-    }
-
-    .red-label {
-        color: #E53935;
-    }
-
-    /* Stili per la tabella */
-    .mud-table {
-        width: 100%;
-        border-radius: 8px;
-        border-collapse: collapse;
-    }
-
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold;
-    }
-
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0;
-    }
-
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0;
-        padding: 8px;
-        vertical-align: middle;
-        text-align: center;
-    }
-
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        vertical-align: central;
-        margin-top: 8px;
-        margin-left: 16px;
-    }
-
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-    /* Classe per uniformare l'aspetto degli input */
-    .white-input input,
-    .white-input .mud-input-slot {
-        background-color: #ffffff !important;
-        font-size: 0.8rem !important;
-    }
-
-    .date-filter-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-</style>

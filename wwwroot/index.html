@@ -5,6 +5,7 @@
     <base href="/" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/layout-extras.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="BlazorPortal.styles.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
@@ -69,15 +70,26 @@
 
     <script>
         window.downloadFileFromStream = (byteArray, fileName) => {
-            const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const extension = fileName.split('.').pop().toLowerCase();
+
+            let contentType = 'application/octet-stream';
+            if (extension === 'xlsx') {
+                contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            } else if (extension === 'docx') {
+                contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            }
+
+            const blob = new Blob([byteArray], { type: contentType });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = fileName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         };
     </script>
+
 
     <script>
         async function zipAndDownloadFiles(zipName, files) {
@@ -145,6 +157,27 @@
 
             return ret;
         };
+    </script>
+
+    <script>
+        function openSSRSReport() {
+            const reportId = "a1688cfc-98d1-ee11-9079-000d3adf4843";     // GUID del report
+            const recordId = "4F3FD74B-C869-EF11-BFE2-000D3ADE8E36";     // GUID della partecipazione
+            const entityType = "10482";                                   // ObjectTypeCode di new_partecipazionecorsoprv
+            const helpID = "Partecipazioni.rdl";                      // nome del .rdl
+
+            const url = [
+                "https://prpdev.crm4.dynamics.com/CRMReports/Viewer/Viewer.aspx",
+                "?action=run",
+                "&id=", reportId,
+                "&context=records",
+                "&recordstype=", entityType,
+                "&records=", recordId,
+                "&helpID=", helpID
+            ].join("");
+
+            window.open(url, "_blank");
+        }
     </script>
 
 

@@ -1,151 +1,287 @@
-﻿@page "/dettagliovisita/id={id}"
+@page "/dettagliovisita/id={id}"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.Extensions.Logging
-@using System.Text.Json.Serialization
 @using MudBlazor
 @using System.Text
+@using System.Net.Http.Json
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<link href="css/dettaglio-visita.css" rel="stylesheet" />
 
 @if (visite?.value?.Length > 0)
 {
-<MudText Typo="Typo.h4" FontWeight="FontWeight.Bold" Align="Align.Center" Style="background-color: #f4f4f4; padding: 16px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); margin-bottom: 24px; color: #333; display: flex; align-items: center; justify-content: center; gap: 12px;">
-    <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Style="margin-right: 8px; color: #E53935;" />
-    <span>Riepilogo visita</span>
-    <span style="color: #E53935;">@visite.value[0].TipologiaDescrizione</span>
-    <span>per</span>
-    <span>@visite.value[0].Cognome @visite.value[0].Nome</span>
-</MudText>
+	<MudText Typo="Typo.h4"
+			 FontWeight="FontWeight.Bold"
+			 Align="Align.Center"
+			 Style="position: relative;
+                    background-color: #f4f4f4;
+                    padding: 16px;
+                    border-radius: 8px;
+                    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+                    margin-bottom: 24px;
+                    color: #333;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;">
 
-<div class="folder-container">
-    <div class="folder-tab">Dettaglio visita medica lavoratore @visite.value[0].Cognome @visite.value[0].Nome</div>
-    <MudCard>
-        <MudTimeline TimelineOrientation=TimelineOrientation.Horizontal Style="margin-top: 16px; margin-bottom: 24px;">
-            <MudTimelineItem Color="Color.Success" Variant="Variant.Filled">
-                <ItemContent>
-                    <MudAlert Severity="Severity.Success" ContentAlignment="HorizontalAlignment.Center">Visita effettuata</MudAlert>
-                </ItemContent>
-                <ItemOpposite>
-                    <MudText Color="Color.Success">@visite.value[0].checkDate</MudText>
-                </ItemOpposite>
-            </MudTimelineItem>
-            <MudTimelineItem Color="Color.Info" Variant="Variant.Filled">
-                <ItemContent>
-                    <MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">Prossima visita</MudAlert>
-                </ItemContent>
-                <ItemOpposite>
-                    <MudText Color="Color.Info">
-                        @(visite.value[0].nextCheckDate == "01/01/0001" ? "Non definita" : visite.value[0].nextCheckDate)
-                    </MudText>
-                </ItemOpposite>
-            </MudTimelineItem>
-        </MudTimeline>
+		<button @onclick="GoBack"
+				style="position: absolute;
+                       left: 16px;
+                       background: none;
+                       border: none;
+                       cursor: pointer;">
+			<i class="fas fa-arrow-left"
+			   style="font-size: 24px; color: #E53935;"></i>
+		</button>
 
-        <MudCardContent Style="margin-top: 24px; padding: 20px; background-color: #f9f9f9; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+		<div style="display: flex; align-items: center; gap: 12px;">
+			<MudIcon Icon="@Icons.Material.Filled.MedicalServices"
+					 Style="color: #E53935;" />
+			<span>Riepilogo visita</span>
+			<span style="color: #E53935;">@visite.value[0].TipologiaDescrizione</span>
+			<span>per</span>
+			<span>@visite.value[0].Cognome @visite.value[0].Nome</span>
+		</div>
+	</MudText>
 
-            <!-- Campo di testo per gli accertamenti con un bordo più morbido -->
-            <MudTextField T="string"
-                            Label="Accertamenti"
-                            Variant="Variant.Outlined"
-                            Text="@visite.value[0].cr4f9_accertamenti"
-                            ReadOnly="_readonly"
-                            Lines="5"
-                            Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
+	<div class="folder-container">
+		<div class="folder-tab">
+			Dettaglio visita medica lavoratore @visite.value[0].Cognome @visite.value[0].Nome
+		</div>
 
-            <!-- Campo numerico per la periodicità del controllo -->
-            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                                Label="Periodicità del controllo (mesi)"
-                                Variant="Variant.Outlined"
-                                Min="0"
-                                Max="400"
-                                @bind-Value="@visite.value[0].cr4f9_periodicita"
-                                ReadOnly="_readonly"
-                                Adornment="Adornment.Start"
-                                AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+		<MudCard>
+			<MudTimeline TimelineOrientation="TimelineOrientation.Horizontal"
+						 Style="margin-top: 16px; margin-bottom: 24px;">
+				<MudTimelineItem Color="Color.Success" Variant="Variant.Filled">
+					<ItemContent>
+						<MudAlert Severity="Severity.Success" ContentAlignment="HorizontalAlignment.Center">
+							Visita effettuata
+						</MudAlert>
+					</ItemContent>
+					<ItemOpposite>
+						<MudText Color="Color.Success">@visite.value[0].checkDate</MudText>
+					</ItemOpposite>
+				</MudTimelineItem>
 
-            <!-- Campo numerico per la durata del controllo -->
-            <MudNumericField Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
-                                Label="Durata del controllo (minuti)"
-                                Variant="Variant.Outlined"
-                                Min="0"
-                                Max="400"
-                                @bind-Value="@visite.value[0].cr4f9_duratavisita"
-                                ReadOnly="_readonly"
-                                Adornment="Adornment.Start"
-                                AdornmentIcon="@Icons.Material.Filled.Timer" />
+				<MudTimelineItem Color="Color.Info" Variant="Variant.Filled">
+					<ItemContent>
+						<MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">
+							Prossima visita
+						</MudAlert>
+					</ItemContent>
+					<ItemOpposite>
+						<MudText Color="Color.Info">
+							@(visite.value[0].nextCheckDate == "01/01/0001" ? "Non definita" : visite.value[0].nextCheckDate)
+						</MudText>
+					</ItemOpposite>
+				</MudTimelineItem>
+			</MudTimeline>
 
-            <MudSelect Variant="Variant.Outlined" T="string"
-            AdornmentIcon="@getEsitoVisita()" 
-            Label="@visite.value[0].EsitoDescrizione" MultiSelection="false" @bind-Value="_value"
-                        ReadOnly="_readonly">
-                @foreach (var esito in _esiti)
-                {
-                    <MudSelectItem 
-                        Value="@esito">@esito</MudSelectItem>
-                }
-            </MudSelect>
+			<MudCardContent Style="margin-top: 24px; padding: 20px; background-color: #f9f9f9; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
 
-        </MudCardContent>
+				<!-- Pulsante MODIFICA / SALVA -->
+				<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+					<MudButton Variant="Variant.Filled"
+							   Color="Color.Error"
+							   Disabled="@(_isBusy)"
+							   OnClick="ToggleEditOrSave">
+						<MudIcon Icon="@(_isEditing ? Icons.Material.Filled.Save : Icons.Material.Filled.Edit)" Class="mr-2" />
+						@(_isEditing ? "SALVA MODIFICHE" : "MODIFICA")
+					</MudButton>
+				</div>
 
-    </MudCard>
+				<MudTextField T="string"
+							  Label="Accertamenti"
+							  Variant="Variant.Outlined"
+							  @bind-Value="_editAccertamenti"
+							  Disabled="@(!_isEditing)"
+							  Lines="5"
+							  Style="background-color: #fff; margin-bottom: 16px; border-radius: 8px;" />
 
-    <div style="display: flex; justify-content: flex-end;">
-        <MudButton Variant="Variant.Filled" StartIcon="@Icon" Color="Color.Error" Size="Size.Small"
-                    Style="margin-top: 20px;" @onclick="editVisitaMedica">
-            @(_isEditing ? "Salva" : "Modifica")
-        </MudButton>
-    </div>
+				<MudNumericField T="int"
+								 Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+								 Label="Periodicità del controllo (mesi)"
+								 Variant="Variant.Outlined"
+								 Min="0"
+								 Max="400"
+								 @bind-Value="_editPeriodicita"
+								 Disabled="@(!_isEditing)"
+								 Adornment="Adornment.Start"
+								 AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
 
-</div>
+				<MudNumericField T="int"
+								 Style="margin-top: 16px; background-color: #fff; border-radius: 8px; margin-bottom: 16px;"
+								 Label="Durata del controllo (minuti)"
+								 Variant="Variant.Outlined"
+								 Min="0"
+								 Max="400"
+								 @bind-Value="_editDurata"
+								 Disabled="@(!_isEditing)"
+								 Adornment="Adornment.Start"
+								 AdornmentIcon="@Icons.Material.Filled.Timer" />
+
+				<!-- FIX: Select con valore realmente bindato e opzioni visibili -->
+				<MudSelect T="string"
+						   Variant="Variant.Outlined"
+						   Label="Esito visita"
+						   Value="_editEsitoLabel"
+						   ValueChanged="OnEsitoChanged"
+						   Disabled="@(!_isEditing)">
+					@foreach (var esito in _esiti)
+					{
+						<MudSelectItem T="string" Value="@esito">@esito</MudSelectItem>
+					}
+				</MudSelect>
+
+				<!-- Sezione allegato PULITA -->
+				<MudDivider Class="my-4" />
+
+				<MudAlert Severity="@(HasCertificato ? Severity.Success : Severity.Warning)"
+						  Variant="Variant.Outlined"
+						  Dense="true"
+						  Style="margin-top: 8px;">
+					<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+						<div style="display:flex; align-items:center; gap:10px;">
+							@* <MudIcon Icon="@Icons.Material.Filled.Attachment" /> *@
+							<MudText Typo="Typo.subtitle2" Style="font-weight:800;">Certificato</MudText>
+						</div>
+
+						<MudChip T="string"
+								 Size="Size.Small"
+								 Variant="Variant.Filled"
+								 Color="@(HasCertificato ? Color.Success : Color.Warning)">
+							@(HasCertificato ? "PRESENTE" : "NON PRESENTE")
+						</MudChip>
+					</div>
+				</MudAlert>
+
+			</MudCardContent>
+		</MudCard>
+
+		@if (_isBusy)
+		{
+			<MudProgressLinear Indeterminate="true" Style="margin: 14px 0 10px 0;" />
+		}
+
+		<div class="actions-bar"
+			 style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:16px; flex-wrap:wrap;">
+
+			<!-- Upload unico -->
+			<MudFileUpload T="IBrowserFile"
+						   OnFilesChanged="HandleFileSelectedAndUpload"
+						   MaxFiles="1"
+						   Disabled="@(_isBusy)"
+						   Accept="application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+				<ActivatorContent>
+					<MudButton Variant="Variant.Filled"
+							   Color="Color.Error"
+							   Size="Size.Medium"
+							   Class="action-btn"
+							   Disabled="@(_isBusy)">
+						@if (_uploading)
+						{
+							<MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+							<span>Caricamento...</span>
+						}
+						else
+						{
+							<MudIcon Icon="@Icons.Material.Filled.UploadFile" Class="mr-2" />
+							<span>CARICA CERTIFICATO</span>
+						}
+					</MudButton>
+				</ActivatorContent>
+			</MudFileUpload>
+
+			<!-- Download sempre a destra -->
+			<MudButton Variant="Variant.Outlined"
+					   Color="Color.Error"
+					   Size="Size.Medium"
+					   Class="action-btn"
+					   Disabled="@(!HasCertificato || _isBusy)"
+					   OnClick="DownloadCertificatoMedicoAsync">
+				@if (_downloading)
+				{
+					<MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+					<span>Download...</span>
+				}
+				else
+				{
+					<MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Class="mr-2" />
+					<span>SCARICA GIUDIZIO</span>
+				}
+			</MudButton>
+		</div>
+	</div>
 }
 else if (!string.IsNullOrEmpty(message))
 {
-<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+	<MudProgressCircular Color="Color.Default" Indeterminate="true" />
 }
 else
 {
-<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+	<MudProgressCircular Color="Color.Default" Indeterminate="true" />
 }
 
-
 @code {
-    [Parameter]
-    public string id { get; set; }
+	[Parameter] public string id { get; set; }
 
-    private string message = "Loading...";
-    private string userName;
-    private string userEmail;
-    private string fetchXmlQuery;
+	private string message = "Loading...";
+	private string userName;
+	private string userEmail;
+	private string fetchXmlQuery;
 
-    private VisitaCollection visite = new VisitaCollection { value = Array.Empty<Visita>() };
+	private VisitaCollection visite = new VisitaCollection { value = Array.Empty<Visita>() };
 
-    private string[] _esiti = ["Idoneo", "Idoneo con limitazioni", "Idoneo con prescrizioni", "Non idoneo temporaneamente", "Non idoneo permanentemente"];
+	private readonly string[] _esiti = new[]
+	{
+		"Idoneo",
+		"Idoneo con limitazioni",
+		"Idoneo con prescrizioni",
+		"Non idoneo temporaneamente",
+		"Non idoneo permanentemente"
+	};
 
-    /* Select values */
-    string _value;
-    Margin _margin;
-    bool _dense;
-    bool _disabled;
-    bool _readonly = true;
-    bool _placeholder;
-    bool _helperText;
-    bool _helperTextOnFocus;
-    bool _clearable;
-    bool _isEditing = false;
-    private string Icon => _isEditing ? Icons.Material.Filled.Save : Icons.Material.Filled.Edit;
+	private CertificatoCollection certificati = new CertificatoCollection { value = Array.Empty<Certificato>() };
+	private Certificato certificato = new Certificato();
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadUserInformation(); // Chiama il metodo per caricare le informazioni dell'utente
+	// Upload/Download
+	private IBrowserFile _fileSelezionato;
+	private bool _uploading = false;
+	private bool _downloading = false;
+	private bool _isBusy => _uploading || _downloading;
 
-        // Costruisci dinamicamente la query FetchXML
-        fetchXmlQuery = $@"
+	private bool HasCertificato =>
+		certificato != null && !string.IsNullOrWhiteSpace(certificato.cr4f9_certificato);
+
+	// Editing visita
+	private bool _isEditing = false;
+	private bool _saving = false;
+
+	private string _editAccertamenti;
+	private int _editPeriodicita;
+	private int _editDurata;
+
+	// esito in UI come stringa
+	private string _editEsitoLabel;
+
+	// esito da inviare in patch (int option set)
+	private int _editEsitoValue;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+		await CaricaCertificato();
+
+		fetchXmlQuery = $@"
         <fetch>
             <entity name='cr4f9_visitamedicadellavoratore'>
                 <attribute name='cr4f9_riepilogovisita' />
@@ -168,232 +304,489 @@ else
             </entity>
         </fetch>";
 
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (!tokenResult.TryGetToken(out var token))
+		{
+			message = "There was a problem authenticating.";
+			return;
+		}
 
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
-                    // RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?$top=100")
-                };
+		var client = ClientFactory.CreateClient("DataverseClient");
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		var request = new HttpRequestMessage
+			{
+				Method = HttpMethod.Get,
+				RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+			};
 
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                visite = await response.Content.ReadFromJsonAsync<VisitaCollection>();
-            }
-            else
-            {
-                message = "An error occurred.";
-                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            message = "There was a problem authenticating.";
-        }
-    }
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+		request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-    // Metodo per caricare le informazioni sull'utente
-    private async Task LoadUserInformation()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+		var response = await client.SendAsync(request);
+		if (!response.IsSuccessStatusCode)
+		{
+			message = "An error occurred.";
+			logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			return;
+		}
 
-        if (user.Identity.IsAuthenticated)
-        {
-            userName = user.Identity.Name;
-            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+		visite = await response.Content.ReadFromJsonAsync<VisitaCollection>()
+				?? new VisitaCollection { value = Array.Empty<Visita>() };
 
-            logger.LogInformation("USER EMAIL: " + userEmail);
-        }
-    }
+		// inizializza i campi di edit dalla visita
+		InitEditFieldsFromModel();
+	}
 
-    private string getEsitoVisita()
-    {
-        return visite.value[0].EsitoDescrizione switch
-        {
-            var esito when esito.Contains("Idoneo") => Icons.Material.Outlined.CheckCircle,
-            var esito when esito.Contains("Idoneo con prescrizioni") => Icons.Material.Outlined.CheckCircle,
-            var esito when esito.Contains("Idoneo con limitazioni") => Icons.Material.Outlined.CheckCircle,
-            var esito when esito.Contains("Non idoneo temporaneamente") => Icons.Material.Outlined.Warning,
-            var esito when esito.Contains("Non idoneo permanentemente") => Icons.Material.Outlined.Cancel,
-        };
-    }
+	private void InitEditFieldsFromModel()
+	{
+		var v = visite?.value?.FirstOrDefault();
+		if (v == null) return;
 
-    private void editVisitaMedica()
-    {
-        if (_isEditing)
-        {
-            _readonly = true;
-            SaveChanges();
-        }
-        else
-        {
-            _readonly = false;
-        }
+		_editAccertamenti = v.cr4f9_accertamenti;
+		_editPeriodicita = v.cr4f9_periodicita;
+		_editDurata = v.cr4f9_duratavisita;
 
-        _isEditing = !_isEditing; 
-    }
+		_editEsitoValue = v.cr4f9_esitodellavisita;
+		_editEsitoLabel = v.EsitoDescrizione; // mostra label corretta
+	}
 
-    public async Task SaveChanges()
-    {
-        logger.LogInformation("Save changes...");
-    }
+	private void OnEsitoChanged(string newLabel)
+	{
+		_editEsitoLabel = newLabel;
+		_editEsitoValue = MapEsitoLabelToOptionSet(newLabel);
+	}
 
-    public class Visita
-    {
-        public Guid cr4f9_visitamedicadellavoratoreid { get; set; }
-        public string cr4f9_riepilogovisita { get; set; }
-        public DateTime cr4f9_datavisita { get; set; }
-        public DateTime cr4f9_dataprossimavisita { get; set; }
-        public string cr4f9_accertamenti { get; set; }
-        public int cr4f9_periodicita { get; set; }
-        public int cr4f9_duratavisita { get; set; }
-        public string Cognome { get; set; }
-        public string Nome { get; set; }
-        public int cr4f9_tipologiadivisita { get; set; }
-        public int cr4f9_esitodellavisita { get; set; }
+	private int MapEsitoLabelToOptionSet(string label) => label switch
+	{
+		"Idoneo" => (int)EsitoVisita.Idoneo,
+		"Idoneo con limitazioni" => (int)EsitoVisita.IdoneoConLimitazioni,
+		"Idoneo con prescrizioni" => (int)EsitoVisita.IdoneoConPrescrizioni,
+		"Non idoneo temporaneamente" => (int)EsitoVisita.NonIdoneoTemporanemante,
+		"Non idoneo permanentemente" => (int)EsitoVisita.NonIdoneoPermanentemente,
+		_ => (int)EsitoVisita.Idoneo
+	};
 
-        public TipologiaVisita Tipologia
-        {
-            get => (TipologiaVisita)cr4f9_tipologiadivisita;
-            set => cr4f9_tipologiadivisita = (int)value;
-        }
+	private async Task ToggleEditOrSave()
+	{
+		if (_isBusy) return;
 
-        public string TipologiaDescrizione => Tipologia switch
-        {
-            TipologiaVisita.Preassuntiva => "Preassuntiva",
-            TipologiaVisita.Periodica => "Periodica",
-            TipologiaVisita.SuRichiesta => "Su Richiesta",
-            TipologiaVisita.Rientro => "Rientro da Malattia/Infortunio",
-            TipologiaVisita.Fine => "Fine Rapporto",
-            _ => "Sconosciuto"
-        };
+		if (!_isEditing)
+		{
+			// entra in edit
+			_isEditing = true;
+			return;
+		}
 
-        public EsitoVisita Esito
-        {
-            get => (EsitoVisita)cr4f9_esitodellavisita;
-            set => cr4f9_esitodellavisita = (int)value;
-        }
+		// salva
+		await SaveChangesAsync();
+	}
 
-        public string EsitoDescrizione => Esito switch
-        {
-            EsitoVisita.Idoneo => "Idoneo",
-            EsitoVisita.IdoneoConPrescrizioni => "Idoneo con prescrizioni",
-            EsitoVisita.IdoneoConLimitazioni => "Idoneo con limitazioni",
-            EsitoVisita.NonIdoneoTemporanemante => "Non idoneo temporaneamente",
-            EsitoVisita.NonIdoneoPermanentemente => "Non idoneo permanentemente"
-        };
+	private async Task SaveChangesAsync()
+	{
+		if (_saving) return;
 
-        public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
-        public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
-    }
+		try
+		{
+			_saving = true;
 
-    public class VisitaCollection
-    {
-        public Visita[] value { get; set; }
-    }
+			var tokenRes = await TokenProvider.RequestAccessToken();
+			if (!tokenRes.TryGetToken(out var token))
+			{
+				Snackbar.Add("Errore autenticazione: impossibile salvare.", Severity.Error);
+				return;
+			}
 
-    public enum TipologiaVisita
-    {
-        Preassuntiva = 644840000,
-        Fine = 644840004,
-        Periodica = 644840001,
-        SuRichiesta = 644840002,
-        Rientro = 644840003
-    }
+			var client = ClientFactory.CreateClient("DataverseClient");
 
-    public enum EsitoVisita
-    {
-        Idoneo = 644840000,
-        IdoneoConPrescrizioni = 644840004,
-        IdoneoConLimitazioni = 644840001,
-        NonIdoneoTemporanemante = 644840002,
-        NonIdoneoPermanentemente = 644840003
-    }
+			var url = $"{client.BaseAddress}cr4f9_visitamedicadellavoratores({id})";
+
+			var payload = new Dictionary<string, object?>
+				{
+					["cr4f9_accertamenti"] = _editAccertamenti,
+					["cr4f9_periodicita"] = _editPeriodicita,
+					["cr4f9_duratavisita"] = _editDurata,
+					["cr4f9_esitodellavisita"] = _editEsitoValue
+				};
+
+			var req = new HttpRequestMessage(new HttpMethod("PATCH"), url)
+				{
+					Content = JsonContent.Create(payload)
+				};
+
+			req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			req.Headers.Add("OData-MaxVersion", "4.0");
+			req.Headers.Add("OData-Version", "4.0");
+			req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var resp = await client.SendAsync(req);
+			if (!resp.IsSuccessStatusCode)
+			{
+				var err = await resp.Content.ReadAsStringAsync();
+				logger.LogError($"PATCH visita fallita: {err}");
+				Snackbar.Add("Salvataggio fallito. Riprova.", Severity.Error);
+				return;
+			}
+
+			// aggiorna anche il model locale (per mostrare Tipologia/Esito ecc)
+			var v = visite.value.First();
+			v.cr4f9_accertamenti = _editAccertamenti;
+			v.cr4f9_periodicita = _editPeriodicita;
+			v.cr4f9_duratavisita = _editDurata;
+			v.cr4f9_esitodellavisita = _editEsitoValue;
+
+			Snackbar.Add("Modifiche salvate.", Severity.Success);
+
+			_isEditing = false;
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(ex, "Errore SaveChangesAsync");
+			Snackbar.Add("Errore imprevisto durante il salvataggio.", Severity.Error);
+		}
+		finally
+		{
+			_saving = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task CaricaCertificato()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildCetificatoFetchXml();
+
+		if (!tokenResult.TryGetToken(out var token))
+			return;
+
+		var client = ClientFactory.CreateClient("DataverseClient");
+
+		var request = new HttpRequestMessage
+			{
+				Method = HttpMethod.Get,
+				RequestUri = new Uri($"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXml)}")
+			};
+
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+		request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+		var response = await client.SendAsync(request);
+
+		if (!response.IsSuccessStatusCode)
+			return;
+
+		certificati = await response.Content.ReadFromJsonAsync<CertificatoCollection>()
+							?? new CertificatoCollection { value = Array.Empty<Certificato>() };
+
+		certificato = (certificati.value.Length > 0 && certificati.value[0] != null)
+			? certificati.value[0]
+			: new Certificato();
+	}
+
+	private string BuildCetificatoFetchXml()
+	{
+		return $@"
+        <fetch>
+          <entity name='cr4f9_visitamedicadellavoratore'>
+            <attribute name='cr4f9_certificato' />
+            <filter>
+              <condition attribute='cr4f9_visitamedicadellavoratoreid' operator='eq' value='{id}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity?.IsAuthenticated == true)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+	}
+
+	private void GoBack() => Navigation.NavigateTo("javascript:history.back()");
+
+	private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+{
+	"application/pdf",
+	"image/png",
+	"image/jpeg",
+	"application/msword", // .doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" // .docx
+};
+
+
+	private async Task HandleFileSelectedAndUpload(InputFileChangeEventArgs args)
+	{
+		if (_isBusy) return;
+
+		_fileSelezionato = args.File;
+		if (_fileSelezionato is null) return;
+
+		if (!AllowedContentTypes.Contains(_fileSelezionato.ContentType))
+		{
+			Snackbar.Add("Formato non supportato. Carica PDF, PNG, JPG, DOC o DOCX.", Severity.Warning);
+			_fileSelezionato = null;
+			return;
+		}
+
+		Snackbar.Add($"File selezionato: {_fileSelezionato.Name}", Severity.Info);
+		await UploadCertificatoAsync();
+	}
+
+
+
+	private async Task UploadCertificatoAsync()
+	{
+		if (_fileSelezionato == null)
+		{
+			Snackbar.Add("Seleziona un file prima di caricare.", Severity.Warning);
+			return;
+		}
+
+		try
+		{
+			_uploading = true;
+			StateHasChanged();
+
+			byte[] buffer;
+			using (var ms = new MemoryStream())
+			{
+				await _fileSelezionato.OpenReadStream(maxAllowedSize: 10_000_000).CopyToAsync(ms);
+				buffer = ms.ToArray();
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				Snackbar.Add("Errore autenticazione: impossibile caricare il certificato.", Severity.Error);
+				return;
+			}
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var url = $"{client.BaseAddress}cr4f9_visitamedicadellavoratores({id})/cr4f9_certificato?x-ms-file-name={_fileSelezionato.Name}";
+
+			var request = new HttpRequestMessage(HttpMethod.Patch, url)
+				{
+					Content = new ByteArrayContent(buffer)
+				};
+
+			request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+			request.Headers.Add("OData-MaxVersion", "4.0");
+			request.Headers.Add("OData-Version", "4.0");
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var response = await client.SendAsync(request);
+
+			if (response.IsSuccessStatusCode)
+			{
+				Snackbar.Add("Certificato caricato correttamente.", Severity.Success);
+				_fileSelezionato = null;
+
+				await CaricaCertificato();
+			}
+			else
+			{
+				var errorContent = await response.Content.ReadAsStringAsync();
+				logger.LogError($"Errore upload certificato: {errorContent}");
+				Snackbar.Add("Upload fallito. Controlla il file o riprova.", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(ex, "Eccezione upload certificato");
+			Snackbar.Add("Errore imprevisto durante l’upload.", Severity.Error);
+		}
+		finally
+		{
+			_uploading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task DownloadCertificatoMedicoAsync()
+	{
+		if (!HasCertificato || _downloading) return;
+
+		try
+		{
+			_downloading = true;
+			StateHasChanged();
+
+			var tokenRes = await TokenProvider.RequestAccessToken();
+			if (!tokenRes.TryGetToken(out var token))
+			{
+				Snackbar.Add("Errore autenticazione: impossibile scaricare il certificato.", Severity.Error);
+				return;
+			}
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+			client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+			var downloadUrl = $"{client.BaseAddress}cr4f9_visitamedicadellavoratores({id})/cr4f9_certificato/$value";
+			var resp = await client.GetAsync(downloadUrl);
+
+			if (!resp.IsSuccessStatusCode)
+			{
+				Snackbar.Add("Download fallito: allegato non disponibile.", Severity.Error);
+				return;
+			}
+
+			var bytes = await resp.Content.ReadAsByteArrayAsync();
+			if (bytes == null || bytes.Length == 0)
+			{
+				Snackbar.Add("Il certificato è vuoto o non valido.", Severity.Warning);
+				return;
+			}
+
+			string mime = GetMimeTypeFromBytes(bytes);
+			string ext = GetExtensionFromMimeType(mime);
+
+			string base64 = Convert.ToBase64String(bytes);
+			await JS.InvokeVoidAsync("downloadFileFromBase64", base64, mime, $"certificato{ext}");
+
+			Snackbar.Add("Download avviato.", Severity.Success);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(ex, "Eccezione download certificato");
+			Snackbar.Add("Errore imprevisto durante il download.", Severity.Error);
+		}
+		finally
+		{
+			_downloading = false;
+			StateHasChanged();
+		}
+	}
+
+	private string GetMimeTypeFromBytes(byte[] fileBytes)
+	{
+		if (fileBytes.Length >= 4)
+		{
+			var header = BitConverter.ToString(fileBytes.Take(4).ToArray());
+			switch (header)
+			{
+				case "50-4B-03-04": return DetectOfficeFileType(fileBytes);
+				case "D0-CF-11-E0": return "application/msword";
+				case "25-50-44-46": return "application/pdf";
+				case "89-50-4E-47": return "image/png";
+			}
+			if (header.StartsWith("FF-D8-FF", StringComparison.OrdinalIgnoreCase))
+				return "image/jpeg";
+		}
+		return "application/octet-stream";
+	}
+
+	private string GetExtensionFromMimeType(string mime) => mime switch
+	{
+		"application/pdf" => ".pdf",
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation" => ".pptx",
+		"application/msword" => ".doc",
+		"image/png" => ".png",
+		"image/jpeg" => ".jpg",
+		_ => ".bin"
+	};
+
+	private string DetectOfficeFileType(byte[] fileBytes)
+	{
+		string content = Encoding.ASCII.GetString(fileBytes);
+		if (content.Contains("[Content_Types].xml"))
+		{
+			if (content.Contains("word/")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+			if (content.Contains("xl/")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+			if (content.Contains("ppt/")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+		}
+		return "application/zip";
+	}
+
+	public class Visita
+	{
+		public Guid cr4f9_visitamedicadellavoratoreid { get; set; }
+		public string cr4f9_riepilogovisita { get; set; }
+		public DateTime cr4f9_datavisita { get; set; }
+		public DateTime cr4f9_dataprossimavisita { get; set; }
+		public string cr4f9_accertamenti { get; set; }
+		public int cr4f9_periodicita { get; set; }
+		public int cr4f9_duratavisita { get; set; }
+		public string Cognome { get; set; }
+		public string Nome { get; set; }
+		public int cr4f9_tipologiadivisita { get; set; }
+		public int cr4f9_esitodellavisita { get; set; }
+
+		public TipologiaVisita Tipologia
+		{
+			get => (TipologiaVisita)cr4f9_tipologiadivisita;
+			set => cr4f9_tipologiadivisita = (int)value;
+		}
+
+		public string TipologiaDescrizione => Tipologia switch
+		{
+			TipologiaVisita.Preassuntiva => "Preassuntiva",
+			TipologiaVisita.Periodica => "Periodica",
+			TipologiaVisita.SuRichiesta => "Su Richiesta",
+			TipologiaVisita.Rientro => "Rientro da Malattia/Infortunio",
+			TipologiaVisita.Fine => "Fine Rapporto",
+			_ => "Sconosciuto"
+		};
+
+		public EsitoVisita Esito
+		{
+			get => (EsitoVisita)cr4f9_esitodellavisita;
+			set => cr4f9_esitodellavisita = (int)value;
+		}
+
+		public string EsitoDescrizione => Esito switch
+		{
+			EsitoVisita.Idoneo => "Idoneo",
+			EsitoVisita.IdoneoConPrescrizioni => "Idoneo con prescrizioni",
+			EsitoVisita.IdoneoConLimitazioni => "Idoneo con limitazioni",
+			EsitoVisita.NonIdoneoTemporanemante => "Non idoneo temporaneamente",
+			EsitoVisita.NonIdoneoPermanentemente => "Non idoneo permanentemente",
+			_ => "Sconosciuto"
+		};
+
+		public string checkDate => cr4f9_datavisita.ToString("dd/MM/yyyy");
+		public string nextCheckDate => cr4f9_dataprossimavisita.ToString("dd/MM/yyyy");
+	}
+
+	public class VisitaCollection
+	{
+		public Visita[] value { get; set; } = Array.Empty<Visita>();
+	}
+
+	public class Certificato
+	{
+		public string cr4f9_certificato { get; set; }
+	}
+
+	public class CertificatoCollection
+	{
+		public Certificato[] value { get; set; } = Array.Empty<Certificato>();
+	}
+
+	public enum TipologiaVisita
+	{
+		Preassuntiva = 644840000,
+		Fine = 644840004,
+		Periodica = 644840001,
+		SuRichiesta = 644840002,
+		Rientro = 644840003
+	}
+
+	public enum EsitoVisita
+	{
+		Idoneo = 644840000,
+		IdoneoConPrescrizioni = 644840004,
+		IdoneoConLimitazioni = 644840001,
+		NonIdoneoTemporanemante = 644840002,
+		NonIdoneoPermanentemente = 644840003
+	}
 }
-
-<style>
-
-    /* Contenitore principale della tabella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-        margin-bottom: 50px;
-    }
-
-    /* Tabella principale */
-    .mud-table {
-        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
-        border-radius: 8px;
-        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: center;
-    }
-
-    /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    /* Contenitore della tabella */
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Nascondi informazioni di paginazione */
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-</style>

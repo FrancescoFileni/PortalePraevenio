@@ -1,7 +1,507 @@
-﻿@page "/elencocontrollidpi"
+@page "/elencocontrollidpi"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using System.Text.Json
+@using System.Text
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<ElencoMacchinariEImpianti> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
 
-<h3>Controlli Dpi</h3>
+<link href="css/controlli-dpi.css?v=1" rel="stylesheet" />
+
+<AuthorizeView>
+	<Authorized>
+
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">CONTROLLI DPI</MudText>
+			</div>
+
+			<div class="toolbar-right">
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
+
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8" Class="filters-grid">
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Matricola</MudText>
+						<MudTextField @bind-Value="searchMatricola"
+									  Placeholder="Cerca per matricola"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Nome DPI</MudText>
+						<MudTextField @bind-Value="searchNome"
+									  Placeholder="Cerca per nome"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Presenza Matricola</MudText>
+						<MudSelect T="bool?"
+								   @bind-Value="filterHasMatricola"
+								   Placeholder="Seleziona"
+								   Variant="Variant.Outlined"
+								   Class="white-input"
+								   Dense="true">
+							<MudSelectItem Value="@(null as bool?)">Tutti</MudSelectItem>
+							<MudSelectItem Value="@(true as bool?)">Con Matricola</MudSelectItem>
+							<MudSelectItem Value="@(false as bool?)">Senza Matricola</MudSelectItem>
+						</MudSelect>
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Data Scadenza (Da)</MudText>
+						<MudDatePicker @bind-Date="scadFrom"
+									   Variant="Variant.Outlined"
+									   Class="white-input"
+									   Clearable="true"
+									   ClearIcon="@Icons.Material.Filled.Clear" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Data Scadenza (A)</MudText>
+						<MudDatePicker @bind-Date="scadTo"
+									   Variant="Variant.Outlined"
+									   Class="white-input"
+									   Clearable="true"
+									   ClearIcon="@Icons.Material.Filled.Clear" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Stato</MudText>
+						<MudSelect T="bool?"
+								   @bind-Value="filterEseguito"
+								   Placeholder="Seleziona stato"
+								   Variant="Variant.Outlined"
+								   Class="white-input"
+								   Dense="true">
+							<MudSelectItem Value="@((bool?)null)">Tutti</MudSelectItem>
+							<MudSelectItem Value="@((bool?)true)">Eseguito</MudSelectItem>
+							<MudSelectItem Value="@((bool?)false)">Da Eseguire</MudSelectItem>
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+
+				<div class="filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (controlliCollection?.value?.Any() ?? false)
+		{
+			@if (controlliDaEseguire.Any())
+			{
+				<div class="folder-container">
+					<div class="folder-tab">Controlli Da Eseguire</div>
+
+					<MudTable T="Controllo"
+							  Items="controlliDaEseguire"
+							  Dense="true"
+							  Hover="true"
+							  Filter="ToggleFunc"
+							  RowClassFunc="@( (controllo, _) => GetRowClass(controllo) )"
+							  Class="modern-table">
+
+						<HeaderContent>
+							<MudTh>Matricola</MudTh>
+							<MudTh>Nome</MudTh>
+							<MudTh>Data Scadenza</MudTh>
+							<MudTh>Stato</MudTh>
+							<MudTh></MudTh>
+						</HeaderContent>
+
+						<RowTemplate Context="controllo">
+							<MudTd>
+								<MudLink Href="@($"/dettagliodpi/id={controllo.IdDpi}")" Class="name-link">
+									@controllo.Matricola
+								</MudLink>
+							</MudTd>
+
+							<MudTd>@controllo.Nome</MudTd>
+
+							<MudTd>@controllo.cr4f9_datascadenzacontrollo.ToString("dd/MM/yyyy")</MudTd>
+
+							<MudTd>
+								<span class="status-pill status-pending">Da Eseguire</span>
+							</MudTd>
+
+							<MudTd Align="Align.Center">
+								<MudLink Href="@($"/dettagliocontrollodpi/id={controllo.Id}")" Class="icon-link">
+									<MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+								</MudLink>
+							</MudTd>
+						</RowTemplate>
+
+						<PagerContent>
+							<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+						</PagerContent>
+					</MudTable>
+
+					<div class="color-legend">
+						<span class="legend-title">Giorni mancanti alla scadenza:</span>
+						<span class="legend-chip"><span class="legend-item bg-red-light"></span>Scaduto</span>
+						<span class="legend-chip"><span class="legend-item bg-orange-light"></span>0–6 giorni</span>
+						<span class="legend-chip"><span class="legend-item bg-yellow-light"></span>7–30 giorni</span>
+						<span class="legend-chip"><span class="legend-item bg-green-light"></span>&gt; 30 giorni</span>
+					</div>
+				</div>
+			}
+
+			@if (controlliEseguiti.Any())
+			{
+				<div class="folder-container">
+					<div class="folder-tab">Controlli Eseguiti</div>
+
+					<MudTable T="Controllo"
+							  Items="controlliEseguiti"
+							  Dense="true"
+							  Hover="true"
+							  Class="modern-table">
+
+						<HeaderContent>
+							<MudTh>Matricola</MudTh>
+							<MudTh>Nome</MudTh>
+							<MudTh>Data Esecuzione</MudTh>
+							<MudTh>Stato</MudTh>
+							<MudTh></MudTh>
+						</HeaderContent>
+
+						<RowTemplate Context="controllo">
+							<MudTd>
+								<MudLink Href="@($"/dettagliodpi/id={controllo.IdDpi}")" Class="name-link">
+									@controllo.Matricola
+								</MudLink>
+							</MudTd>
+
+							<MudTd>@controllo.Nome</MudTd>
+
+							<MudTd>@(controllo.cr4f9_dataesecuzione?.ToString("dd/MM/yyyy") ?? "")</MudTd>
+
+							<MudTd>
+								<span class="status-pill status-done">Eseguito</span>
+							</MudTd>
+
+							<MudTd Align="Align.Center">
+								<MudLink Href="@($"/dettagliocontrollodpi/id={controllo.Id}")" Class="icon-link">
+									<MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+								</MudLink>
+							</MudTd>
+						</RowTemplate>
+
+						<PagerContent>
+							<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+						</PagerContent>
+					</MudTable>
+				</div>
+			}
+		}
+		else
+		{
+			<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+		}
+
+	</Authorized>
+</AuthorizeView>
 
 @code {
 
+    private string userName;
+    private string userEmail;
+    private Guid? azienda;
+    private string clienteId;
+
+    private string fetchXmlQuery;
+    private string message = "Loading...";
+
+    private ControlliCollection controlliCollection = new ControlliCollection();
+
+    private List<Controllo> controlliEseguiti = new();
+    private List<Controllo> controlliDaEseguire = new();
+
+
+    private bool showFilters = false;
+    private string searchMatricola = "";
+    private string searchNome = "";
+    private bool? filterEseguito = null;
+    private DateTime? scadFrom;
+    private DateTime? scadTo;
+    private bool? filterHasMatricola = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation();
+
+        fetchXmlQuery = BuildFetchXmlControlli();
+
+        var tokenResult = await TokenProvider.RequestAccessToken();
+
+        if(tokenResult.TryGetToken(out var token))
+        {
+            var client = ClientFactory.CreateClient("DataverseClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollidpis?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await client.SendAsync(request);
+
+            if(response.IsSuccessStatusCode)
+            {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                controlliCollection = await response.Content.ReadFromJsonAsync<ControlliCollection>();
+
+                if (controlliCollection?.value != null)
+                {
+                    var filtered = controlliCollection.value.Where(ToggleFunc).ToList();
+                    controlliEseguiti = filtered.Where(c => c.cr4f9_eseguito).ToList();
+                    controlliDaEseguire = filtered.Where(c => !c.cr4f9_eseguito).ToList();
+                }
+
+            }
+            else
+            {
+                message = "An error occured while fetching data.";
+                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+            }
+        }
+        else
+        {
+            message = "There was a problem authenticating";
+        }
+    }
+
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+        else
+        {
+            message = "User not authenticated.";
+        }
+        await CaricaClienteAssociato(userEmail);
+    }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildFetchXml(email);
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var jsonDocument = JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+                            {
+                                WriteIndented = true
+                            });
+                        logger.LogInformation("Entities JSON: " + entitiesJson);
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClientProperty))
+                        {
+                            clienteId = newClientProperty.GetString();
+                            azienda = newClientProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.StatusCode}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private string BuildFetchXmlControlli()
+    {
+        return $@"
+                <fetch>
+                  <entity name='cr4f9_elencocontrollidpi'>
+                    <attribute name='cr4f9_elencocontrollidpiid' alias='Id'/>
+                    <attribute name='cr4f9_dataesecuzione' />
+                    <attribute name='cr4f9_datascadenzacontrollo' />
+                    <attribute name='cr4f9_eseguito' />
+                    <attribute name='cr4f9_periodicitadelcontrolloinmesi' />
+                    <attribute name='cr4f9_dispositivoconsegnato' />
+                    <link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_associazionedpialavoratoreid' to='cr4f9_dispositivoconsegnato' link-type='inner' alias='dpi'>
+                      <link-entity name='cr4f9_dpifisico' from='cr4f9_dpifisicoid' to='cr4f9_dpifisico' link-type='inner' alias='dpiFisico'>
+                        <attribute name='cr4f9_dpifisicoid' alias='IdDpi' />
+                        <attribute name='cr4f9_nomedeldispositivofisico' alias='Nome'/>
+                        <attribute name='cr4f9_matricoladispositivo' alias='Matricola'/>
+                        <filter>
+                          <condition attribute='cr4f9_cliente' operator='eq' value='{azienda}' />
+                        </filter>
+                      </link-entity>
+                    </link-entity>
+                  </entity>
+                </fetch>";
+    }
+
+    private void ToggleFilters() => showFilters = !showFilters;
+
+    private void ResetFilters()
+    {
+        searchMatricola = "";
+        searchNome = "";
+        filterEseguito = null;
+        scadFrom = null;
+        scadTo = null;
+        filterHasMatricola = null;
+    }
+
+    private bool ToggleFunc(Controllo c)
+    {
+        bool ok = true;
+
+        if (filterHasMatricola.HasValue)
+            ok &= filterHasMatricola.Value
+                ? !string.IsNullOrWhiteSpace(c.Matricola)
+                : string.IsNullOrWhiteSpace(c.Matricola);
+
+        if (!string.IsNullOrWhiteSpace(searchMatricola))
+            ok &= c.Matricola?.Contains(searchMatricola, StringComparison.OrdinalIgnoreCase) ?? false;
+
+        if (!string.IsNullOrWhiteSpace(searchNome))
+            ok &= c.Nome?.Contains(searchNome, StringComparison.OrdinalIgnoreCase) ?? false;
+
+        if (filterEseguito.HasValue)
+            ok &= (c.cr4f9_eseguito == filterEseguito.Value);
+
+        if (scadFrom.HasValue)
+            ok &= c.cr4f9_datascadenzacontrollo >= scadFrom.Value;
+
+        if (scadTo.HasValue)
+            ok &= c.cr4f9_datascadenzacontrollo <= scadTo.Value;
+
+        return ok;
+    }
+
+    private string GetRowClass(Controllo controllo)
+    {
+        if (controllo == null || controllo.cr4f9_datascadenzacontrollo == default)
+            return string.Empty;
+
+        var giorni = (controllo.cr4f9_datascadenzacontrollo.Date - DateTime.Today).TotalDays;
+
+        if (giorni > 30)
+            return "bg-green-light";
+        if (giorni >= 7)
+            return "bg-yellow-light";
+        if (giorni >= 0)
+            return "bg-orange-light";
+
+        return "bg-red-light"; // già scaduto
+    }
+
+    private string GetEseguitoColor(Controllo controllo)
+    {
+        if (controllo == null || controllo.cr4f9_datascadenzacontrollo == default)
+            return "black"; // fallback
+
+        var giorni = (controllo.cr4f9_datascadenzacontrollo.Date - DateTime.Today).TotalDays;
+
+        return giorni > 30 ? "black" : "red";
+    }
+
+
+
+    public class Controllo
+    {
+		public Guid Id { get; set; }
+        public DateTime? cr4f9_dataesecuzione { get; set; }
+        public DateTime cr4f9_datascadenzacontrollo { get; set; }
+        public bool cr4f9_eseguito { get; set; }
+		public int cr4f9_periodicitadelcontrolloinmesi { get; set; }
+		public Guid cr4f9_dispositivoconsegnato { get; set; }
+		public string IdDpi { get; set; }
+        public string Nome { get; set; }
+        public string Matricola { get; set; }
+    }
+
+    public class ControlliCollection
+    {
+        public Controllo[] value { get; set; }
+    }
 }

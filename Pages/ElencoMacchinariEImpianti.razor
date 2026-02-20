@@ -1,7 +1,540 @@
-﻿@page "/elencomacchinarieimpianti"
+@page "/elencomacchinarieimpianti"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using Microsoft.Extensions.Logging
+@using System.Text.Json.Serialization
+@using System.Text.Json
+@using System.Text
+@using MudBlazor
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject ILogger<ElencoMacchinariEImpianti> logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
-<h3>Macchinari E Impianti</h3>
+<link href="css/macchinari-impianti.css?v=1" rel="stylesheet" />
+
+<AuthorizeView>
+	<Authorized>
+
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">MACCHINARI E IMPIANTI</MudText>
+			</div>
+
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Filled"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   Color="Color.Error"
+						   Class="action-btn"
+						   OnClick="OpenDialogAsync">
+					Nuovo
+				</MudButton>
+
+				<MudButton Variant="Variant.Outlined"
+						   StartIcon="@Icons.Material.Filled.Download"
+						   Color="Color.Success"
+						   Class="action-btn"
+						   OnClick="ExportToExcel">
+					Esporta
+				</MudButton>
+
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
+
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8" Class="filters-grid">
+					<MudItem xs="12" md="3">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Id</MudText>
+						<MudTextField @bind-Value="searchId"
+									  Placeholder="Cerca per Id"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="3">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Nome</MudText>
+						<MudTextField @bind-Value="searchNome"
+									  Placeholder="Cerca per nome"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="2">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Matricola</MudText>
+						<MudTextField @bind-Value="searchMatricola"
+									  Placeholder="Cerca per matricola"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="2">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Tipologia</MudText>
+						<MudTextField @bind-Value="searchTipologia"
+									  Placeholder="Cerca per tipologia"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+
+					<MudItem xs="12" md="2">
+						<MudText Typo="Typo.subtitle2" Class="filter-label">Località</MudText>
+						<MudTextField @bind-Value="searchLocalita"
+									  Placeholder="Cerca per località"
+									  Variant="Variant.Outlined"
+									  Class="white-input"
+									  Immediate="true" />
+					</MudItem>
+				</MudGrid>
+
+				<div class="filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (listaMacchinariEImpianti?.value?.Any() ?? false)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Macchinari e Impianti</div>
+
+				<MudTable T="MacchinariEImpianti"
+						  Items="listaMacchinariEImpianti.value"
+						  Dense="true"
+						  Hover="true"
+						  Filter="FilterFunc"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel InitialDirection="SortDirection.Ascending"
+											   SortBy="new Func<MacchinariEImpianti, object>(x => x.cr4f9_codiceidentificativoid)">
+								Id
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>Nome</MudTh>
+						<MudTh>Matricola</MudTh>
+						<MudTh>Tipologia</MudTh>
+						<MudTh>Sede</MudTh>
+
+						<!-- AZIONI -->
+						<MudTh></MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="macchinario">
+						<MudTd DataLabel="Id">
+							<MudLink Href="@($"/dettagliomacchinario/id={macchinario.cr4f9_macchinarioimpiantofisicoid}")"
+									 Class="name-link">
+								@macchinario.cr4f9_codiceidentificativoid
+							</MudLink>
+						</MudTd>
+
+						<MudTd DataLabel="Nome">@macchinario.cr4f9_nome</MudTd>
+						<MudTd DataLabel="Matricola">@macchinario.cr4f9_matricola</MudTd>
+						<MudTd DataLabel="Tipologia">@macchinario.TipologiaDescrizione</MudTd>
+
+						<MudTd DataLabel="Sede">
+							<MudLink Href="@($"/dettagliosede/id={macchinario.SedeId}")"
+									 Class="name-link">
+								@macchinario.Localita
+							</MudLink>
+						</MudTd>
+
+						<!-- PULSANTE "ELIMINA" (DISATTIVA MACCHINARIO/IMPIANTO) -->
+						<MudTd DataLabel="azioni" Class="text-right">
+							<MudIconButton Icon="@Icons.Material.Filled.Delete"
+										   Color="Color.Error"
+										   Disabled="@(isDeleting)"
+										   Title="Elimina (disattiva)"
+										   OnClick="async () => await ConfermaEDisattivaAsync(macchinario)" />
+						</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<MudProgressCircular Color="Color.Default" Indeterminate="true" />
+		}
+
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
+</AuthorizeView>
 
 @code {
 
+	private string userName;
+	private string userEmail;
+	private Guid? azienda;
+	private string clienteId;
+
+	private string fetchXmlQuery;
+
+	private string message = "Loading...";
+
+	private MacchinariEImpiantiCollection listaMacchinariEImpianti = new MacchinariEImpiantiCollection();
+
+	private bool showFilters;
+	private string searchId;
+	private string searchNome;
+	private string searchMatricola;
+	private string searchTipologia;
+	private string searchLocalita;
+
+	private bool isDeleting = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+
+		fetchXmlQuery = BuildFetchXmlMacchinariEImpianti();
+
+		var tokenResult = await TokenProvider.RequestAccessToken();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_macchinarioimpiantofisicos?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+				listaMacchinariEImpianti = await response.Content.ReadFromJsonAsync<MacchinariEImpiantiCollection>();
+			}
+			else
+			{
+				message = "An error occured while fetching data.";
+				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+			}
+		}
+		else
+		{
+			message = "There was a problem authenticating";
+		}
+
+		if (listaMacchinariEImpianti != null && listaMacchinariEImpianti.value != null && listaMacchinariEImpianti.value.Length > 0)
+		{
+			logger.LogInformation($"Sede: {listaMacchinariEImpianti.value[0].SedeId}, altro: {listaMacchinariEImpianti.value[0].Localita}");
+		}
+	}
+
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+		else
+		{
+			message = "User not authenticated.";
+		}
+		await CaricaClienteAssociato(userEmail);
+	}
+
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (tokenResult.TryGetToken(out var token))
+			{
+				var client = ClientFactory.CreateClient("DataverseClient");
+
+				var fetchXml = BuildFetchXml(email);
+				var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					var responseBody = await response.Content.ReadAsStringAsync();
+					var jsonDocument = JsonDocument.Parse(responseBody);
+					var entities = jsonDocument.RootElement.GetProperty("value");
+
+					logger.LogInformation("FETCH: " + fetchXml);
+
+					if (entities.GetArrayLength() > 0)
+					{
+						var entity = entities[0];
+
+						string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
+							{
+								WriteIndented = true
+							});
+						logger.LogInformation("Entities JSON: " + entitiesJson);
+
+						if (entity.TryGetProperty("_new_cliente_value", out var newClientProperty))
+						{
+							clienteId = newClientProperty.GetString();
+							azienda = newClientProperty.GetGuid();
+
+							logger.LogInformation($"Entities reference: {clienteId}");
+							logger.LogInformation($"Azienda reference: {azienda}");
+						}
+						else
+						{
+							logger.LogWarning("Il campo 'new_cliente' non è presente nel record");
+						}
+					}
+					else
+					{
+						logger.LogWarning("Nessun record trovato per l'email fornita.");
+					}
+				}
+				else
+				{
+					logger.LogError($"Errore durante il recupero del cliente: {response.StatusCode}");
+				}
+			}
+			else
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+		}
+	}
+
+	private string BuildFetchXml(string email)
+	{
+		return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+	}
+
+	private string BuildFetchXmlMacchinariEImpianti()
+	{
+		// Mostra solo macchinari/imipianti ATTIVI (statecode = 0)
+		return $@"
+        <fetch>
+          <entity name='cr4f9_macchinarioimpiantofisico'>
+            <attribute name='cr4f9_macchinarioimpiantofisicoid' />
+            <attribute name='cr4f9_codiceidentificativoid' />
+            <attribute name='cr4f9_nome' />
+            <attribute name='cr4f9_matricola' />
+
+            <filter>
+              <condition attribute='statecode' operator='eq' value='0' />
+            </filter>
+
+            <link-entity name='cr4f9_macchinarioeimpianto' from='cr4f9_macchinarioeimpiantoid' to='cr4f9_tipologiadimacchinariooimpianto' link-type='inner' alias='Tipologia'>
+              <attribute name='cr4f9_tipologia' alias='Tipo'/>
+            </link-entity>
+
+            <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+              <attribute name='new_localita' alias='Localita'/>
+              <attribute name='new_sedeprvid' alias='SedeId'/>
+              <filter>
+                <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+              </filter>
+            </link-entity>
+
+          </entity>
+        </fetch>";
+	}
+
+	private bool FilterFunc(MacchinariEImpianti m)
+	{
+		if (!string.IsNullOrWhiteSpace(searchId) && !(m.cr4f9_codiceidentificativoid?.Contains(searchId, StringComparison.OrdinalIgnoreCase) == true))
+			return false;
+		if (!string.IsNullOrWhiteSpace(searchNome) && !(m.cr4f9_nome?.Contains(searchNome, StringComparison.OrdinalIgnoreCase) == true))
+			return false;
+		if (!string.IsNullOrWhiteSpace(searchMatricola) && !(m.cr4f9_matricola?.Contains(searchMatricola, StringComparison.OrdinalIgnoreCase) == true))
+			return false;
+		if (!string.IsNullOrWhiteSpace(searchTipologia) && !(m.TipologiaDescrizione?.Contains(searchTipologia, StringComparison.OrdinalIgnoreCase) == true))
+			return false;
+		if (!string.IsNullOrWhiteSpace(searchLocalita) && !(m.Localita?.Contains(searchLocalita, StringComparison.OrdinalIgnoreCase) == true))
+			return false;
+		return true;
+	}
+
+	private void ResetFilters()
+	{
+		searchNome = searchMatricola = searchTipologia = searchLocalita = searchId = string.Empty;
+	}
+
+	private void ToggleFilters() => showFilters = !showFilters;
+
+	private async Task ExportToExcel()
+	{
+		if (listaMacchinariEImpianti?.value == null || !listaMacchinariEImpianti.value.Any())
+		{
+			message = "Nessun dato da esportare.";
+			return;
+		}
+
+		var filtered = listaMacchinariEImpianti.value.Where(FilterFunc).Select(m => new
+		{
+			Id = m.cr4f9_codiceidentificativoid,
+			Nome = m.cr4f9_nome,
+			Matricola = m.cr4f9_matricola,
+			Tipologia = m.TipologiaDescrizione,
+			Sede = m.Localita
+		});
+
+		await JS.InvokeVoidAsync("downloadExcelFromBlazor", "MacchinariEImpianti.xlsx", filtered);
+	}
+
+	private Task OpenDialogAsync()
+	{
+		var options = new DialogOptions
+			{
+				CloseOnEscapeKey = true,
+				FullWidth = false,
+				MaxWidth = MaxWidth.Medium
+			};
+		return DialogService.ShowAsync<AddMacchinario>("Simple Dialog", options);
+	}
+
+	// ============================
+	// ELIMINAZIONE (DISATTIVAZIONE)
+	// ============================
+
+	private async Task ConfermaEDisattivaAsync(MacchinariEImpianti macchinario)
+	{
+		if (macchinario == null) return;
+
+		var ok = await DialogService.ShowMessageBox(
+			title: "Conferma eliminazione",
+			markupMessage: (MarkupString)$@"
+				Stai per <b>eliminare</b> il macchinario/impianto (in realtà verrà <b>disattivato</b>).<br/><br/>
+				<b>{macchinario.cr4f9_nome}</b><br/>
+				Id: {macchinario.cr4f9_codiceidentificativoid}<br/>
+				Matricola: {macchinario.cr4f9_matricola}<br/><br/>
+				Vuoi continuare?",
+			yesText: "Sì, elimina",
+			cancelText: "Annulla",
+			options: new DialogOptions { CloseOnEscapeKey = true });
+
+		if (ok != true) return;
+
+		await DisattivaMacchinarioAsync(macchinario);
+	}
+
+	private async Task DisattivaMacchinarioAsync(MacchinariEImpianti macchinario)
+	{
+		if (isDeleting) return;
+		isDeleting = true;
+
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				message = "Token non disponibile.";
+				return;
+			}
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			// EntitySet: cr4f9_macchinarioimpiantofisicos (già usato nella GET)
+			// ID: se nel payload arriva come string, va bene così; se preferisci, cambia la proprietà in Guid
+			var id = macchinario.cr4f9_macchinarioimpiantofisicoid;
+			var url = $"{client.BaseAddress}cr4f9_macchinarioimpiantofisicos({id})";
+
+			var payload = new
+			{
+				statecode = 1 // Inattivo
+			};
+
+			var req = new HttpRequestMessage(new HttpMethod("PATCH"), url);
+			req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			req.Headers.TryAddWithoutValidation("If-Match", "*");
+			req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+			var resp = await client.SendAsync(req);
+
+			if (!resp.IsSuccessStatusCode)
+			{
+				var body = await resp.Content.ReadAsStringAsync();
+				logger.LogError($"Errore disattivazione macchinario: {resp.StatusCode} - {body}");
+				message = "Errore durante la disattivazione.";
+				return;
+			}
+
+			// Rimuovi subito dalla tabella (dato che mostri solo statecode=0)
+			listaMacchinariEImpianti = new MacchinariEImpiantiCollection
+				{
+					value = listaMacchinariEImpianti.value
+						.Where(x => x.cr4f9_macchinarioimpiantofisicoid != macchinario.cr4f9_macchinarioimpiantofisicoid)
+						.ToArray()
+				};
+
+			StateHasChanged();
+		}
+		finally
+		{
+			isDeleting = false;
+		}
+	}
+
+	public class MacchinariEImpianti
+	{
+		// NB: se questo è un GUID, sarebbe meglio Guid invece di string.
+		public string cr4f9_macchinarioimpiantofisicoid { get; set; }
+		public string cr4f9_codiceidentificativoid { get; set; }
+		public string cr4f9_nome { get; set; }
+		public string cr4f9_matricola { get; set; }
+		public string SedeId { get; set; }
+		public int Tipo { get; set; }
+		public string Localita { get; set; }
+
+		public string TipologiaDescrizione =>
+			Tipo switch
+			{
+				644840000 => "IMPIANTO FOTOVOLTAICO",
+				644840001 => "ROBOT INCISIVO",
+				_ => "Tipo sconosciuto"
+			};
+	}
+
+	public class MacchinariEImpiantiCollection
+	{
+		public MacchinariEImpianti[] value { get; set; }
+	}
 }

@@ -1,0 +1,481 @@
+﻿@page "/dettagliofile/id={id}&cartella={IdCartella}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.Xrm.Sdk
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddTestataConsegne> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+@if (!datiCaricati)
+{
+    <MudText>Caricamento in corso...</MudText>
+}
+else if (fileCollection.value.Length == 0)
+{
+    <MudText>Non ci sono file da mostrare.</MudText>
+}
+else
+{
+    <div style="display: flex; align-items: center; height: 40px;">
+        <button @onclick="GoBack" style="display: flex; align-items: center; justify-content: center; height: 90%; min-width: 40px; padding: 0; background: #E53935; border: none; border-radius: 5px;">
+            <i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
+        </button>
+        <h3 style="margin: 0;margin-left:16px ; line-height: 40px;">@fileCollection.value[0].cr4f9_name - @fileCollection.value[0].cr4f9_nome</h3>
+    </div>
+
+    <div class="folder-container">
+        <div class="folder-tab">
+            @fileCollection.value[0].cr4f9_name - @fileCollection.value[0].cr4f9_nome
+        </div>
+
+        <div class="folder-section">
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].cr4f9_name" Label="Id" Variant="Variant.Outlined" Disabled="true" />
+            </div>
+
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].cr4f9_nome" Label="Nome" Variant="Variant.Outlined" Disabled="true" />
+            </div>
+
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].createdon" Label="Data Creazione" Variant="Variant.Outlined" Disabled="true"/>
+            </div>
+
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].cr4f9_datascadenza" Label="Data Scadenza" Variant="Variant.Outlined" Disabled="true" />
+            </div>
+
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].cr4f9_notedocumento" Label="Note" Variant="Variant.Outlined" Disabled="true"/>
+            </div>
+
+            <div class="course-info">
+                <MudTextField @bind-Value="fileCollection.value[0].cr4f9_invigore" Label="In Vigore" Variant="Variant.Outlined" Disabled="true" />
+            </div>
+        </div>
+        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Style="color:#E53935;" @onclick="OpenDialogAsync">Aggiorna File</MudButton>
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    public string id { get; set; }
+
+	[Parameter]
+	public string IdCartella { get; set; }
+
+    private string message = "Loading...";
+    private string clienteId;
+    private Guid? azienda;
+    private string userName;
+    private string userEmail;
+
+    private FileCollection fileCollection = new FileCollection();
+    private bool datiCaricati = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInformation();
+        await CaricaFile();
+    }
+
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+        await CaricaClienteAssociato(userEmail);
+    }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task CaricaFile()
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+
+            var fetchXmlQuery = BuildFileFetchXml();
+
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_filedocumentos?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                    fileCollection = await response.Content.ReadFromJsonAsync<FileCollection>();
+                    datiCaricati = true;
+                }
+                else
+                {
+                    message = "An error occured while fetching data.";
+                    logger.LogError($"Error fetching data: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                message = "There was a problem authenticating";
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del file: {ex.Message}");
+        }
+    }
+
+    private string BuildFileFetchXml()
+    {
+        return $@"
+                <fetch>
+                  <entity name='cr4f9_filedocumento'>
+                    <attribute name='cr4f9_filedocumentoid' />
+                    <attribute name='cr4f9_name' />
+                    <attribute name='cr4f9_nome' />
+                    <attribute name='cr4f9_file' />
+                    <attribute name='cr4f9_notedocumento' />
+                    <attribute name='createdon' />
+                    <attribute name='cr4f9_datascadenza' />
+                    <attribute name='cr4f9_invigore' />
+                    <filter>
+                      <condition attribute='cr4f9_filedocumentoid' operator='eq' value='{id}' />
+                    </filter>
+                    <link-entity name='cr4f9_cartelladocumenti' from='cr4f9_cartelladocumentiid' to='cr4f9_cartella' link-type='inner' alias='Cartella'>
+                      <attribute name='cr4f9_name' alias='NomeCartella'/>
+                    </link-entity>
+                  </entity>
+                </fetch>";
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
+    private async Task OpenDialogAsync()
+    {
+        var parameters = new DialogParameters
+        {
+            {"id", id},
+			{"IdCartella", IdCartella}
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+
+		var dialog = DialogService.Show<AggiornaFile>("Aggiorna File", parameters, options);
+		var result = await dialog.Result;
+    }
+
+    public class File
+    {
+        public Guid? cr4f9_filedocumentoid { get; set; }
+        public string cr4f9_name { get; set; }
+        public string cr4f9_nome { get; set; }
+        public string cr4f9_file { get; set; }
+        public string cr4f9_notedocumento { get; set; }
+        public DateTime? createdon { get; set; }
+        public DateTime? cr4f9_datascadenza { get; set; }
+        public bool cr4f9_invigore { get; set; }
+        public string NomeCartella { get; set; }
+    }
+
+    public class FileData
+    {
+        public string FileName { get; set; }
+        public string Base64Data { get; set; }
+        public string MimeType { get; set; }
+    }
+
+    public class FileCollection
+    {
+        public File[] value { get; set; }
+    }
+}
+
+<style>
+
+    /* Contenitore a forma di cartella */
+    .folder-container {
+        position: relative;
+        background-color: #f0f0f0;
+        border: 2px solid #E53935;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
+        margin-bottom: 100px;
+    }
+
+    /* Linguetta in alto a sinistra */
+    .folder-tab {
+        position: absolute;
+        top: -25px; /* Altezza sopra il contenitore */
+        left: 20px; /* Regola la posizione più verso sinistra */
+        background-color: #E53935;
+        color: white;
+        padding: 6px 16px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: bold;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
+    }
+
+    /* Stile per la sezione aggiuntiva */
+    .folder-section {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #ccc; /* Separatore tra le sezioni */
+    }
+
+    /* Stile per le informazioni del corso */
+    .course-info {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    /* Pulsante di azione */
+    button {
+        font-size: 1rem;
+        background-color: #E53935; /* Stesso colore della linguetta */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        button:hover {
+            background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
+        }
+
+    /* Contenitore delle informazioni del corso */
+    .course-info {
+        display: flex;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 12px 0;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stile generale per lo stato */
+    .course-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        /* Stile per stato positivo */
+        .course-status.success {
+            color: #2e7d32; /* Verde scuro */
+            background-color: #e8f5e9; /* Verde chiaro */
+            border-left: 4px solid #2e7d32;
+            padding-left: 12px;
+        }
+
+        /* Stile per stato negativo */
+        .course-status.failure {
+            color: #d32f2f; /* Rosso scuro */
+            background-color: #ffebee; /* Rosso chiaro */
+            border-left: 4px solid #d32f2f;
+            padding-left: 12px;
+        }
+
+        /* Icone */
+        .course-status .mud-icon {
+            font-size: 1.5rem;
+        }
+
+    .mud-tab-slider {
+        position: absolute;
+        background: #A9A9A9;
+    }
+
+    .mud-tab.mud-tab-active {
+        color: currentColor;
+    }
+
+    /* Tabella intestazione */
+    .mud-table-header {
+        background-color: #E53935;
+    }
+
+        .mud-table-header .mud-table-cell {
+            color: white !important;
+            font-weight: bold; /* Grassetto per l'intestazione */
+        }
+
+    /* Righe della tabella */
+    .mud-table-row {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
+    }
+
+    /* Celle della tabella (MudTd) */
+    .mud-table .mud-td, .mud-table .mud-th {
+        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
+        padding: 8px; /* Padding per le celle */
+        vertical-align: middle; /* Allinea verticalmente il contenuto */
+        text-align: center; /* Centra il testo */
+    }
+
+    /* Colore dei link nella tabella */
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+    }
+
+        /* Hover sui link */
+        .mud-table .mud-link.mud-typography.mud-primary-text:hover {
+            color: red !important;
+            cursor: pointer;
+        }
+
+    .mud-table .mud-link.mud-typography.mud-primary-text {
+        font-size: 0.875rem;
+        color: #757575 !important;
+        font-weight: bold;
+        display: block;
+        text-align: left;
+        vertical-align: central;
+        margin-top: 8px;
+        margin-left: 16px;
+    }
+
+    /* Classe per uniformare l'aspetto degli input */
+    .white-input input,
+    .white-input .mud-input-slot {
+        background-color: #ffffff !important;
+        font-size: 0.8rem !important;
+    }
+
+    .date-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>

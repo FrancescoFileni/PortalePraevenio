@@ -1,195 +1,239 @@
-﻿@page "/elencopartecipazioni"
+@page "/elencopartecipazioni"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.Extensions.Logging
 @using System.Text.Json.Serialization
+@using System.Text
+@using System.Text.Json
+@using MudBlazor
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IDialogService DialogService
+@inject IJSRuntime JS
 
-<h3>Partecipazioni</h3>
+<link href="css/partecipazioni.css?v=1" rel="stylesheet" />
 
 <AuthorizeView>
-    <Authorized>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color: #4CAF50; margine-left:16px;" @onclick="ExportToExcel">
-            Esporta in Excel
-        </MudButton>
+	<Authorized>
 
-        <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" OnClick="ToggleFilters" Class="mt-4" Style="color: #E53935; margin-bottom:12px;" />
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">PARTECIPAZIONI</MudText>
+			</div>
 
-        @if(showFilters)
-        {
-            <div class="folder-container compact">
-                <div class="folder-tab">Filtri</div>
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Outlined"
+						   StartIcon="@Icons.Material.Filled.FileDownload"
+						   Color="Color.Success"
+						   Class="action-btn"
+						   OnClick="ExportToExcel">
+					Esporta
+				</MudButton>
 
-                <MudGrid GutterSize="8">
-                    <MudItem sm="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Cognome</MudText>
-                        <MudTextField @bind-Value="searchCognome" Placeholder="Cerca per cognome"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;"/>
-                    </MudItem>
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
 
-                    <MudItem sm="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Nome</MudText>
-                        <MudTextField @bind-Value="searchNome" Placeholder="Cerca per nome"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8">
 
-                    <MudItem sm="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Codice Fiscale</MudText>
-                        <MudTextField @bind-Value="searchCF" Placeholder="Cerca per codice fiscale"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
-                </MudGrid>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Cognome
+						</MudText>
+						<MudTextField @bind-Value="searchCognome"
+									  Placeholder="Cerca per cognome"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
 
-                <MudGrid>
-                    <MudItem sm="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Titolo Corso</MudText>
-                        <MudTextField @bind-Value="searchTitoloCorso" Placeholder="Cerca per titolo corso"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Nome
+						</MudText>
+						<MudTextField @bind-Value="searchNome"
+									  Placeholder="Cerca per nome"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
 
-                    <MudItem xs="12" md="6">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Data Fine Corso</MudText>
-                        <MudGrid GutterSize="4">
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataFineForm"
-                                Label="Da"
-                                Variant="Variant.Outlined"
-                                Class="white-input"
-                                Clearable="true"
-                                ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataFineTo"
-                                Label="A"
-                                Variant="Variant.Outlined"
-                                Class="white-input"
-                                Clearable="true"
-                                ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                        </MudGrid>
-                    </MudItem>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Codice Fiscale
+						</MudText>
+						<MudTextField @bind-Value="searchCF"
+									  Placeholder="Cerca per codice fiscale"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
 
-                    <MudItem sm="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Sede Corso</MudText>
-                        <MudTextField @bind-Value="searchSedeCorso" Placeholder="Cerca per sede corso"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
-                </MudGrid>
-            </div>
-        }
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Titolo Corso
+						</MudText>
+						<MudTextField @bind-Value="searchTitoloCorso"
+									  Placeholder="Cerca per titolo corso"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Data Fine Corso
+						</MudText>
+
+						<div class="date-range">
+							<MudDatePicker @bind-Date="dataFineForm"
+										   Label="Da"
+										   Variant="Variant.Outlined"
+										   Class="white-input date-input"
+										   Clearable="true" />
+
+							<MudDatePicker @bind-Date="dataFineTo"
+										   Label="A"
+										   Variant="Variant.Outlined"
+										   Class="white-input date-input"
+										   Clearable="true" />
+						</div>
+					</MudItem>
 
 
-        @if (corsi != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Partecipazioni</div>
-                <MudTable Items="corsi.value" Filter="ToggleFunc" Dense="true" HeaderClass="mud-table-header" Hover="true" >
-                    <ToolBarContent>
-                        <MudText Typo="Typo.h6">Partecipazioni</MudText>
-                        <MudSpacer />
-                        @* <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField> *@
-                    </ToolBarContent>
-                    <HeaderContent>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.cr4f9_cognome)">Cognome</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x => x.cr4f9_codicefiscale)">Codice Fiscale</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.titoloCorso)">Titolo Corso</MudTableSortLabel></MudTh>
-                        <!-- Nuova colonna -->
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.dataFineCorso)">Data Fine Corso</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Corsi, object>(x=>x.SedeDescrizione)">Sede del corso</MudTableSortLabel></MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="corsi">
-                        <MudLink DataLabel="riepilogo" Href="@($"/dettagliopartecipazione/id={corsi.new_partecipazionecorsoprvid}&idCorso={corsi._new_corso_value}")">
-                            @corsi.cr4f9_cognome
-                        </MudLink>
-                        <MudTd DataLabel="idcorso">@corsi.cr4f9_nome</MudTd>
-                        <MudTd DataLabel="codicefiscale">@corsi.cr4f9_codicefiscale</MudTd>
-                        <MudTd DataLabel="titolocorso">@corsi.titoloCorso</MudTd>
-                        <!-- Nuova cella per la nuova colonna -->
-                        <MudTd DataLabel="datacorso">@corsi.dataFineCorsoString</MudTd>
-                        <MudTd DataLabel="datacorso">
-                            @(corsi.SedeDescrizione == "Vuoto" ? corsi.SedeTeoricaDescrizione + " e " + corsi.SedePraticaDescrizione : corsi.SedeDescrizione)
-                        </MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
-            </div>
-        }
-        else
-        {
-            <p><em>@message</em></p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Sede Corso
+						</MudText>
+						<MudTextField @bind-Value="searchSedeCorso"
+									  Placeholder="Cerca per sede corso"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+				</MudGrid>
+
+				<div class="mt-4 filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (corsi != null)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Partecipazioni</div>
+
+				<MudTable T="Corsi"
+						  Items="corsi.value"
+						  Filter="ToggleFunc"
+						  Dense="true"
+						  Hover="true"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.cr4f9_cognome)">Cognome</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.cr4f9_nome)">Nome</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.cr4f9_codicefiscale)">Codice Fiscale</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.titoloCorso)">Titolo Corso</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.dataFineCorso)">Data Fine Corso</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel SortBy="new Func<Corsi, object>(x=>x.SedeDescrizione)">Sede del corso</MudTableSortLabel></MudTh>
+
+						<!-- AZIONI -->
+						<MudTh></MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="r">
+						<MudTd DataLabel="cognome">
+							<MudLink Href="@($"/dettagliopartecipazione/id={r.new_partecipazionecorsoprvid}")"
+									 Class="name-link">
+								@r.cr4f9_cognome
+							</MudLink>
+						</MudTd>
+
+						<MudTd DataLabel="nome">@r.cr4f9_nome</MudTd>
+						<MudTd DataLabel="codicefiscale">@r.cr4f9_codicefiscale</MudTd>
+						<MudTd DataLabel="titolocorso">@r.titoloCorso</MudTd>
+						<MudTd DataLabel="datafine">@r.dataFineCorsoString</MudTd>
+
+						<MudTd DataLabel="sedecorso">
+							@(r.SedeDescrizione == "Vuoto"
+														? (r.SedeTeoricaDescrizione + " e " + r.SedePraticaDescrizione)
+														: r.SedeDescrizione)
+						</MudTd>
+
+						<!-- PULSANTE "ELIMINA" (DISATTIVA PARTECIPAZIONE) -->
+						<MudTd DataLabel="azioni" Class="text-right">
+							<MudIconButton Icon="@Icons.Material.Filled.Delete"
+										   Color="Color.Error"
+										   Disabled="@(isDeleting)"
+										   Title="Elimina (disattiva partecipazione)"
+										   OnClick="async () => await ConfermaEDisattivaAsync(r)" />
+						</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
+	private string searchString1 = "";
+	private Corsi selectedItem1 = null;
+	private CorsiCollection corsi;
+	private string message = "Loading...";
+	private bool showFilters = false;
 
-    private string searchString1 = "";
-    private Corsi selectedItem1 = null;
-    private CorsiCollection corsi;
-    private string message = "Loading...";
-    private bool showFilters = false;
-    private string searchCognome;
-    private string searchNome;
-    private string searchCF;
-    private string searchTitoloCorso;
-    private string searchSedeCorso;
-    private DateTime? dataFineForm;
-    private DateTime? dataFineTo;
+	private string searchCognome;
+	private string searchNome;
+	private string searchCF;
+	private string searchTitoloCorso;
+	private string searchSedeCorso;
+	private DateTime? dataFineForm;
+	private DateTime? dataFineTo;
 
-    // Variabili per le informazioni dell'utente autenticato
-    private string userName;
-    private string userEmail;
+	private string userName;
+	private string userEmail;
 
-    // Definire la query FetchXML, ma senza email statica
-    private string fetchXmlQuery;
+	private string fetchXmlQuery;
 
-    [Inject] IJSRuntime JS { get; set; }
+	private bool isDeleting = false;
 
-    private bool FilterFunc1(Corsi corsi) => FilterFunc(corsi, searchString1);
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
 
-    private bool FilterFunc(Corsi corsi, string searchString)
-    {
-        if (string.IsNullOrWhiteSpace(searchString))
-            return true;
-
-        return (corsi.cr4f9_cognome?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-               (corsi.cr4f9_nome?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-               (corsi.cr4f9_corsotipo?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadUserInformation(); // Chiama il metodo per caricare le informazioni dell'utente
-
-        // Costruisci dinamicamente la query FetchXML
-        fetchXmlQuery = $@"
+		// Mostra solo partecipazioni ATTIVE (statecode = 0)
+		fetchXmlQuery = $@"
         <fetch>
             <entity name='new_partecipazionecorsoprv'>
                 <attribute name='new_partecipazionecorsoprvid' />
@@ -199,6 +243,11 @@
                 <attribute name='cr4f9_corsotipo' />
                 <attribute name='new_corso' />
                 <attribute name='new_dataconclusione' />
+
+                <filter>
+                    <condition attribute='statecode' operator='eq' value='0' />
+                </filter>
+
                 <link-entity name='cr4f9_clienteprv' from='cr4f9_clienteprvid' to='new_azienda' alias='cliente'>
                     <link-entity name='new_emailautorizzazioniprv' from='new_cliente' to='cr4f9_clienteprvid' alias='emailAuth'>
                         <filter>
@@ -206,6 +255,7 @@
                         </filter>
                     </link-entity>
                 </link-entity>
+
                 <link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' alias='corso'>
                   <attribute name='cr4f9_datadifine' alias='dataFineCorso'/>
                   <attribute name='cr4f9_titolocorso' alias='titoloCorso'/>
@@ -223,309 +273,278 @@
             </entity>
         </fetch>";
 
-        logger.LogInformation("FETCH XML QUERY: " + fetchXmlQuery);
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
 
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
+				};
 
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
-                };
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+				corsi = await response.Content.ReadFromJsonAsync<CorsiCollection>();
+			else
+				message = "An error occurred.";
+		}
+		else
+		{
+			message = "There was a problem authenticating.";
+		}
+	}
 
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                corsi = await response.Content.ReadFromJsonAsync<CorsiCollection>();
-            }
-            else
-            {
-                message = "An error occurred.";
-                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            message = "There was a problem authenticating.";
-        }
-    }
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
 
-    // Metodo per caricare le informazioni sull'utente
-    private async Task LoadUserInformation()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+		}
+	}
 
-        if (user.Identity.IsAuthenticated)
-        {
-            userName = user.Identity.Name;
-            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+	private async Task ExportToExcel()
+	{
+		if (corsi?.value == null || corsi.value.Length == 0)
+		{
+			message = "Nessun dato da esportare.";
+			return;
+		}
 
-            logger.LogInformation("USER EMAIL: " + userEmail);
-        }
-    }
+		var jsonData = corsi.value.Where(ToggleFunc).Select(c => new
+		{
+			Nome = c.cr4f9_nome,
+			Cognome = c.cr4f9_cognome,
+			CodiceFiscale = c.cr4f9_codicefiscale,
+			CorsoTipo = c.cr4f9_corsotipo,
+			TitoloCorso = c.titoloCorso,
+			SedeCorso = c.SedeDescrizione,
+			SedeTeorica = c.SedeTeoricaDescrizione,
+			SedePratica = c.SedePraticaDescrizione,
+			DataFineCorso = c.dataFineCorso.ToString("dd/MM/yyyy")
+		});
 
-    private Task OpenDialogAsync()
-    {
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-        return DialogService.ShowAsync<AddPartecipazione>("Simple Dialog", options);
-    }
+		await JS.InvokeVoidAsync("downloadExcelFromBlazor", "PartecipazioniCorsi.xlsx", jsonData);
+	}
 
-    private async Task ExportToExcel()
-    {
-        if (corsi == null || corsi.value.Length == 0)
-        {
-            message = "Nessun dato da esportare.";
-            return;
-        }
+	private void ResetFilters()
+	{
+		searchCognome = string.Empty;
+		searchNome = string.Empty;
+		searchCF = string.Empty;
+		searchTitoloCorso = string.Empty;
+		searchSedeCorso = string.Empty;
+		dataFineForm = null;
+		dataFineTo = null;
+	}
 
-        var jsonData = corsi.value.Where(ToggleFunc).Select(c => new
-        {
-            Nome = c.cr4f9_nome,
-            Cognome = c.cr4f9_cognome,
-            CodiceFiscale = c.cr4f9_codicefiscale,
-            CorsoTipo = c.cr4f9_corsotipo,
-            TitoloCorso = c.titoloCorso,
-            SedeCorso = c.SedeDescrizione,
-            SedeTeorica = c.SedeTeoricaDescrizione,
-            SedePratica = c.SedePraticaDescrizione,
-            DataFineCorso = c.dataFineCorso.ToString("dd/MM/yyyy")
-        });
+	private void ToggleFilters() => showFilters = !showFilters;
 
-        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "PartecipazioniCorsi.xlsx", jsonData);
-    }
+	private bool ToggleFunc(Corsi corso)
+	{
+		bool matches = true;
 
-    private bool ToggleFunc(Corsi corso)
-    {
-        bool matches = true;
+		if (!string.IsNullOrWhiteSpace(searchCognome))
+			matches &= corso.cr4f9_cognome?.Contains(searchCognome, StringComparison.OrdinalIgnoreCase) ?? false;
 
-        if(!string.IsNullOrWhiteSpace(searchCognome))
-        {
-            matches &= corso.cr4f9_cognome != null && corso.cr4f9_cognome.ToLower().Contains(searchCognome.ToLower());
-        }
+		if (!string.IsNullOrWhiteSpace(searchNome))
+			matches &= corso.cr4f9_nome?.Contains(searchNome, StringComparison.OrdinalIgnoreCase) ?? false;
 
-        if(!string.IsNullOrWhiteSpace(searchNome))
-        {
-            matches &= corso.cr4f9_nome != null && corso.cr4f9_nome.ToLower().Contains(searchNome.ToLower());
-        }
+		if (!string.IsNullOrWhiteSpace(searchCF))
+			matches &= corso.cr4f9_codicefiscale?.Contains(searchCF, StringComparison.OrdinalIgnoreCase) ?? false;
 
-        if(!string.IsNullOrWhiteSpace(searchCF))
-        {
-            matches &= corso.cr4f9_codicefiscale != null && corso.cr4f9_codicefiscale.ToLower().Contains(searchCF.ToLower());
-        }
+		if (!string.IsNullOrWhiteSpace(searchTitoloCorso))
+			matches &= corso.titoloCorso?.Contains(searchTitoloCorso, StringComparison.OrdinalIgnoreCase) ?? false;
 
-        if(!string.IsNullOrWhiteSpace(searchTitoloCorso))
-        {
-            matches &= corso.titoloCorso != null && corso.titoloCorso.ToLower().Contains(searchTitoloCorso.ToLower());
-        }
+		if (dataFineForm.HasValue)
+			matches &= corso.dataFineCorso >= dataFineForm.Value;
 
-        if(dataFineForm.HasValue)
-        {
-            matches &= corso.dataFineCorso >= dataFineForm.Value;
-        }
+		if (dataFineTo.HasValue)
+			matches &= corso.dataFineCorso <= dataFineTo.Value;
 
-        if(dataFineTo.HasValue)
-        {
-            matches &= corso.dataFineCorso <= dataFineTo.Value;
-        }
+		if (!string.IsNullOrWhiteSpace(searchSedeCorso))
+			matches &= (corso.SedeDescrizione?.Contains(searchSedeCorso, StringComparison.OrdinalIgnoreCase) ?? false);
 
-        if(!string.IsNullOrWhiteSpace(searchSedeCorso))
-        {
-            matches &= corso.SedeDescrizione != null && corso.SedeDescrizione.ToLower().Contains(searchSedeCorso.ToLower());
-        }
+		return matches;
+	}
 
-        return matches;
-    }
+	// ============================
+	// ELIMINAZIONE (DISATTIVAZIONE)
+	// ============================
 
-    private void ToggleFilters() => showFilters = !showFilters;
+	private async Task ConfermaEDisattivaAsync(Corsi partecipazione)
+	{
+		if (partecipazione == null) return;
 
-    public class Corsi
-    {
-        public Guid new_partecipazionecorsoprvid { get; set; }
-        public Guid? _new_corso_value { get; set; }
-        public string cr4f9_cognome { get; set; }
-        public string cr4f9_nome { get; set; }
-        public string cr4f9_codicefiscale { get; set; }
-        public string cr4f9_corsotipo { get; set; }
-        public string titoloCorso { get; set; }
-        public DateTime new_dataconclusione { get; set; }
-        public DateTime dataFineCorso { get; set; }
-        public int sedeCorso { get; set; }
-        public int sedeTeorica { get; set; }
-        public int sedePratica { get; set; }
-        public string indicareSede { get; set; }
-        public string indicareSedeTeorica { get; set; }
-        public string indicareSedePratica { get; set; }
-        public string indirizzoDue { get; set; }
-        public string indirizzoTre { get; set; }
-        public string sedeP { get; set; }
-        public string sedeT { get; set; }
+		var ok = await DialogService.ShowMessageBox(
+			title: "Conferma eliminazione",
+			markupMessage: (MarkupString)$@"
+				Stai per <b>eliminare</b> la partecipazione (in realtà verrà <b>disattivata</b>).<br/><br/>
+				<b>{partecipazione.cr4f9_cognome} {partecipazione.cr4f9_nome}</b><br/>
+				CF: {partecipazione.cr4f9_codicefiscale}<br/>
+				Corso: {partecipazione.titoloCorso}<br/><br/>
+				Vuoi continuare?",
+			yesText: "Sì, elimina",
+			cancelText: "Annulla",
+			options: new DialogOptions { CloseOnEscapeKey = true });
 
-        public string dataFine => new_dataconclusione.ToString("dd/MM/yyyy");
-        public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
+		if (ok != true) return;
 
-        public SedeCorso Sede
-        {
-            get => (SedeCorso)sedeCorso;
-            set => sedeCorso = (int)value;
-        } 
+		await DisattivaPartecipazioneAsync(partecipazione);
+	}
 
-        public SedeCorso SedeTeoricaInt
-        {
-            get => (SedeCorso)sedeTeorica;
-            set => sedeTeorica = (int)value;
-        }
+	private async Task DisattivaPartecipazioneAsync(Corsi partecipazione)
+	{
+		if (isDeleting) return;
+		isDeleting = true;
 
-        public SedeCorso SedePraticaInt
-        {
-            get => (SedeCorso)sedePratica;
-            set => sedePratica = (int)value;
-        }
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				message = "Token non disponibile.";
+				return;
+			}
 
-        public string SedeDescrizione => Sede switch
-        {
-            SedeCorso.PRAEVENIO => "Praevenio SRLS",
-            SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
-            SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
-            SedeCorso.SEDE_CLIENTE => string.IsNullOrWhiteSpace(sedeT) ? sedeP : sedeT,
-            SedeCorso.ALTRO => indicareSede,
-            SedeCorso.VUOTO => ""
-        };
+			var client = ClientFactory.CreateClient("DataverseClient");
 
-        public string SedeTeoricaDescrizione => SedeTeoricaInt switch
-        {
-            SedeCorso.PRAEVENIO => "Praevenio SRLS",
-            SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
-            SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
-            SedeCorso.SEDE_CLIENTE => indirizzoDue,
-            SedeCorso.ALTRO => indicareSedeTeorica,
-            SedeCorso.VUOTO => ""
+			// EntitySet: new_partecipazionecorsoprvs (già usato nella GET)
+			var id = partecipazione.new_partecipazionecorsoprvid;
+			var url = $"{client.BaseAddress}new_partecipazionecorsoprvs({id})";
 
-        };
+			var payload = new
+			{
+				statecode = 1 // Inattivo
+			};
 
-        public string SedePraticaDescrizione => SedePraticaInt switch
-        {
-            SedeCorso.PRAEVENIO => "Praevenio SRLS",
-            SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
-            SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
-            SedeCorso.SEDE_CLIENTE => indirizzoTre,
-            SedeCorso.ALTRO => indicareSedePratica,
-            SedeCorso.VUOTO => ""
-        };
+			var req = new HttpRequestMessage(new HttpMethod("PATCH"), url);
+			req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			req.Headers.TryAddWithoutValidation("If-Match", "*");
+			req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-    }
+			var resp = await client.SendAsync(req);
 
-    public enum SedeCorso
-    {
-        PRAEVENIO = 100000000,
-        ELEARNING = 100000001,
-        VIDEOCONFERENZA = 100000002,
-        SEDE_CLIENTE = 100000003,
-        ALTRO = 100000004,
-        VUOTO = 0
-    }
+			if (!resp.IsSuccessStatusCode)
+			{
+				var body = await resp.Content.ReadAsStringAsync();
+				logger.LogError($"Errore disattivazione partecipazione: {resp.StatusCode} - {body}");
+				message = "Errore durante la disattivazione.";
+				return;
+			}
 
-    public class CorsiCollection
-    {
-        public Corsi[] value { get; set; }
-    }
+			// Rimuovi subito dalla tabella (dato che mostri solo statecode=0)
+			corsi = new CorsiCollection
+				{
+					value = corsi.value.Where(x => x.new_partecipazionecorsoprvid != partecipazione.new_partecipazionecorsoprvid).ToArray()
+				};
+			StateHasChanged();
+		}
+		finally
+		{
+			isDeleting = false;
+		}
+	}
 
+	// ============================
+	// MODELS
+	// ============================
+
+	public class Corsi
+	{
+		public Guid new_partecipazionecorsoprvid { get; set; }
+		public Guid? _new_corso_value { get; set; }
+		public string cr4f9_cognome { get; set; }
+		public string cr4f9_nome { get; set; }
+		public string cr4f9_codicefiscale { get; set; }
+		public string cr4f9_corsotipo { get; set; }
+		public string titoloCorso { get; set; }
+		public DateTime new_dataconclusione { get; set; }
+		public DateTime dataFineCorso { get; set; }
+		public int sedeCorso { get; set; }
+		public int sedeTeorica { get; set; }
+		public int sedePratica { get; set; }
+		public string indicareSede { get; set; }
+		public string indicareSedeTeorica { get; set; }
+		public string indicareSedePratica { get; set; }
+		public string indirizzoDue { get; set; }
+		public string indirizzoTre { get; set; }
+		public string sedeP { get; set; }
+		public string sedeT { get; set; }
+
+		public string dataFine => new_dataconclusione.ToString("dd/MM/yyyy");
+		public string dataFineCorsoString => dataFineCorso.ToString("dd/MM/yyyy");
+
+		public SedeCorso Sede
+		{
+			get => (SedeCorso)sedeCorso;
+			set => sedeCorso = (int)value;
+		}
+
+		public SedeCorso SedeTeoricaInt
+		{
+			get => (SedeCorso)sedeTeorica;
+			set => sedeTeorica = (int)value;
+		}
+
+		public SedeCorso SedePraticaInt
+		{
+			get => (SedeCorso)sedePratica;
+			set => sedePratica = (int)value;
+		}
+
+		public string SedeDescrizione => Sede switch
+		{
+			SedeCorso.PRAEVENIO => "Praevenio SRLS",
+			SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
+			SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
+			SedeCorso.SEDE_CLIENTE => string.IsNullOrWhiteSpace(sedeT) ? sedeP : sedeT,
+			SedeCorso.ALTRO => indicareSede,
+			SedeCorso.VUOTO => ""
+		};
+
+		public string SedeTeoricaDescrizione => SedeTeoricaInt switch
+		{
+			SedeCorso.PRAEVENIO => "Praevenio SRLS",
+			SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
+			SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
+			SedeCorso.SEDE_CLIENTE => indirizzoDue,
+			SedeCorso.ALTRO => indicareSedeTeorica,
+			SedeCorso.VUOTO => ""
+		};
+
+		public string SedePraticaDescrizione => SedePraticaInt switch
+		{
+			SedeCorso.PRAEVENIO => "Praevenio SRLS",
+			SedeCorso.ELEARNING => "Corso svolto in modalità E-Learning",
+			SedeCorso.VIDEOCONFERENZA => "Corso svolto in modalità di videoconferenza sincrona",
+			SedeCorso.SEDE_CLIENTE => indirizzoTre,
+			SedeCorso.ALTRO => indicareSedePratica,
+			SedeCorso.VUOTO => ""
+		};
+	}
+
+	public enum SedeCorso
+	{
+		PRAEVENIO = 100000000,
+		ELEARNING = 100000001,
+		VIDEOCONFERENZA = 100000002,
+		SEDE_CLIENTE = 100000003,
+		ALTRO = 100000004,
+		VUOTO = 0
+	}
+
+	public class CorsiCollection
+	{
+		public Corsi[] value { get; set; }
+	}
 }
-
-<style>
-
-    /* Contenitore principale della tabella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    /* Tabella principale */
-    .mud-table {
-        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
-        border-radius: 8px;
-        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        vertical-align: middle;
-        margin-left: 8px;
-        padding: 16px;
-    }
-
-    /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    /* Contenitore della tabella */
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Nascondi informazioni di paginazione */
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-    .white-input input,
-    .white-input .mud-input-slot {
-        background-color: #ffffff !important;
-        font-size: 0.8rem !important;
-    }
-
-    .date-filter-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-</style>

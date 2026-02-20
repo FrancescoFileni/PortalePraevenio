@@ -1,4 +1,4 @@
-﻿@page "/fetchsedi"
+@page "/fetchsedi"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
@@ -9,48 +9,146 @@
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
+<link href="css/fetch-sedi.css" rel="stylesheet" />
+
 <AuthorizeView>
-    <Authorized>
+	<Authorized>
 
-        <h3>Sedi</h3>
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">SEDI</MudText>
+			</div>
 
-        @if (sedi != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Sedi</div>
-                <MudTable Items="sedi.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
-                    <HeaderContent>
-                        <MudTh>Sede</MudTh>
-                        <MudTh>Provincia</MudTh>
-                        <MudTh>Indirizzo</MudTh>
-                        <MudTh>Descrizione</MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="sede">
-                        <MudLink Href="@($"/dettagliosede/id={sede.new_sedeprvid}")">
-                            @sede.new_localita
-                        </MudLink>
-                        <MudTd DataLabel="provincia">@sede.cr4f9_provincia</MudTd>
-                        <MudTd DataLabel="indirizzo">@sede.new_indirizzo</MudTd>
-                        <MudTd DataLabel="descrizione">@sede.cr4f9_descrizionesede</MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
-            </div>
-        }
-        else
-        {
-            <p><em>@message</em></p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Outlined"
+						   Color="Color.Success"
+						   StartIcon="@Icons.Material.Filled.Download"
+						   Class="action-btn"
+						   OnClick="ExportToExcel">
+					Esporta
+				</MudButton>
+
+
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
+
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8">
+					<MudItem xs="12" md="6">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Località
+						</MudText>
+						<MudTextField @bind-Value="searchLocalita"
+									  Placeholder="Cerca per località"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+
+					<MudItem xs="12" md="6">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Provincia
+						</MudText>
+						<MudTextField @bind-Value="searchProvincia"
+									  Placeholder="Cerca per provincia"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+
+					<MudItem xs="12" md="6">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Indirizzo
+						</MudText>
+						<MudTextField @bind-Value="searchIndirizzo"
+									  Placeholder="Cerca per indirizzo"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+
+					<MudItem xs="12" md="6">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Descrizione
+						</MudText>
+						<MudTextField @bind-Value="searchDescrizione"
+									  Placeholder="Cerca per descrizione"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+				</MudGrid>
+
+				<div class="mt-4 filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (sedi != null)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Sedi</div>
+
+				<MudTable T="Sede"
+						  Items="sedi.value"
+						  Dense="true"
+						  Hover="true"
+						  Filter="FilterFunc"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh>Località</MudTh>
+						<MudTh>Provincia</MudTh>
+						<MudTh>Indirizzo</MudTh>
+						<MudTh>Descrizione</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="sede">
+						<MudTd>
+							<MudLink Href="@($"/dettagliosede/id={sede.new_sedeprvid}")" Class="name-link">
+								@sede.new_localita
+							</MudLink>
+						</MudTd>
+
+						<MudTd DataLabel="provincia">@sede.cr4f9_provincia</MudTd>
+						<MudTd DataLabel="indirizzo">@sede.new_indirizzo</MudTd>
+						<MudTd DataLabel="descrizione">@sede.cr4f9_descrizionesede</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
+
     private SedeCollection sedi;
     private string message = "Loading...";
 
@@ -60,6 +158,15 @@
 
     // Definire la query FetchXML, ma senza email statica
     private string fetchXmlQuery;
+
+    private string searchLocalita;
+    private string searchProvincia;
+    private string searchIndirizzo;
+    private string searchDescrizione;
+
+    private bool showFilters = false;
+
+    [Inject] IJSRuntime JS { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +209,16 @@
             if (response.IsSuccessStatusCode)
             {
                 sedi = await response.Content.ReadFromJsonAsync<SedeCollection>();
+				if (sedi == null || sedi.value.Length == 0)
+				{
+					message = "Nessuna sede trovata.";
+					logger.LogError("No sedi found for the user.");
+				}
+				else
+				{
+					message = string.Empty;
+					logger.LogInformation($"Fetched {sedi.value.Length} sedi.");
+				}
             }
             else
             {
@@ -130,6 +247,76 @@
         }
     }
 
+    private bool FilterFunc(Sede sede)
+    {
+        if (!string.IsNullOrWhiteSpace(searchLocalita))
+        {
+            var searchLower = searchLocalita.ToLower();
+            var loc = sede.new_localita ?? string.Empty;
+            if (!loc.ToLower().Contains(searchLower))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchProvincia))
+        {
+            var searchLower = searchProvincia.ToLower();
+            var prov = sede.cr4f9_provincia ?? string.Empty;
+            if (!prov.ToLower().Contains(searchLower))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchIndirizzo))
+        {
+            var searchLower = searchIndirizzo.ToLower();
+            var addr = sede.new_indirizzo ?? string.Empty;
+            if (!addr.ToLower().Contains(searchLower))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchDescrizione))
+        {
+            var searchLower = searchDescrizione.ToLower();
+            var desc = sede.cr4f9_descrizionesede ?? string.Empty;
+            if (!desc.ToLower().Contains(searchLower))
+                return false;
+        }
+
+        return true;
+    }
+
+
+    private void ResetFilters()
+    {
+        searchLocalita = string.Empty;
+        searchProvincia = string.Empty;
+        searchIndirizzo = string.Empty;
+        searchDescrizione = string.Empty;
+    }
+
+    private void ToggleFilters()
+    {
+        showFilters = !showFilters;
+    }
+
+    private async Task ExportToExcel()
+    {
+        if (sedi == null || sedi.value.Length == 0)
+        {
+            message = "Nessun dato da esportare.";
+            return;
+        }
+
+        var filteredData = sedi.value.Where(FilterFunc).Select(s => new
+        {
+            Localita = s.new_localita,
+            Provincia = s.cr4f9_provincia,
+            Indirizzo = s.new_indirizzo,
+            Descrizione = s.cr4f9_descrizionesede
+        });
+
+        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "Sedi.xlsx", filteredData);
+    }
+
     public class Sede
     {
         public Guid new_sedeprvid { get; set; }
@@ -145,103 +332,3 @@
     }
 }
 
-<style>
-
-    /* Contenitore principale della tabella e dei filtri */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    .folder-container.compact {
-        padding: 8px;
-        margin-top: 20px;
-    }
-
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-        font-size: 0.9rem;
-        padding: 4px 12px;
-    }
-
-    .mb-1 {
-        margin-bottom: 4px;
-    }
-
-    .red-label {
-        color: #E53935;
-    }
-
-    /* Stili per la tabella */
-    .mud-table {
-        width: 100%;
-        border-radius: 8px;
-        border-collapse: collapse;
-    }
-
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-        .mud-table-header .mud-table-cell {
-            color: white !important;
-            font-weight: bold;
-        }
-
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0;
-    }
-
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0;
-        padding: 8px;
-        vertical-align: middle;
-        text-align: center;
-    }
-
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        vertical-align: central;
-        margin-top: 8px;
-        margin-left: 16px;
-    }
-
-        .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-            color: red !important;
-            cursor: pointer;
-        }
-
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-    /* Classe per uniformare l'aspetto degli input */
-    .white-input input,
-    .white-input .mud-input-slot {
-        background-color: #ffffff !important;
-        font-size: 0.8rem !important;
-    }
-
-    .date-filter-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-</style>

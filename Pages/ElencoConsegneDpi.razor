@@ -1,4 +1,4 @@
-﻿@page "/elencoconsegnedpi"
+@page "/elencoconsegnedpi"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
@@ -12,133 +12,183 @@
 @inject IDialogService DialogService
 @inject IJSRuntime JSRuntime
 
+<link href="css/consegne-dpi.css?v=1" rel="stylesheet" />
+
 <AuthorizeView>
-    <Authorized>
-        <h3>Consegne DPI</h3>
+	<Authorized>
 
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935;" @onclick="OpenDialogAsync">
-            Nuova testata
-        </MudButton>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.FileDownload"
-        Style="color:#4CAF50; margin-left: 4px;" @onclick="DownloadExcel">
-            Esporta in Excel
-        </MudButton>
-        <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" OnClick="ToggleFilters"
-        Class="mt-4" Style="color: #E53935; margin-bottom: 12px;" />
+		<!-- TOOLBAR -->
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">CONSEGNE DPI</MudText>
+			</div>
 
-        @if(showFilters)
-        {
-            <div class="folder-container compact">
-                <div class="folder-tab">Filtri</div>
-                <MudGrid GutterSize="8">
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Nome o Cognome</MudText>
-                        <MudTextField @bind-Value="searchRiepilogo" Placeholder="Cerca per nome o cognome"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935;">Data Visita</MudText>
-                        <MudGrid GutterSize="4">
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataTestataFrom"
-                                Label="Da"
-                                Variant="Variant.Outlined"
-                                Class="white-input"
-                                Clearable="true"
-                                ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudDatePicker @bind-Date="dataTestataTo"
-                                Label="A"
-                                Variant="Variant.Outlined"
-                                Class="white-input"
-                                Clearable="true"
-                                ClearIcon="@Icons.Material.Filled.Clear" />
-                            </MudItem>
-                        </MudGrid>
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">Numero Testata</MudText>
-                        <MudTextField @bind-Value="searchNumTestata" Placeholder="Cerca per numero di testata"
-                        Variant="Variant.Outlined"
-                        Immediate="true"
-                        Class="white-input"
-                        Style="margin-top: 6px;" />
-                    </MudItem>
-                </MudGrid>
-            </div>
-        }
-        @if (consegne != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Consegne</div>
-                <MudTable Items="consegne.value" Filter="ToggleFunc" Dense="true" HeaderClass="mud-table-header" Hover="true">
-                    <HeaderContent>
-                        <MudTh Style="padding: 0; width: 32px;"></MudTh> <!-- Colonna per il pulsante di espansione -->
-                        <MudTh>Id Testata</MudTh>
-                        <MudTh>Data Consegna</MudTh>
-                        <MudTh>Lavoratore</MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="consegna">
-                        <MudTd Style="padding: 0; width: 32px;">
-                            <MudIconButton Icon="@Icons.Material.Filled.ViewList"
-                            @ref="@(refMap[consegna.cr4f9_testataconsegnaid.Value])"
-                            OnClick="@(async () => await ShowPopover(consegna.cr4f9_testataconsegnaid))" />
-                            <MudPopover Open="@popoverStates[consegna.cr4f9_testataconsegnaid.Value]"
-                            AnchorOrigin="Origin.BottomLeft"
-                            Class="px-4 py-2"
-                            Elevation="8"
-                            OpenChanged="(val) => popoverStates[consegna.cr4f9_testataconsegnaid.Value] = val"
-                            AnchorReference="refMap[consegna.cr4f9_testataconsegnaid.Value]">
-                                @if (dpiPerTestata.ContainsKey(consegna.cr4f9_testataconsegnaid))
-                                {
-                                    <MudTable Dense="true" Items="dpiPerTestata[consegna.cr4f9_testataconsegnaid]">
-                                        <HeaderContent>
-                                            <MudTh>Nome DPI</MudTh>
-                                            <MudTh>Matricola</MudTh>
-                                            <MudTh>Data</MudTh>
-                                            <MudTh>Quantità</MudTh>
-                                        </HeaderContent>
-                                        <RowTemplate Context="dpi">
-                                            <MudTd>@dpi.nome</MudTd>
-                                            <MudTd>@dpi.cr4f9_numerodimatricola</MudTd>
-                                            <MudTd>@dpi.cr4f9_datadiconsegna.ToString("dd/MM/yyyy")</MudTd>
-                                            <MudTd>@dpi.cr4f9_quantita</MudTd>
-                                        </RowTemplate>
-                                    </MudTable>
-                                }
-                                else
-                                {
-                                    <MudText Color="Color.Secondary">Nessun Dpi associato.</MudText>
-                                }
-                            </MudPopover>
-                        </MudTd>
-                        <MudTd>
-                            <MudLink Href="@($"/dettaglioTestataDpi/id={consegna.cr4f9_testataconsegnaid}")">
-                                @consegna.cr4f9_idtestata
-                            </MudLink>
-                        </MudTd>
-                        <MudTd>@consegna.cr4f9_dataconsegna?.ToString("dd/MM/yyyy")</MudTd>
-                        <MudTd>@consegna.Nome</MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
-            </div>
-        }
-        else
-        {
-            <p><em>@message</em></p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Outlined"
+						   StartIcon="@Icons.Material.Filled.FileDownload"
+						   Color="Color.Success"
+						   Class="action-btn"
+						   OnClick="DownloadExcel">
+					Esporta
+				</MudButton>
+
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
+
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8">
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Nome o Cognome
+						</MudText>
+						<MudTextField @bind-Value="searchRiepilogo"
+									  Placeholder="Cerca per nome o cognome"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Data Consegna
+						</MudText>
+
+						<div class="date-range">
+							<MudDatePicker @bind-Date="dataTestataFrom"
+										   Label="Da"
+										   Variant="Variant.Outlined"
+										   Class="white-input date-field"
+										   Clearable="true" />
+
+							<MudDatePicker @bind-Date="dataTestataTo"
+										   Label="A"
+										   Variant="Variant.Outlined"
+										   Class="white-input date-field"
+										   Clearable="true" />
+						</div>
+					</MudItem>
+
+
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Numero Testata
+						</MudText>
+						<MudTextField @bind-Value="searchNumTestata"
+									  Placeholder="Cerca per numero di testata"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+				</MudGrid>
+
+				<div class="mt-4 filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (consegne != null)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Consegne</div>
+
+				<MudTable T="Consegna"
+						  Items="consegne.value"
+						  Filter="ToggleFunc"
+						  Dense="true"
+						  Hover="true"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh Style="width: 42px;"></MudTh>
+						<MudTh>Id Testata</MudTh>
+						<MudTh>Data Consegna</MudTh>
+						<MudTh>Lavoratore</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="consegna">
+						<!-- colonna azione -->
+						<MudTd Style="width: 42px;">
+							<MudIconButton Icon="@Icons.Material.Filled.ViewList"
+										   Class="row-action-btn"
+										   @ref="@(refMap[consegna.cr4f9_testataconsegnaid.Value])"
+										   OnClick="@(async () => await ShowPopover(consegna.cr4f9_testataconsegnaid))" />
+
+							<MudPopover Open="@popoverStates[consegna.cr4f9_testataconsegnaid.Value]"
+										AnchorOrigin="Origin.BottomLeft"
+										Elevation="8"
+										Class="popover-dpi"
+										OpenChanged="(val) => popoverStates[consegna.cr4f9_testataconsegnaid.Value] = val"
+										AnchorReference="refMap[consegna.cr4f9_testataconsegnaid.Value]">
+
+								@if (dpiPerTestata.ContainsKey(consegna.cr4f9_testataconsegnaid))
+								{
+									<MudTable Dense="true"
+											  Items="dpiPerTestata[consegna.cr4f9_testataconsegnaid]"
+											  Class="popover-table">
+
+										<HeaderContent>
+											<MudTh>Nome DPI</MudTh>
+											<MudTh>Matricola</MudTh>
+											<MudTh>Data</MudTh>
+											<MudTh>Quantità</MudTh>
+										</HeaderContent>
+
+										<RowTemplate Context="dpi">
+											<MudTd>@dpi.nome</MudTd>
+											<MudTd>@dpi.cr4f9_numerodimatricola</MudTd>
+											<MudTd>@dpi.cr4f9_datadiconsegna.ToString("dd/MM/yyyy")</MudTd>
+											<MudTd>@dpi.cr4f9_quantita</MudTd>
+										</RowTemplate>
+									</MudTable>
+								}
+								else
+								{
+									<MudText Color="Color.Secondary">Nessun DPI associato.</MudText>
+								}
+							</MudPopover>
+						</MudTd>
+
+						<!-- id testata -->
+						<MudTd>
+							<MudLink Href="@($"/dettaglioTestataDpi/id={consegna.cr4f9_testataconsegnaid}")"
+									 Class="name-link">
+								@consegna.cr4f9_idtestata
+							</MudLink>
+						</MudTd>
+
+						<MudTd>@consegna.cr4f9_dataconsegna?.ToString("dd/MM/yyyy")</MudTd>
+						<MudTd>@consegna.Nome</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+
+	</Authorized>
+
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
@@ -216,10 +266,7 @@
                 logger.LogError($"Error fetching data: {response.ReasonPhrase}");
             }
         }
-        else
-        {
-            message = "There was a problem authenticating.";
-        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     }
 
     private bool ToggleFunc(Consegna testata)
@@ -247,6 +294,14 @@
         }
 
         return matches;
+    }
+
+    private void ResetFilters()
+    {
+        searchRiepilogo = string.Empty;
+        searchNumTestata = string.Empty;
+        dataTestataFrom = null;
+        dataTestataTo = null;
     }
 
     private async Task LoadUserInformation()
@@ -547,97 +602,3 @@
         public ConsegnaDpi[] value { get; set; }
     }
 }
-
-<style>
-
-
-    /* Contenitore principale della tabella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    /* Tabella principale */
-    .mud-table {
-        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
-        border-radius: 8px;
-        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-        vertical-align: central;
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        vertical-align: central;
-        margin-top: 8px;
-        margin-left: 16px;
-    }
-
-    /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    /* Contenitore della tabella */
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Nascondi informazioni di paginazione */
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-    .white-input input,
-    .white-input .mud-input-slot {
-        background-color: #ffffff !important;
-        font-size: 0.8rem !important;
-    }
-
-    .date-filter-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-</style>

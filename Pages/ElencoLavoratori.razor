@@ -1,4 +1,4 @@
-﻿@page "/elencolavoratori"
+@page "/elencolavoratori"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
@@ -6,477 +6,657 @@
 @using System.Text.Json.Serialization
 @using System.Text
 @using System.Text.Json
+@using MudBlazor
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject ILogger<FetchSedi> logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<link href="css/elenco-lavoratori.css" rel="stylesheet" />
 
 <AuthorizeView>
-    <Authorized>
-        <h3>Lavoratori</h3>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color:#E53935;" @onclick="OpenDialogAsync">
-            Nuovo Lavoratore
-        </MudButton>
-        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Download" Style="color:#4CAF50; margin-left:16px;" @onclick="ExportToExcel">
-            Esporta in Excel
-        </MudButton>
+	<Authorized>
+		<MudPaper Class="toolbar" Elevation="1">
+			<div class="toolbar-left">
+				<MudText Typo="Typo.h5" Class="page-title">LAVORATORI</MudText>
+			</div>
 
-        <!-- Icona per mostrare/nascondere i filtri -->
-        <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" OnClick="ToggleFilters" Class="mt-4" Style="color: #E53935; margin-bottom: 12px;" />
+			<div class="toolbar-right">
+				<MudButton Variant="Variant.Filled"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   Color="Color.Error"
+						   Class="action-btn"
+						   OnClick="OpenDialogAsync">
+					Nuovo
+				</MudButton>
 
-        <!-- Sezione Filtri, visibile solo se showFilters è true -->
-        @if (showFilters)
-        {
-            <div class="folder-container compact">
-                <div class="folder-tab">Filtri</div>
-                <MudGrid GutterSize="8">
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">
-                            Nome o Cognome
-                        </MudText>
-                        <MudTextField @bind-Value="searchString"
-                                      Placeholder="Cerca Lavoratore per Nome o Cognome"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">
-                            Codice Fiscale
-                        </MudText>
-                        <MudTextField @bind-Value="searchCodiceFiscale"
-                                      Placeholder="Cerca per Codice Fiscale"
-                                      Variant="Variant.Outlined"
-                                      Immediate="true"
-                                      Class="white-input"
-                                      Style="margin-top: 6px;" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #E53935; margin-left: 4px;">
-                            In Forza
-                        </MudText>
-                        <MudSelect T="string" @bind-Value="inForzaFilter"
-                                   Label="Seleziona"
-                                   Variant="Variant.Outlined"
-                                   Class="white-input"
-                                   Immediate="true"
-                                   Style="margin-top: 6px;">
-                            <MudSelectItem Value="@("all")">Tutti</MudSelectItem>
-                            <MudSelectItem Value="@("true")">Sì</MudSelectItem>
-                            <MudSelectItem Value="@("false")">No</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                </MudGrid>
-            </div>
-        }
+				<MudButton Variant="Variant.Outlined"
+						   StartIcon="@Icons.Material.Filled.Download"
+						   Color="Color.Success"
+						   Class="action-btn"
+						   OnClick="ExportToExcel">
+					Esporta
+				</MudButton>
 
+				<MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+							   Color="Color.Error"
+							   OnClick="ToggleFilters"
+							   Class="filter-btn" />
+			</div>
+		</MudPaper>
 
+		<!-- FILTRI -->
+		<MudCollapse Expanded="@showFilters">
+			<MudPaper Class="filters-panel" Elevation="0">
+				<MudGrid GutterSize="8">
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Nome o Cognome
+						</MudText>
+						<MudTextField @bind-Value="searchString"
+									  Placeholder="Cerca per Nome o Cognome"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							Codice Fiscale
+						</MudText>
+						<MudTextField @bind-Value="searchCodiceFiscale"
+									  Placeholder="Cerca per Codice Fiscale"
+									  Variant="Variant.Outlined"
+									  Immediate="true"
+									  Class="white-input" />
+					</MudItem>
+					<MudItem xs="12" md="4">
+						<MudText Typo="Typo.subtitle2" Class="mb-1" Style="color: var(--primary-red);">
+							In Forza
+						</MudText>
+						<MudSelect T="string"
+								   @bind-Value="inForzaFilter"
+								   Variant="Variant.Outlined"
+								   Immediate="true"
+								   Class="white-input">
+							@foreach (var itm in new[] { "all", "true", "false" })
+							{
+								<MudSelectItem T="string" Value="@itm">
+									@(itm == "all" ? "Tutti" : itm == "true" ? "Sì" : "No")
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
 
-        @if (lavoratori != null)
-        {
-            <div class="folder-container">
-                <div class="folder-tab">Elenco Lavoratori</div>
-                <MudTable Items="lavoratori.value" Dense="true" HeaderClass="mud-table-header" Hover="true" Filter="FilterFunc">
-                    <HeaderContent>
-                        <MudTh>
-                            <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratori, object>(x => x.cr4f9_cognome)">
-                                Cognome
-                            </MudTableSortLabel>
-                        </MudTh>
-                        <MudTh>
-                            <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratori, object>(x => x.cr4f9_nome)">
-                                Nome
-                            </MudTableSortLabel>
-                        </MudTh>
-                        <MudTh>Codice Fiscale</MudTh>
-                        <MudTh>In Forza</MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="lavoratore">
-                        <MudTd>
-                            <MudLink Href="@($"/dettagliolavoratore/id={lavoratore.cr4f9_contattoprvid}")">
-                                @lavoratore.cr4f9_cognome
-                            </MudLink>
-                        </MudTd>
-                        <MudTd DataLabel="nome">@lavoratore.cr4f9_nome</MudTd>
-                        <MudTd DataLabel="codiceFiscale">@lavoratore.cr4f9_codicefiscale</MudTd>
-                        <MudTd DataLabel="inForza">
-                            @(lavoratore.inForza ? "Sì" : "No")
-                        </MudTd>
-                    </RowTemplate>
-                    <PagerContent>
-                        <MudTablePager PageSizeOptions="new int[]{10, 20}" />
-                    </PagerContent>
-                </MudTable>
-            </div>
-        }
-        else
-        {
-            <p><em>@message</em></p>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <h3>Authentication Failure!</h3>
-        <p>You're not signed in.</p>
-    </NotAuthorized>
+				<div class="mt-4 filters-actions">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Refresh"
+							   OnClick="ResetFilters">
+						Ripristina
+					</MudButton>
+				</div>
+			</MudPaper>
+		</MudCollapse>
+
+		@if (lavoratori != null)
+		{
+			<div class="folder-container">
+				<div class="folder-tab">Elenco Lavoratori</div>
+
+				<MudTable T="Lavoratori"
+						  Items="lavoratori.value"
+						  Dense="true"
+						  HeaderClass="mud-table-header"
+						  Hover="true"
+						  Filter="FilterFunc"
+						  Class="modern-table">
+
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel T="Lavoratori" SortBy="l => l.cr4f9_cognome">
+								<div class="col-header-left">Cognome</div>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel T="Lavoratori" SortBy="l => l.cr4f9_nome">
+								Nome
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel T="Lavoratori" SortBy="l => l.cr4f9_codicefiscale">
+								Codice Fiscale
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel T="Lavoratori" SortBy="l => l.inForza">
+								In Forza
+							</MudTableSortLabel>
+						</MudTh>
+
+						<!-- AZIONI -->
+						<MudTh></MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="lavoratore">
+						<MudTd>
+							<div class="row-left">
+								<div class="avatar">@GetInitials(lavoratore)</div>
+								<div class="name-block">
+									<MudLink Href="@($"/dettagliolavoratore/id={lavoratore.cr4f9_contattoprvid}")"
+											 Class="name-link">
+										@lavoratore.cr4f9_cognome
+									</MudLink>
+									<div class="subtext">@lavoratore.cr4f9_nome</div>
+								</div>
+							</div>
+						</MudTd>
+
+						<MudTd DataLabel="nome">@lavoratore.cr4f9_nome</MudTd>
+						<MudTd DataLabel="codiceFiscale">@lavoratore.cr4f9_codicefiscale</MudTd>
+
+						<MudTd DataLabel="inForza">
+							<span class="inforza-pill @(lavoratore.inForza ? "on" : "off")">
+								@(lavoratore.inForza ? "Sì" : "No")
+							</span>
+						</MudTd>
+
+						<!-- PULSANTE "ELIMINA" (DISATTIVA RAPPORTO) -->
+						<MudTd DataLabel="azioni" Class="text-right">
+							<MudIconButton Icon="@Icons.Material.Filled.Delete"
+										   Color="Color.Error"
+										   Disabled="@(isDeleting || string.IsNullOrWhiteSpace(lavoratore.lavoroPressoId))"
+										   Title="Elimina (disattiva rapporto)"
+										   OnClick="async () => await ConfermaEDisattivaAsync(lavoratore)" />
+						</MudTd>
+					</RowTemplate>
+
+					<PagerContent>
+						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+					</PagerContent>
+				</MudTable>
+			</div>
+		}
+		else
+		{
+			<p><em>@message</em></p>
+		}
+	</Authorized>
+	<NotAuthorized>
+		<h3>Authentication Failure!</h3>
+		<p>You're not signed in.</p>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
-    private LavoratoriCollection lavoratori;
-    private string message = "Loading...";
+	private LavoratoriCollection lavoratori;
+	private string message = "Loading...";
 
-    private string userName;
-    private string userEmail;
-    private Guid? azienda;
-    private string clienteId;
+	private string userName;
+	private string userEmail;
+	private Guid? azienda;
+	private string clienteId;
 
-    private string fetchXmlQuery;
+	private string fetchXmlQuery;
 
-    private string searchString;
-    private string searchCodiceFiscale;
+	private string searchString;
+	private string searchCodiceFiscale;
 
-    private string inForzaFilter = "all";
+	private string inForzaFilter = "all";
+	private bool showFilters = false;
 
-    private bool showFilters = false;
+	private bool? autorizzatoLavoratori;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadUserInformation();
+	private bool isDeleting = false;
 
-        // Costruisci dinamicamente la query FetchXML, assegnando un alias a cr4f9_inforza
-        fetchXmlQuery = $@"
+	private string GetInitials(Lavoratori l)
+	{
+		if (l == null) return "";
+		var n = l.cr4f9_nome ?? string.Empty;
+		var c = l.cr4f9_cognome ?? string.Empty;
+		var ni = n.Length > 0 ? n[0].ToString().ToUpper() : "";
+		var ci = c.Length > 0 ? c[0].ToString().ToUpper() : "";
+		return (ni + ci).Trim();
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUserInformation();
+
+		if (autorizzatoLavoratori != true)
+		{
+			message = "Non sei autorizzato a visualizzare i dati dei lavoratori.";
+			logger.LogWarning($"Utente {userEmail} non autorizzato alla visualizzazione dei lavoratori.");
+			return;
+		}
+
+		if (azienda == null || azienda == Guid.Empty)
+		{
+			message = "Nessuna azienda associata all'utente.";
+			logger.LogWarning("Azienda non impostata: impossibile eseguire le query dei lavoratori.");
+			return;
+		}
+
+		try
+		{
+			var taskPrincipale = FetchLavoratoriByAziendaPrincipale(azienda.Value);
+			var taskRelazione = FetchLavoratoriByRelazione(azienda.Value);
+
+			await Task.WhenAll(taskPrincipale, taskRelazione);
+
+			var risultatiPrincipale = taskPrincipale.Result ?? Array.Empty<Lavoratori>();
+			var risultatiRelazione = taskRelazione.Result ?? Array.Empty<Lavoratori>();
+
+			var unique = risultatiPrincipale
+				.Concat(risultatiRelazione)
+				.GroupBy(l => l.cr4f9_contattoprvid)
+				.Select(g => g.OrderByDescending(x => x.createdOn).First())
+				.ToArray();
+
+			lavoratori = new LavoratoriCollection { value = unique };
+		}
+		catch (Exception ex)
+		{
+			message = "An error occurred while loading data.";
+			logger.LogError(ex, "Errore durante il caricamento dei lavoratori unificati.");
+		}
+	}
+
+	private async Task<Lavoratori[]> FetchLavoratoriByAziendaPrincipale(Guid aziendaId)
+	{
+		// NOTE: verifica che il PK del record new_lavorapressoprv sia davvero "new_lavorapressoprvid"
+		var fetchXml = $@"
         <fetch>
           <entity name='cr4f9_contattoprv'>
+            <attribute name='cr4f9_contattoprvid' />
+            <attribute name='cr4f9_cognome'/>
+            <attribute name='cr4f9_nome'/>
+            <attribute name='cr4f9_codicefiscale'/>
+            <filter>
+              <condition attribute='new_aziendaprinciaple' operator='eq' value='{aziendaId}' />
+            </filter>
+            <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' link-type='inner' alias='Lavoratore'>
+			  <attribute name='new_lavorapressoprvid' alias='lavoroPressoId' />
+			  <attribute name='cr4f9_inforza' alias='inForza' />
+			  <attribute name='createdon' alias='createdOn' />
+			  <filter>
+				<condition attribute='statecode' operator='eq' value='0' />
+			  </filter>
+			</link-entity>
+          </entity>
+        </fetch>";
+
+		logger.LogInformation("FetchXML (AziendaPrincipale): " + fetchXml);
+		return await ExecuteFetchXml(fetchXml);
+	}
+
+	private async Task<Lavoratori[]> FetchLavoratoriByRelazione(Guid aziendaId)
+	{
+		// NOTE: verifica che il PK del record new_lavorapressoprv sia davvero "new_lavorapressoprvid"
+		var fetchXml = $@"
+        <fetch>
+          <entity name='cr4f9_contattoprv'>
+            <attribute name='cr4f9_contattoprvid' />
             <attribute name='cr4f9_cognome'/>
             <attribute name='cr4f9_nome'/>
             <attribute name='cr4f9_codicefiscale'/>
             <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_contattoprvid' link-type='inner' alias='Lavoratore'>
-              <attribute name='cr4f9_inforza' alias='inForza' />
-              <filter>
-                <condition attribute='new_azienda' operator='eq' value='{azienda}' />
-              </filter>
-            </link-entity>
+			  <attribute name='new_lavorapressoprvid' alias='lavoroPressoId' />
+			  <attribute name='cr4f9_inforza' alias='inForza' />
+			  <attribute name='createdon' alias='createdOn' />
+			  <filter>
+				<condition attribute='new_azienda' operator='eq' value='{aziendaId}' />
+				<condition attribute='statecode' operator='eq' value='0' />
+			  </filter>
+			</link-entity>
           </entity>
         </fetch>";
 
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
-        {
-            var client = ClientFactory.CreateClient("DataverseClient");
+		logger.LogInformation("FetchXML (Relazione): " + fetchXml);
+		return await ExecuteFetchXml(fetchXml);
+	}
 
-            var request = new HttpRequestMessage()
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}")
-                };
+	private async Task<Lavoratori[]> ExecuteFetchXml(string fetchXml)
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (!tokenResult.TryGetToken(out var token))
+		{
+			logger.LogError("Token non disponibile per ExecuteFetchXml.");
+			return Array.Empty<Lavoratori>();
+		}
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		var client = ClientFactory.CreateClient("DataverseClient");
+		var request = new HttpRequestMessage(HttpMethod.Get,
+			$"{client.BaseAddress}cr4f9_contattoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
 
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                // Log per verificare il contenuto della risposta
-                var responseBody = await response.Content.ReadAsStringAsync();
-                logger.LogInformation("RESPONSE BODY: " + responseBody);
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+		request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                lavoratori = JsonSerializer.Deserialize<LavoratoriCollection>(responseBody, new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
-            }
-            else
-            {
-                message = "An error occurred.";
-                logger.LogError($"Error fetching data: {response.ReasonPhrase}");
-            }
-        }
-        else
-        {
-            message = "There was a problem authenticating.";
-        }
-    }
+		var response = await client.SendAsync(request);
+		if (!response.IsSuccessStatusCode)
+		{
+			logger.LogError($"Errore fetching data: {response.StatusCode} - {response.ReasonPhrase}");
+			return Array.Empty<Lavoratori>();
+		}
 
-    // Metodo per caricare le informazioni dell'utente
-    private async Task LoadUserInformation()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+		var responseBody = await response.Content.ReadAsStringAsync();
+		logger.LogDebug("Response FetchXML: " + responseBody);
 
-        if (user.Identity.IsAuthenticated)
-        {
-            userName = user.Identity.Name;
-            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
-            logger.LogInformation("USER EMAIL: " + userEmail);
-        }
-        await CaricaClienteAssociato(userEmail);
-    }
+		try
+		{
+			var raw = JsonSerializer.Deserialize<LavoratoriCollection>(responseBody,
+				new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-    private Task OpenDialogAsync()
-    {
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-        return DialogService.ShowAsync<AddLavoratore>("Simple Dialog", options);
-    }
+			return raw?.value ?? Array.Empty<Lavoratori>();
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(ex, "Errore deserializzazione ExecuteFetchXml.");
+			return Array.Empty<Lavoratori>();
+		}
+	}
 
-    [Inject] IJSRuntime JS { get; set; }
+	private async Task LoadUserInformation()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
 
-    private async Task ExportToExcel()
-    {
-        if (lavoratori == null || lavoratori.value.Length == 0)
-        {
-            message = "Nessun dato da esportare.";
-            return;
-        }
+		if (user.Identity.IsAuthenticated)
+		{
+			userName = user.Identity.Name;
+			userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+			logger.LogInformation("USER EMAIL: " + userEmail);
+		}
+		await CaricaClienteAssociato(userEmail);
+	}
 
-        var filteredData = lavoratori.value.Where(FilterFunc).Select(l => new
-        {
-            Cognome = l.cr4f9_cognome,
-            Nome = l.cr4f9_nome,
-            CodiceFiscale = l.cr4f9_codicefiscale,
-            InForza = l.inForza ? "Sì" : "No"
-        });
+	private Task OpenDialogAsync()
+	{
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+		return DialogService.ShowAsync<AddLavoratore>("Simple Dialog", options);
+	}
 
-        await JS.InvokeVoidAsync("downloadExcelFromBlazor", "Lavoratori.xlsx", filteredData);
-    }
+	[Inject] IJSRuntime JS { get; set; }
 
-    // Funzione di filtro applicata ad ogni riga della tabella
-    private bool FilterFunc(Lavoratori lavoratore)
-    {
-        // Filtro per nome e cognome
-        if (!string.IsNullOrWhiteSpace(searchString))
-        {
-            var searchLower = searchString.ToLower();
-            if (!(lavoratore.cr4f9_cognome?.ToLower().Contains(searchLower) == true ||
-                  lavoratore.cr4f9_nome?.ToLower().Contains(searchLower) == true))
-                return false;
-        }
+	private async Task ExportToExcel()
+	{
+		if (lavoratori == null || lavoratori.value.Length == 0)
+		{
+			message = "Nessun dato da esportare.";
+			return;
+		}
 
-        if (!string.IsNullOrWhiteSpace(searchCodiceFiscale))
-        {
-            var codiceLower = searchCodiceFiscale.ToLower();
-            if (!(lavoratore.cr4f9_codicefiscale?.ToLower().Contains(codiceLower) == true))
-                return false;
-        }
+		var filteredData = lavoratori.value.Where(FilterFunc).Select(l => new
+		{
+			Cognome = l.cr4f9_cognome,
+			Nome = l.cr4f9_nome,
+			CodiceFiscale = l.cr4f9_codicefiscale,
+			InForza = l.inForza ? "Sì" : "No"
+		});
 
-        // Filtro per inForza
-        if (inForzaFilter != "all")
-        {
-            bool filterVal = inForzaFilter == "true";
-            if (lavoratore.inForza != filterVal)
-                return false;
-        }
-        return true;
-    }
+		await JS.InvokeVoidAsync("downloadExcelFromBlazor", "Lavoratori.xlsx", filteredData);
+	}
 
-    private void ToggleFilters()
-    {
-        showFilters = !showFilters;
-    }
+	private bool FilterFunc(Lavoratori lavoratore)
+	{
+		if (!string.IsNullOrWhiteSpace(searchString))
+		{
+			var searchLower = searchString.ToLower();
+			if (!(lavoratore.cr4f9_cognome?.ToLower().Contains(searchLower) == true ||
+						lavoratore.cr4f9_nome?.ToLower().Contains(searchLower) == true))
+				return false;
+		}
 
-    private async Task CaricaClienteAssociato(string email)
-    {
-        try
-        {
-            var tokenResult = await TokenProvider.RequestAccessToken();
-            if (tokenResult.TryGetToken(out var token))
-            {
-                var client = ClientFactory.CreateClient("DataverseClient");
+		if (!string.IsNullOrWhiteSpace(searchCodiceFiscale))
+		{
+			var codiceLower = searchCodiceFiscale.ToLower();
+			if (!(lavoratore.cr4f9_codicefiscale?.ToLower().Contains(codiceLower) == true))
+				return false;
+		}
 
-                var fetchXml = BuildFetchXml(email);
+		if (inForzaFilter != "all")
+		{
+			bool filterVal = inForzaFilter == "true";
+			if (lavoratore.inForza != filterVal)
+				return false;
+		}
+		return true;
+	}
 
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+	private void ToggleFilters() => showFilters = !showFilters;
 
-                var response = await client.SendAsync(request);
+	private async Task CaricaClienteAssociato(string email)
+	{
+		try
+		{
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+				autorizzatoLavoratori = false;
+				return;
+			}
 
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseBody = await response.Content.ReadAsStringAsync();
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildFetchXml(email);
 
-                    var jsonDocument = JsonDocument.Parse(responseBody);
-                    var entities = jsonDocument.RootElement.GetProperty("value");
+			var request = new HttpRequestMessage(HttpMethod.Get,
+				$"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 
-                    logger.LogInformation("FETCH: " + fetchXml);
+			var response = await client.SendAsync(request);
+			if (!response.IsSuccessStatusCode)
+			{
+				logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+				autorizzatoLavoratori = false;
+				return;
+			}
 
-                    if (entities.GetArrayLength() > 0)
-                    {
-                        var entity = entities[0];
+			var responseBody = await response.Content.ReadAsStringAsync();
+			var jsonDocument = JsonDocument.Parse(responseBody);
+			var entities = jsonDocument.RootElement.GetProperty("value");
 
-                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new JsonSerializerOptions
-                            {
-                                WriteIndented = true
-                            });
-                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+			logger.LogInformation("FETCH: " + fetchXml);
 
-                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
-                        {
-                            clienteId = newClienteProperty.GetString();
-                            azienda = newClienteProperty.GetGuid();
+			if (entities.GetArrayLength() == 0)
+			{
+				logger.LogWarning("Nessun record trovato per l'email fornita.");
+				autorizzatoLavoratori = false;
+				return;
+			}
 
-                            logger.LogInformation($"Entities reference: {clienteId}");
-                            logger.LogInformation($"Azienda reference: {azienda}");
-                        }
-                        else
-                        {
-                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("Nessun record trovato per l'email fornita.");
-                    }
-                }
-                else
-                {
-                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
-                }
-            }
-            else
-            {
-                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
-        }
-    }
+			var entity = entities[0];
 
-    private string BuildFetchXml(string email)
-    {
-        return $@"
+			// new_cliente (azienda)
+			if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+			{
+				clienteId = newClienteProperty.GetString();
+				azienda = newClienteProperty.GetGuid();
+
+				logger.LogInformation($"Entities reference: {clienteId}");
+				logger.LogInformation($"Azienda reference: {azienda}");
+			}
+			else
+			{
+				logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+			}
+
+			// new_lavoratori (autorizzazione)
+			if (entity.TryGetProperty("new_lavoratori", out var newLavoratoriProperty))
+			{
+				bool flag = false;
+
+				if (newLavoratoriProperty.ValueKind == JsonValueKind.True ||
+					newLavoratoriProperty.ValueKind == JsonValueKind.False)
+				{
+					flag = newLavoratoriProperty.GetBoolean();
+				}
+				else if (newLavoratoriProperty.ValueKind == JsonValueKind.String)
+				{
+					var val = newLavoratoriProperty.GetString();
+					flag = val == "1" ||
+									string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
+				}
+
+				autorizzatoLavoratori = flag;
+				logger.LogInformation($"Autorizzazione visualizzazione lavoratori: {autorizzatoLavoratori}");
+			}
+			else
+			{
+				logger.LogWarning("Il campo 'new_lavoratori' non è presente nel record.");
+				autorizzatoLavoratori = false;
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+			autorizzatoLavoratori = false;
+		}
+	}
+
+	private string BuildFetchXml(string email) => $@"
         <fetch>
           <entity name='new_emailautorizzazioniprv'>
             <attribute name='new_cliente' />
+            <attribute name='new_lavoratori' />
             <filter>
               <condition attribute='new_email' operator='eq' value='{email}' />
             </filter>
           </entity>
         </fetch>";
-    }
 
-    public class Lavoratori
-    {
-        public Guid cr4f9_contattoprvid { get; set; }
-        public string cr4f9_cognome { get; set; }
-        public string cr4f9_nome { get; set; }
-        public string cr4f9_codicefiscale { get; set; }
+	private void ResetFilters()
+	{
+		searchString = string.Empty;
+		searchCodiceFiscale = string.Empty;
+		inForzaFilter = "all";
+	}
 
-        // Il campo viene deserializzato dall'alias "inForza" definito nella query FetchXML
-        [JsonPropertyName("inForza")]
-        public bool inForza { get; set; }
-    }
+	// ============================
+	// ELIMINAZIONE (DISATTIVAZIONE)
+	// ============================
 
-    public class LavoratoriCollection
-    {
-        public Lavoratori[] value { get; set; }
-    }
+	private async Task ConfermaEDisattivaAsync(Lavoratori lavoratore)
+	{
+		if (lavoratore == null) return;
+
+		// // opzionale: se già "No", avvisa e stop
+		// if (!lavoratore.inForza)
+		// {
+		// 	await DialogService.ShowMessageBox(
+		// 		"Info",
+		// 		"Questo rapporto risulta già non in forza.",
+		// 		yesText: "OK");
+		// 	return;
+		// }
+
+		var ok = await DialogService.ShowMessageBox(
+			title: "Conferma eliminazione",
+			markupMessage: (MarkupString)$@"
+				Stai per <b>eliminare</b> il lavoratore dall'azienda (in realtà verrà <b>disattivato</b> il rapporto).<br/><br/>
+				<b>{lavoratore.cr4f9_cognome} {lavoratore.cr4f9_nome}</b><br/>
+				CF: {lavoratore.cr4f9_codicefiscale}<br/><br/>
+				Vuoi continuare?",
+			yesText: "Sì, elimina",
+			cancelText: "Annulla",
+			options: new DialogOptions { CloseOnEscapeKey = true });
+
+		if (ok != true) return;
+
+		await DisattivaRapportoAsync(lavoratore);
+	}
+
+	private async Task DisattivaRapportoAsync(Lavoratori lavoratore)
+	{
+		if (isDeleting) return;
+		isDeleting = true;
+
+		try
+		{
+			if (string.IsNullOrWhiteSpace(lavoratore.lavoroPressoId) ||
+				!Guid.TryParse(lavoratore.lavoroPressoId, out var rapportoId))
+			{
+				message = "ID rapporto non valido.";
+				return;
+			}
+
+			var tokenResult = await TokenProvider.RequestAccessToken();
+			if (!tokenResult.TryGetToken(out var token))
+			{
+				message = "Token non disponibile.";
+				return;
+			}
+
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var url = $"{client.BaseAddress}new_lavorapressoprvs({rapportoId})";
+
+			var payload = new
+			{
+				statecode = 1 // Inattivo
+			};
+
+			var req = new HttpRequestMessage(new HttpMethod("PATCH"), url);
+			req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+			req.Headers.TryAddWithoutValidation("If-Match", "*");
+			req.Content = new StringContent(
+				JsonSerializer.Serialize(payload),
+				Encoding.UTF8,
+				"application/json");
+
+			var resp = await client.SendAsync(req);
+
+			if (!resp.IsSuccessStatusCode)
+			{
+				var body = await resp.Content.ReadAsStringAsync();
+				logger.LogError($"Errore disattivazione: {resp.StatusCode} - {body}");
+				message = "Errore durante la disattivazione.";
+				return;
+			}
+
+			// aggiorna UI
+			lavoratore.inForza = false; // solo per coerenza visiva
+			lavoratori = new LavoratoriCollection
+				{
+					value = lavoratori.value.Where(x => x.cr4f9_contattoprvid != lavoratore.cr4f9_contattoprvid).ToArray()
+				};
+
+			StateHasChanged();
+		}
+		finally
+		{
+			isDeleting = false;
+		}
+	}
+
+
+	// ============================
+	// MODELS
+	// ============================
+
+	public class Lavoratori
+	{
+		public Guid cr4f9_contattoprvid { get; set; }
+		public string cr4f9_cognome { get; set; }
+		public string cr4f9_nome { get; set; }
+		public string cr4f9_codicefiscale { get; set; }
+
+		// ID del record new_lavorapressoprv (arriva dall'alias in FetchXML)
+		// spesso arriva come stringa GUID
+		[JsonPropertyName("lavoroPressoId")]
+		public string lavoroPressoId { get; set; }
+
+		[JsonPropertyName("inForza")]
+		public bool inForza { get; set; }
+
+		[JsonPropertyName("createdOn")]
+		public DateTime createdOn { get; set; }
+	}
+
+	public class LavoratoriCollection
+	{
+		public Lavoratori[] value { get; set; }
+	}
 }
-
-
-<style>
-
-    /* Contenitore principale della tabella */
-    .folder-container {
-        position: relative;
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 50px;
-    }
-
-    .filter-section {
-        background-color: #f0f0f0;
-        border: 2px solid #E53935;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .white-input input,
-    .white-input .mud-input-slot {
-        background-color: #ffffff !important;
-    }
-
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Tabella principale */
-    .mud-table {
-        width: 100%; /* Assicurati che la tabella occupi tutta la larghezza disponibile */
-        border-radius: 8px;
-        border-collapse: collapse; /* Per una gestione più uniforme dei bordi */
-    }
-
-    /* Tabella intestazione */
-    .mud-table-header {
-        background-color: #E53935;
-    }
-
-    .mud-table-header .mud-table-cell {
-        color: white !important;
-        font-weight: bold; /* Grassetto per l'intestazione */
-    }
-
-    /* Righe della tabella */
-    .mud-table-row {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-    }
-
-    /* Celle della tabella (MudTd) */
-    .mud-table .mud-td, .mud-table .mud-th {
-        border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-        padding: 8px; /* Padding per le celle */
-        vertical-align: middle; /* Allinea verticalmente il contenuto */
-        text-align: center; /* Centra il testo */
-    }
-
-    /* Colore dei link nella tabella */
-    .mud-table .mud-link.mud-typography.mud-primary-text {
-        font-size: 0.875rem;
-        color: #757575 !important;
-        font-weight: bold;
-        display: block;
-        text-align: left;
-        margin-left: 16px;
-        vertical-align: central;
-        margin-top: 8px;
-    }
-
-    /* Hover sui link */
-    .mud-table .mud-link.mud-typography.mud-primary-text:hover {
-        color: red !important;
-        cursor: pointer;
-    }
-
-    /* Contenitore della tabella */
-    .folder-tab {
-        position: absolute;
-        top: -25px;
-        left: 20px;
-        background-color: #E53935;
-        color: white;
-        padding: 6px 16px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        font-weight: bold;
-    }
-
-    /* Nascondi informazioni di paginazione */
-    .mud-table-pagination-information {
-        display: none;
-    }
-
-</style>
-

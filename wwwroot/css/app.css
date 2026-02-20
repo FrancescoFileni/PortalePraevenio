@@ -106,3 +106,25 @@ code {
     background-color: #1976d2; /* Imposta il colore di sfondo */
     color: white; /* Imposta il colore del testo */
 }
+
+/* ====== DISABILITA COMPLETAMENTE IL GLASS EFFECT MUDBLAZOR ====== */
+
+/* Overlay dietro al dialog */
+.mud-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(0, 0, 0, 0.45) !important; /* overlay classico */
+}
+
+/* Contenitore dialog */
+.mud-dialog {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #ffffff !important;
+}
+
+html {
+    overflow-y: scroll;
+}
+
+

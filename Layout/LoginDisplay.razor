@@ -1,19 +1,98 @@
-﻿@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @inject NavigationManager Navigation
 
 <AuthorizeView>
-    <Authorized>
-        Hello, @context.User.Identity?.Name!
-        <button class="nav-link btn btn-link" @onclick="BeginLogOut">Log out</button>
-    </Authorized>
-    <NotAuthorized>
-        <a href="authentication/login">Log in</a>
-    </NotAuthorized>
+	<Authorized>
+		<div class="user-display">
+			<span class="hello-text">Ciao, @context.User.Identity?.Name!</span>
+			<button class="logout-btn" @onclick="BeginLogOut">Log out</button>
+		</div>
+	</Authorized>
+
+	<NotAuthorized>
+		<div class="user-display">
+			<a class="login-btn" href="authentication/login">Log in</a>
+		</div>
+	</NotAuthorized>
 </AuthorizeView>
 
-@code{
-    public void BeginLogOut()
-    {
-        Navigation.NavigateToLogout("authentication/logout");
-    }
+@code {
+	public void BeginLogOut()
+	{
+		Navigation.NavigateToLogout("authentication/logout");
+	}
 }
+
+<style>
+	/* ================================
+				 STILE MODERNO PER LOGIN DISPLAY
+		   ================================ */
+
+	.user-display {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 0.95rem;
+		font-weight: 500;
+		color: #444;
+	}
+
+	/* ------ Hello, User ------ */
+	.hello-text {
+		padding: 6px 12px;
+		background: #fafafa;
+		border-radius: 10px;
+		border: 1px solid rgba(0,0,0,0.08);
+		font-weight: 500;
+		color: #444;
+		display: inline-block;
+	}
+
+	/* ------ Logout button ------ */
+	.logout-btn {
+		font-size: 0.9rem;
+		font-weight: 500;
+		color: #444;
+		background: #ffffff;
+		padding: 6px 14px;
+		border-radius: 999px;
+		border: 1px solid rgba(0,0,0,0.12);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+		.logout-btn:hover {
+			color: #E53935; /* rosso brand */
+			border-color: rgba(229,57,53,0.45);
+			background: rgba(229,57,53,0.06);
+			transform: translateY(-2px);
+			box-shadow: 0 4px 12px rgba(229,57,53,0.20);
+		}
+
+	/* ------ Login link when unauthenticated ------ */
+	.login-btn {
+		font-size: 0.9rem;
+		font-weight: 500;
+		color: #444;
+		text-decoration: none;
+		padding: 6px 14px;
+		border-radius: 999px;
+		border: 1px solid rgba(0,0,0,0.12);
+		background: #ffffff;
+		transition: all 0.2s ease;
+	}
+
+		.login-btn:hover {
+			color: #E53935;
+			border-color: rgba(229,57,53,0.45);
+			background: rgba(229,57,53,0.06);
+			transform: translateY(-2px);
+			box-shadow: 0 4px 12px rgba(229,57,53,0.20);
+		}
+
+	.logout-btn, .login-btn {
+		padding: 5px 12px;
+	}
+
+	}
+</style>

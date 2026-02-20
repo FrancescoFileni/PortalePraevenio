@@ -1,0 +1,317 @@
+﻿@page "/dettagliocontrollomacchinario/id={id}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.Xrm.Sdk
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AddTestataConsegne> logger
+@inject IAccessTokenProvider TokenProvider
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@code {
+    [Parameter]
+    public string id { get; set; }
+
+    
+    private string clienteId;
+    private Guid? azienda;
+    private string userName;
+    private string userEmail;
+
+    private bool editMode = false;
+
+    private bool originalEseguito;
+    private IBrowserFile _fileSelezionato;
+
+    private ControlliCollection controlliCollection = new ControlliCollection();
+    private bool datiCaricati = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+
+    private async Task LoadUserInformation()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.Identity.Name;
+            userEmail = user.FindFirst(c => c.Type == "preferred_username")?.Value;
+
+            logger.LogInformation("USER EMAIL: " + userEmail);
+        }
+        await CaricaClienteAssociato(userEmail);
+    }
+
+    private async Task CaricaClienteAssociato(string email)
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+
+                var fetchXml = BuildAziendaFetchXml(email);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_emailautorizzazioniprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(responseBody);
+                    var entities = jsonDocument.RootElement.GetProperty("value");
+
+                    logger.LogInformation("FETCH: " + fetchXml);
+
+                    if (entities.GetArrayLength() > 0)
+                    {
+                        var entity = entities[0];
+
+                        string entitiesJson = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true // Per una visualizzazione leggibile
+                            });
+                        logger.LogInformation($"Entities JSON: {entitiesJson}");
+
+                        if (entity.TryGetProperty("_new_cliente_value", out var newClienteProperty))
+                        {
+                            clienteId = newClienteProperty.GetString();
+                            azienda = newClienteProperty.GetGuid();
+
+                            logger.LogInformation($"Entities reference: {clienteId}");
+                            logger.LogInformation($"Azienda reference: {azienda}");
+
+
+                            if (Guid.TryParse(clienteId, out var newClienteGuid))
+                            {
+                                // lavoratore.cr4f9_aziendanome = newClienteGuid;
+                                // logger.LogInformation($"Cliente trovato: {lavoratore.cr4f9_aziendanome}");
+                            }
+                            else
+                            {
+                                logger.LogError($"Il valore di 'new_cliente' non è un GUID valido: {clienteId}");
+                            }
+                        }
+                        else
+                        {
+                            logger.LogWarning("Il campo 'new_cliente' non è presente nel record.");
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("Nessun record trovato per l'email fornita.");
+                    }
+                }
+                else
+                {
+                    logger.LogError($"Errore durante il recupero del cliente: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                logger.LogError("Errore di autenticazione durante il caricamento del cliente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del cliente: {ex.Message}");
+        }
+    }
+
+    private string BuildAziendaFetchXml(string email)
+    {
+        return $@"
+        <fetch>
+          <entity name='new_emailautorizzazioniprv'>
+            <attribute name='new_cliente' />
+            <filter>
+              <condition attribute='new_email' operator='eq' value='{email}' />
+            </filter>
+          </entity>
+        </fetch>";
+    }
+
+    private async Task CaricaControllo()
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+
+            var fetchXmlQuery = BuildControlloFetchXml();
+
+            if(tokenResult.TryGetToken(out var token))
+            {
+                var client = ClientFactory.CreateClient("DataverseClient");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollimacchinarieimpiantis?fetchXml={Uri.EscapeDataString(fetchXmlQuery)}");
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.SendAsync(request);
+
+                if(response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+                    controlliCollection = await response.Content.ReadFromJsonAsync<ControlliCollection>();
+                }
+                else
+                {
+                    await DialogService.ShowMessageBox("ERRORE", "An error occured while fetching data");
+                    logger.LogError($"Errore durante il recupero del controllo macchinario: {response.ReasonPhrase}");
+                }
+            }
+            else
+            {
+                await DialogService.ShowMessageBox("ERRORE", "There was a problem authenticating");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione durante il caricamento del controllo macchinario: {ex.Message}");
+        }
+    }
+
+    private string BuildControlloFetchXml()
+    {
+        return $@"
+                <fetch>
+                  <entity name='cr4f9_elencocontrollimacchinarieimpianti'>
+                    <attribute name='cr4f9_elencocontrollimacchinarieimpiantiid' />
+                    <attribute name='cr4f9_datadiscadenza' />
+                    <attribute name='cr4f9_datadiesecuzione' />
+                    <attribute name='cr4f9_eseguito' />
+                    <attribute name='cr4f9_periodicitadelcontrolloinmesi' />
+                    <attribute name='cr4f9_macchinariooimpianto' />
+                    <filter>
+                      <condition attribute='cr4f9_elencocontrollimacchinarieimpiantiid' operator='eq' value='{id}' />
+                    </filter>
+                    <link-entity name='cr4f9_macchinarioimpiantofisico' from='cr4f9_macchinarioimpiantofisicoid' to='cr4f9_macchinariooimpianto' link-type='inner' alias='Macchinario'>
+                      <attribute name='cr4f9_nome' alias='Nome'/>
+                      <attribute name='cr4f9_matricola' alias='Matricola'/>
+                      <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sede' link-type='inner' alias='Sede'>
+                        <filter>
+                          <condition attribute='new_cliente' operator='eq' value='{azienda}' />
+                        </filter>
+                      </link-entity>
+                    </link-entity>
+                  </entity>
+                </fetch>";
+    }
+
+    private async Task ToggleEdit()
+    {
+        if (editMode)
+        {
+
+        }
+    }
+
+    private async Task AggiornaControllo()
+    {
+        try
+        {
+            var tokenResult = await TokenProvider.RequestAccessToken();
+            if (!tokenResult.TryGetToken(out var token))
+            {
+                logger.LogError("Errore autenticazione durante l'aggiornamento.");
+                return;
+            }
+
+            var client = ClientFactory.CreateClient("DataverseClient");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+
+            var ctrl = controlliCollection.value[0];
+
+            var updateDto = new
+            {
+                cr4f9_datadiesecuzione = ctrl.cr4f9_datadiesecuzione,
+                cr4f9_datadiscadenza = ctrl.cr4f9_datadiscadenza,
+                cr4f9_periodicitadelcontrolloinmesi = ctrl.cr4f9_periodicitadelcontrolloinmesi,
+                cr4f9_eseguito = ctrl.cr4f9_eseguito
+            };
+
+            var patchReq = new HttpRequestMessage(HttpMethod.Patch, $"{client.BaseAddress}cr4f9_elencocontrollimacchinarieimpianti({id})")
+                {
+                    Content = JsonContent.Create(updateDto)
+                };
+            var patchResp = await client.SendAsync(patchReq);
+            if (!patchResp.IsSuccessStatusCode)
+            {
+                logger.LogError($"Patch fallita: {patchResp.ReasonPhrase}");
+                return;
+            }
+
+            if (!originalEseguito && ctrl.cr4f9_eseguito)
+            {
+                //await CreaNuovoControlloAsync(ctrl);
+            }
+
+            logger.LogInformation("Operazione completata.");
+            DialogService.ShowMessageBox("Successo", "Modifiche salvate.");
+
+            originalEseguito = ctrl.cr4f9_eseguito;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Eccezione Aggiorna Controllo: {ex.Message}");
+            DialogService.ShowMessageBox("Errore", ex.Message);
+        }
+    }
+
+    private async Task CreaNuovoControlloAsync(Controllo oldCtrl)
+    {
+        DateTime baseDate = oldCtrl.cr4f9_datadiesecuzione ?? throw new InvalidOperationException("Data di esecuzione mancante.");
+
+        DateTime nuovaScadenza = baseDate.AddMonths(oldCtrl.cr4f9_periodicitadelcontrolloinmesi);
+
+        logger.LogInformation($"Consegna dpi: {oldCtrl.cr4f9_macchinariooimpianto}");
+
+        var newDto = new Dictionary<string, object>
+            {
+                ["cr4f9_MacchinariooImpianto@odata.bind"] = $"/cr4f9_macchinarioimpiantofisicos({oldCtrl.cr4f9_macchinariooimpianto})",
+                ["cr4f9_datadiesecuzione"] = null,
+                ["cr4f9_datadiscadenza"] = nuovaScadenza,
+                ["cr4f9_periodicitadelcontrolloinmesi"] = oldCtrl.cr4f9_periodicitadelcontrolloinmesi,
+                ["cr4f9_eseguito"] = false
+            };
+
+
+    }
+
+    public class Controllo
+    {
+        public string cr4f9_elencocontrollimacchinarieimpiantiid { get; set; }
+        public DateTime? cr4f9_datadiscadenza { get; set; }
+        public DateTime? cr4f9_datadiesecuzione { get; set; }
+        public bool cr4f9_eseguito { get; set; }
+        public int cr4f9_periodicitadelcontrolloinmesi { get; set; }
+
+
+        public Guid? cr4f9_macchinariooimpianto { get; set; }
+
+        public string Nome { get; set; }
+        public string Matricola { get; set; }
+    }
+
+    public class ControlliCollection
+    {
+        public Controllo[] value { get; set; } = Array.Empty<Controllo>();
+    }
+}

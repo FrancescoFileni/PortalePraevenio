@@ -1,4 +1,4 @@
-﻿@page "/dettagliosede/id={id}"
+@page "/dettagliosede/id={id}"
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using Microsoft.Extensions.Logging
 @using System.Net.Http.Headers
@@ -9,27 +9,41 @@
 @inject IAccessTokenProvider TokenProvider
 @inject IHttpClientFactory ClientFactory
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
-<div style="display: flex; align-items: center; height: 40px;">
-	<button @onclick="GoBack" style="display: flex; align-items: center; justify-content: center; height: 90%; min-width: 40px; padding: 0; background: #E53935; border: none; border-radius: 5px;">
-		<i class="fas fa-arrow-left" style="font-size: 16px; color: white;"></i>
-	</button>
-	@if (sedi!=null && sedi.value?.Length > 0)
-	{
-		<h3 style="margin: 0;margin-left:16px ; line-height: 40px;">@sedi.value[0].new_localita</h3>
-	}
-</div>
+<link href="css/dettaglio-sede.css" rel="stylesheet" />
 
-<MudTabs Elevation="2" Rounded="true" Class="my-6">
+<MudPaper Class="toolbar" Elevation="1">
+	<div class="toolbar-left">
+		<MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+					   Color="Color.Error"
+					   Class="back-btn"
+					   OnClick="GoBack" />
+		<MudText Typo="Typo.h5" Class="page-title">
+			@(sedi != null && sedi.value?.Length > 0 ? sedi.value[0].new_localita : "SEDE")
+		</MudText>
+	</div>
+</MudPaper>
+
+
+<MudTabs SliderColor="Color.Secondary" Elevation="2" Rounded="true" Class="my-6">
 	@if (sedi!=null && sedi.value?.Length > 0)
 	{
 		<MudTabPanel Icon="@Icons.Material.Filled.Info" Text="Informazioni">
 			<div class="folder-container">
+				@if (isSaving)
+				{
+					<div class="saving-overlay">
+						<MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Error" />
+						<div class="saving-text">Salvataggio in corso...</div>
+					</div>
+				}
+
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
 
-				<div class="folder-section">
+				<div class="folder-section info-grid">
 					<div class="course-info">
 						<MudTextField @bind-Value="@sedi.value[0].new_localita" Label="Sede" Variant="Variant.Outlined" Disabled="@(!editMode)" />
 					</div>
@@ -58,8 +72,17 @@
 						<MudTextField @bind-Value="@sedi.value[0].new_emailresponsabile" Label="Email Responsabile" Variant="Variant.Outlined" Disabled="@(!editMode)" />
 					</div>
 				</div>
-				<button @onclick="ToggleEdit">
-					@if (!editMode)
+				<MudButton Variant="Variant.Filled"
+						   Color="Color.Error"
+						   Disabled="@(isSaving)"
+						   OnClick="ToggleEdit"
+						   Class="mt-3">
+					@if (isSaving)
+					{
+						<MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+						<span>Salvataggio...</span>
+					}
+					else if (!editMode)
 					{
 						<span>MODIFICA</span>
 					}
@@ -67,7 +90,8 @@
 					{
 						<span>SALVA MODIFICHE</span>
 					}
-				</button>
+				</MudButton>
+
 			</div>
 
 		</MudTabPanel>
@@ -77,13 +101,18 @@
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
-				<MudTable Items="mansioni.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+				<MudTable Items="mansioni.value"
+						  Dense="true"
+						  HeaderClass="mud-table-header"
+						  Hover="true"
+						  Class="modern-table">
+
 					<ToolBarContent>
-						<MudText Typo="Typo.h6">Mansioni in questa sede</MudText>
+						<MudText Typo="Typo.h6">Mansioni</MudText>
 						<div style="text-align: right; width: 80%;">
-							<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsyncMansione">
+							@* <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsyncMansione">
 								Nuova Mansione Custom
-							</MudButton>
+							</MudButton> *@
 						</div>
 					</ToolBarContent>
 					<HeaderContent>
@@ -104,18 +133,23 @@
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
-				<MudTable Items="lavoratori.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
+				<MudTable Items="lavoratori.value"
+						  Dense="true"
+						  HeaderClass="mud-table-header"
+						  Hover="true"
+						  Class="modern-table">
 					<ToolBarContent>
-						<MudText Typo="Typo.h6">Lavoratori in questa sede</MudText>
-						<div style="text-align: right; width: 80%;">
+						<MudText Typo="Typo.h6">Lavoratori</MudText>
+						<div style="text-align: right; width: 90%;">
 							<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsync">
-								Nuovo Lavoratore
+								Associa Lavoratore a Sede
 							</MudButton>
 						</div>
 					</ToolBarContent>
 					<HeaderContent>
 						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.cr4f9_calcolonomeecognome)">Lavoratori</MudTableSortLabel></MudTh>
 						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.new_mansione)">Mansioni</MudTableSortLabel></MudTh>
+						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<Lavoratore, object>(x => x.cr4f9_inforza)">In Forza</MudTableSortLabel></MudTh>
 					</HeaderContent>
 					<RowTemplate Context="lavoratori">
 						<MudTd>
@@ -124,6 +158,9 @@
 							</MudLink>
 						</MudTd>
 						<MudTd DataLabel="Mansione">@lavoratori.new_mansione</MudTd>
+						<MudTd DataLabel="inForza">
+							@(lavoratori.cr4f9_inforza ? "Sì" : "No")
+						</MudTd>
 					</RowTemplate>
 					<PagerContent>
 						<MudTablePager PageSizeOptions="new int[]{10, 20}"/>
@@ -132,14 +169,23 @@
 			</div>
 		</MudTabPanel>
 
-		<MudTabPanel Icon="@Icons.Material.Filled.PrecisionManufacturing" Text="Impianti e Macchinari">
+		<MudTabPanel Icon="@Icons.Material.Filled.PrecisionManufacturing" Text="Macchinari e Impianti">
 			<div class="folder-container">
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
-				<MudTable Items="macchinariEdImpianti.value" Dense ="true" HeaderClass="mud-table-header" Hover="true">
+				<MudTable Items="macchinariEdImpianti.value"
+						  Dense="true"
+						  HeaderClass="mud-table-header"
+						  Hover="true"
+						  Class="modern-table">
 					<ToolBarContent>
-						<MudText Typo="Typo.h6">Macchinari ed Impianti in questa sede</MudText>
+						<MudText Typo="Typo.h6">Macchinari ed Impianti</MudText>
+						<div style="text-align: right; width: 80%;">
+							<MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Style="color: #E53935;" @onclick="OpenDialogAsyncMacchinario">
+								Nuovo Macchinario o Impianto
+							</MudButton>
+						</div>
 					</ToolBarContent>
 					<HeaderContent>
 						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<MacchinariEdImpianti, object>(x => x.cr4f9_matricola)" >Matricola</MudTableSortLabel></MudTh>
@@ -158,76 +204,255 @@
 			</div>
 		</MudTabPanel>
 
-		<MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
+		<MudTabPanel Icon="@Icons.Material.Filled.MedicalServices" Text="DPI">
 			<div class="folder-container">
+
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
-				<MudTable Items="scadenzeGeneriche" Dense="true" HeaderClass="mud-table-header" Hover="true">
+				<MudTable Items="dpis.value"
+						  Dense="true"
+						  Hover="true"
+						  MultiSelection="true"
+						  @bind-SelectedItems="selectedItems"
+						  HeaderClass="mud-table-header"
+						  Class="modern-table">
 					<ToolBarContent>
-						<MudText Typo="Typo.h6">Scadenze</MudText>
+						<MudText Typo="Typo.h6">DPI</MudText>
 					</ToolBarContent>
 					<HeaderContent>
-						<MudTh>
-							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.DataScadenza)">
-								Data Scadenza
-							</MudTableSortLabel>
-						</MudTh>
-						<MudTh>
-							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.Titolo)">
-								Titolo
-							</MudTableSortLabel>
-						</MudTh>
-						<MudTh>
-							<MudTableSortLabel SortBy="new Func<ScadenzaGenerica, object>(s => s.TipoScadenza)">
-								Tipo Scadenza
-							</MudTableSortLabel>
-						</MudTh>
-						@* Il campo "Riferimento" non verrà mostrato nella tabella *@
+						<MudTh>Matricola</MudTh>
+						<MudTh>Nome</MudTh>
+						<MudTh>Taglia</MudTh>
+						<MudTh>Tipo</MudTh>
 					</HeaderContent>
-					<RowTemplate Context="scadenza">
-						<MudTd DataLabel="Data">@scadenza.DataScadenza.ToString("dd/MM/yyyy")</MudTd>
-						<MudTd DataLabel="Titolo">@scadenza.Titolo</MudTd>
-						<MudTd DataLabel="Tipo">@scadenza.TipoScadenza</MudTd>
+					<RowTemplate Context="dpi">
+						<MudTd DataLabel="matricola">
+							<MudLink Href="@($"/dettagliodpi/id={dpi.cr4f9_dpifisicoid}")">
+								@dpi.cr4f9_matricoladispositivo
+							</MudLink>
+						</MudTd>
+						<MudTd>@dpi.cr4f9_nomedeldispositivofisico</MudTd>
+						<MudTd>@dpi.cr4f9_taglia</MudTd>
+						<MudTd>@dpi.Tipo</MudTd>
 					</RowTemplate>
 					<PagerContent>
 						<MudTablePager PageSizeOptions="new int[]{10, 20}" />
 					</PagerContent>
 				</MudTable>
+
+				@if (selectedItems != null && selectedItems.Any())
+				{
+					<MudButton Variant="Variant.Filled"
+							   Color="Color.Error"
+							   Class="action-btn mt-4"
+							   StartIcon="@Icons.Material.Filled.AssignmentTurnedIn"
+							   OnClick="ApriDialog">
+						Consegna DPI a Lavoratore
+					</MudButton>
+				}
+
 			</div>
 		</MudTabPanel>
+
+		<MudTabPanel Icon="@Icons.Material.Filled.AccessTimeFilled" Text="Scadenze">
+			<MudTabs SliderColor="Color.Secondary" Elevation="1" Rounded="true" Class="mt-4">
+				<!-- Sotto‐tab SEDE -->
+				<MudTabPanel Text="SEDE" Icon="@Icons.Material.Filled.Place">
+					<div class="folder-container">
+
+						@* --- TABELLA DOCUMENTI --- *@
+						<MudTable Items="scadenzeDocumenti?.value"
+								  Dense="true"
+								  HeaderClass="mud-table-header"
+								  Hover="true"
+								  Class="modern-table">
+							<ToolBarContent>
+								<MudText Typo="Typo.h6">Documenti sede</MudText>
+							</ToolBarContent>
+							<HeaderContent>
+								<MudTh>Data Scadenza</MudTh>
+								<MudTh>Titolo</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="doc">
+								<MudTd DataLabel="Data">@doc.cr4f9_datascadenza.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd DataLabel="Titolo">@doc.cr4f9_nomecartella</MudTd>
+							</RowTemplate>
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+							</PagerContent>
+						</MudTable>
+
+
+						@* --- TABELLA CONTROLLI --- *@
+						<MudTable Items="scadenzeControlli?.value"
+								  Dense="true"
+								  HeaderClass="mud-table-header"
+								  Hover="true"
+								  Class="modern-table">
+							<ToolBarContent>
+								<MudText Typo="Typo.h6">Controlli sede</MudText>
+							</ToolBarContent>
+							<HeaderContent>
+								<MudTh>Data Scadenza</MudTh>
+								<MudTh>Tipo Controllo</MudTh>
+								<MudTh>Matricola</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="controllo">
+								<MudTd DataLabel="Data">@controllo.cr4f9_datadiscadenza.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd DataLabel="Tipo">@controllo.Tipo</MudTd>
+								<MudTd DataLabel="Matricola">@controllo.Matricola</MudTd>
+							</RowTemplate>
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+							</PagerContent>
+						</MudTable>
+
+
+					</div>
+				</MudTabPanel>
+
+				<MudTabPanel Text="LAVORATORI" Icon="@Icons.Material.Filled.Person">
+					<div class="folder-container">
+
+						<MudTable Items="scadenzeFormazione"
+								  Dense="true"
+								  HeaderClass="mud-table-header"
+								  Hover="true"
+								  Class="modern-table mb-6">
+							<ToolBarContent>
+								<MudText Typo="Typo.h6">Formazione</MudText>
+							</ToolBarContent>
+							<HeaderContent>
+								<MudTh>Lavoratore</MudTh>
+								<MudTh>Data Esecuzione</MudTh>
+								<MudTh>Data Scadenza</MudTh>
+								<MudTh>Titolo</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="item">
+								<MudTd>@item.NomeCognome</MudTd>
+								<MudTd>@item.DataEsecuzione?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.DataScadenza?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.Titolo</MudTd>
+							</RowTemplate>
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[]{10,20}" />
+							</PagerContent>
+						</MudTable>
+
+						<MudTable Items="scadenzeVisitaMedica"
+								   Dense="true"
+								   HeaderClass="mud-table-header"
+								   Hover="true"
+								   Class="modern-table mb-6">
+							<ToolBarContent>
+								<MudText Typo="Typo.h6">Visite Mediche</MudText>
+							</ToolBarContent>
+							<HeaderContent>
+								<MudTh>Lavoratore</MudTh>
+								<MudTh>Data Visita</MudTh>
+								<MudTh>Prossima Visita</MudTh>
+								<MudTh>Riepilogo</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="item">
+								<MudTd>@item.NomeCognome</MudTd>
+								<MudTd>@item.DataEsecuzione?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.DataScadenza?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.Titolo</MudTd>
+							</RowTemplate>
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[]{10,20}" />
+							</PagerContent>
+						</MudTable>
+
+						<MudTable Items="scadenzeControlloDPI"
+								  Dense="true"
+								  HeaderClass="mud-table-header"
+								  Hover="true"
+								  Class="modern-table">
+							<ToolBarContent>
+								<MudText Typo="Typo.h6">Controlli DPI</MudText>
+							</ToolBarContent>
+							<HeaderContent>
+								<MudTh>Lavoratore</MudTh>
+								<MudTh>Data Esecuzione</MudTh>
+								<MudTh>Data Scadenza</MudTh>
+								<MudTh>Riepilogo DPI</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="item">
+								<MudTd>@item.NomeCognome</MudTd>
+								<MudTd>@item.DataEsecuzione?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.DataScadenza?.ToString("dd/MM/yyyy")</MudTd>
+								<MudTd>@item.Titolo</MudTd>
+							</RowTemplate>
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[]{10,20}" />
+							</PagerContent>
+						</MudTable>
+
+					</div>
+				</MudTabPanel>
+			</MudTabs>
+		</MudTabPanel>
+
 
 		<MudTabPanel Icon="@Icons.Material.Filled.FileOpen" Text="Documenti">
 			<div class="folder-container">
 				<div class="folder-tab">
 					Sede @sedi.value[0].new_localita
 				</div>
-				<MudTable Items="testate.value" Dense="true" HeaderClass="mud-table-header" Hover="true">
-					<ToolBarContent>
-						<MudText Typo="Typo.h6">Testate Documenti Sede</MudText>
-					</ToolBarContent>
-					<HeaderContent>
-						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_name)">Id</MudTableSortLabel></MudTh>
-						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_nomedocumentosede)">Nome</MudTableSortLabel></MudTh>
-						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_email)">Email</MudTableSortLabel></MudTh>
-						<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
-					</HeaderContent>
-					<RowTemplate Context="testata">
-						<MudLink Href="@($"/dettagliotestatadocumentisede/id={testata.cr4f9_testatadocumentosedeid}&numero={ExtractNumber(testata.cr4f9_name)}")">@testata.cr4f9_name</MudLink>
-						<MudTd DataLabel="Nome">@testata.cr4f9_nomedocumentosede</MudTd>
-						<MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
-						<MudTd DataLabel="Note">@testata.cr4f9_notedocumento</MudTd>
-					</RowTemplate>
-				</MudTable>
+
+				<div class="table-card">
+					<div class="table-card-header">
+						<div class="table-card-title">
+							<MudText Typo="Typo.h6" Class="mb-0">Testate Documenti</MudText>
+						</div>
+
+						<MudButton Variant="Variant.Filled"
+								   Color="Color.Error"
+								   StartIcon="@Icons.Material.Filled.Add"
+								   Class="action-btn"
+								   @onclick="OpenDialogAsyncDocumento">
+							Nuova Testata Documenti
+						</MudButton>
+					</div>
+
+					<MudTable Items="testate.value"
+							  Dense="true"
+							  HeaderClass="mud-table-header"
+							  Hover="true"
+							  Class="pretty-table">
+						<HeaderContent>
+							<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_name)">ID</MudTableSortLabel></MudTh>
+							<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_nomedocumentosede)">Nome</MudTableSortLabel></MudTh>
+							<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_email)">Email</MudTableSortLabel></MudTh>
+							<MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TestataDocumentiSede, object>(x => x.cr4f9_notedocumento)">Note</MudTableSortLabel></MudTh>
+						</HeaderContent>
+
+						<RowTemplate Context="testata">
+							<MudTd DataLabel="ID">
+								<MudLink Href="@($"/dettagliotestatadocumentisede/id={testata.cr4f9_testatadocumentosedeid}&numero={ExtractNumber(testata.cr4f9_name)}")">
+									@testata.cr4f9_name
+								</MudLink>
+							</MudTd>
+							<MudTd DataLabel="Nome">@testata.cr4f9_nomedocumentosede</MudTd>
+							<MudTd DataLabel="Email">@testata.cr4f9_email</MudTd>
+							<MudTd DataLabel="Note">@testata.cr4f9_notedocumento</MudTd>
+						</RowTemplate>
+
+						<PagerContent>
+							<MudTablePager PageSizeOptions="new int[]{10, 20}" />
+						</PagerContent>
+					</MudTable>
+				</div>
 			</div>
+
 		</MudTabPanel>
 	}
 	else
 	{
 		<p>Caricamento in corso o nessun dato disponibile...</p>
 	}
-
-
 </MudTabs>
 
 @code {
@@ -236,21 +461,47 @@
 
 	private bool editMode = false;
 
-	private string message = "Loading...";
+	
 	private string userName;
 	private string userEmail;
 	private string clienteId;
 	private Guid? azienda;
+
+	private bool showWorkerFilters = false;
+	private string filterTitolo = "";
+	private string filterTipoScadenza = "all";
+	private DateTime? execDateFrom;
+	private DateTime? execDateTo;
+	private DateTime? dueDateFrom;
+	private DateTime? dueDateTo;
 
 	private SedeCollection sedi = new SedeCollection { value = Array.Empty<Sede>() };
 	private MansioneCollection mansioni = new MansioneCollection { value = Array.Empty<Mansione>() };
 	private LavoratoreCollection lavoratori = new LavoratoreCollection { value = Array.Empty<Lavoratore>() };
 	private MacchinariEdImpiantiCollection macchinariEdImpianti = new MacchinariEdImpiantiCollection { value = Array.Empty<MacchinariEdImpianti>() };
 	private TestataCollection testate = new TestataCollection { value = Array.Empty<TestataDocumentiSede>() };
-	private ScadenzeDocumentiCollection scadenzeDocumenti = new ScadenzeDocumentiCollection { value = Array.Empty<ScadenzaDocumenti>() };
-	private ScadenzeControlliCollection scadenzeControlli = new ScadenzeControlliCollection { value = Array.Empty<ScadenzaControlli>() };
+	private DpiCollection dpis = new DpiCollection { value = Array.Empty<Dpi>() };
+	private ScadenzeDocumentiCollection scadenzeDocumenti = new();
+	private ScadenzeControlliCollection scadenzeControlli = new();
+
+
+	private ScadenzaCorsoIntCollection scadenzeCorsoInt = new ScadenzaCorsoIntCollection { value = Array.Empty<ScadenzaCorsoInt>() };
+	private ScadenzaCorsoEstCollection scadenzeCorsoEst = new ScadenzaCorsoEstCollection { value = Array.Empty<ScadenzaCorsoEst>() };
+	private ScadenzaVisitaCollection scadenzeVisita = new ScadenzaVisitaCollection { value = Array.Empty<ScadenzaVisita>() };
+	private ScadenzaDpiCollection scadenzaDpi = new ScadenzaDpiCollection { value = Array.Empty<ScadenzaDpi>() };
+	private List<ScadenzaGenericaLavoratore> scadenzeGenericheLavoratori = new List<ScadenzaGenericaLavoratore>();
 
 	private List<ScadenzaGenerica> scadenzeGeneriche = new List<ScadenzaGenerica>();
+
+	private List<ScadenzaGenericaLavoratore> scadenzeFormazione = new();
+	private List<ScadenzaGenericaLavoratore> scadenzeVisitaMedica = new();
+	private List<ScadenzaGenericaLavoratore> scadenzeControlloDPI = new();
+
+	private HashSet<Dpi> selectedItems = new HashSet<Dpi>();
+
+	private bool isSaving = false;
+	private string? saveError = null;
+
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -281,6 +532,11 @@
 		await CaricaTestateDocmunetiSede();
 		await CaricaScadenzeControlli();
 		await CaricaScadenzeDocumenti();
+		await CaricaScadenzeCorsiInterni();
+		await CaricaScadenzeCoretiEsterni();
+		await CaricaScadenzeVisiteSede();
+		await CaricaScadenzeDpiSede();
+		await CaricaDpi();
 		AggregaScadenze();
 	}
 
@@ -393,14 +649,14 @@
 			}
 			else
 			{
-				message = "An error occured in the first request.";
+				await DialogService.ShowMessageBox("Errore", "An error occured in the first request.");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 				return;
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
 		}
 	}
 
@@ -454,14 +710,14 @@
 			}
 			else
 			{
-				message = "An error occured in the mansioni request.";
+				await DialogService.ShowMessageBox("Errore", "An error occured in the mansioni request.");
 				logger.LogError($"Error fetching mansioni data: {response.ReasonPhrase}");
 				return;
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating");
 		}
 	}
 
@@ -510,14 +766,14 @@
 			}
 			else
 			{
-				message = "An error occured in the first request.";
+				await DialogService.ShowMessageBox("Errore", "An error occured in the first request.");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 				return;
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating");
 		}
 
 	}
@@ -527,6 +783,7 @@
 		return $@"
 				<fetch>
 				  <entity name='new_lavorapressoprv'>
+                    <attribute name='cr4f9_inforza' />
 					<filter>
 					  <condition attribute='new_sede' operator='eq' value='{id}' />
 					</filter>
@@ -566,13 +823,13 @@
 			}
 			else
 			{
-				message = "An error occured.";
+				await DialogService.ShowMessageBox("Errore", "An error occured.");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
 		}
 	}
 
@@ -623,13 +880,13 @@
 			}
 			else
 			{
-				message = "An error occured.";
+				await DialogService.ShowMessageBox("Errore", "An error occured.");
 				logger.LogError($"Error fetching data: {response.ReasonPhrase}");
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
 		}
 	}
 
@@ -642,7 +899,7 @@
 				<attribute name='cr4f9_name' />
 				<attribute name='cr4f9_nomedocumentosede' />
 				<attribute name='cr4f9_email' />
-				<attribute name='cr4f9_notedocumento' />
+				<attribute name='cr4f9_noteareatesto' />
 				<filter>
 				  <condition attribute='cr4f9_sede' operator='eq' value='{id}' />
 				</filter>
@@ -661,7 +918,7 @@
 			var request = new HttpRequestMessage()
 				{
 					Method = HttpMethod.Get,
-					RequestUri = new Uri($"{client.BaseAddress}cr4f9_cartelladocumentosedes")
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_cartelladocumentosedes?fetchXml={Uri.EscapeDataString(fetchXml)}")
 				};
 			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
 			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -673,14 +930,14 @@
 			}
 			else
 			{
-				message = "An error occured in  the first request.";
+				await DialogService.ShowMessageBox("Errore", "An error occured in the first request.");
 				logger.LogError($"Documenti-Error fetching data: {response.ReasonPhrase}");
 				return;
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
 		}
 	}
 
@@ -700,6 +957,72 @@
 		  </entity>
 		</fetch>";
 	}
+
+	public async Task CaricaDpi()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		var fetchXml = BuildDpiSedeXml();
+
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+
+			var request = new HttpRequestMessage()
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri($"{client.BaseAddress}cr4f9_dpifisicos?fetchXml={Uri.EscapeDataString(fetchXml)}")
+				};
+
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var responseBody = await response.Content.ReadAsStringAsync();
+				logger.LogInformation("RESPONSE BODY: " + responseBody);
+
+				dpis = await response.Content.ReadFromJsonAsync<DpiCollection>();
+			}
+			else
+			{
+				await DialogService.ShowMessageBox("Errore", "An error occured while fetching data.");
+				logger.LogError($"Error fetching data: {response.StatusCode}");
+			}
+		}
+		else
+		{
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
+		}
+	}
+
+	private string BuildDpiSedeXml()
+	{
+		return $@"
+    <fetch>
+      <entity name='cr4f9_dpifisico'>
+        <attribute name='cr4f9_dpifisicoid' />
+        <attribute name='cr4f9_matricoladispositivo' />
+        <attribute name='cr4f9_nomedeldispositivofisico' />
+        <attribute name='cr4f9_taglia' />
+        <attribute name='createdon' />
+        <attribute name='cr4f9_tipologiadpi' alias='cr4f9_tipologiadpi'/>
+        <filter>
+          <condition attribute='cr4f9_sededelcliente' operator='eq' value='{id}' />
+        </filter>
+        <link-entity name='cr4f9_tipologiadpiprv' from='cr4f9_tipologiadpiprvid' to='cr4f9_tipologiadpi' link-type='inner' alias='Tipologia'>
+          <attribute name='cr4f9_tipologia' alias='Tipo' />
+          <attribute name='cr4f9_duratavitamesi' alias='Durata' />
+          <attribute name='cr4f9_periodicitacontrollimesi' alias='Periodicita' />
+        </link-entity>
+        <link-entity name='new_sedeprv' from='new_sedeprvid' to='cr4f9_sededelcliente' link-type='inner' alias='Sede'>
+          <attribute name='new_localita' alias='Localita'/>
+          <attribute name='new_sedeprvid' alias='IdSede'/>
+        </link-entity>
+      </entity>
+    </fetch>";
+	}
+
 
 	public async Task CaricaScadenzeControlli()
 	{
@@ -726,14 +1049,14 @@
 			}
 			else
 			{
-				message = "An error occurred in the first request.";
+				await DialogService.ShowMessageBox("Errore", "An error occurred in the first request.");
 				logger.LogError($"Controlli - Error fetching data: {response.ReasonPhrase}");
 				return; // Termina se la prima richiesta fallisce
 			}
 		}
 		else
 		{
-			message = "There was a problem authenticating.";
+			await DialogService.ShowMessageBox("Errore", "There was a problem authenticating.");
 		}
 	}
 
@@ -744,13 +1067,204 @@
 		  <entity name='cr4f9_elencocontrollimacchinarieimpianti'>
 			<attribute name='cr4f9_datadiscadenza' />
 			<link-entity name='cr4f9_macchinarioimpiantofisico' from='cr4f9_macchinarioimpiantofisicoid' to='cr4f9_macchinariooimpianto' link-type='inner' alias='Macchinario'>
-			  <attribute name='cr4f9_matricola' />
+			  <attribute name='cr4f9_matricola' alias='Matricola'/>
 			  <attribute name='cr4f9_macchinarioimpiantofisicoid' alias='MacchinarioId'/>
 			  <filter>
 				<condition attribute='cr4f9_sede' operator='eq' value='{id}' />
 			  </filter>
 			  <link-entity name='cr4f9_macchinarioeimpianto' from='cr4f9_macchinarioeimpiantoid' to='cr4f9_tipologiadimacchinariooimpianto' link-type='inner' alias='Tipologia'>
 				<attribute name='cr4f9_nome' alias='Nome'/>
+			  </link-entity>
+			</link-entity>
+            <link-entity name='cr4f9_tipologiedicontrollo' from='cr4f9_tipologiedicontrolloid' to='cr4f9_controllo' link-type='inner' alias='TipoControllo'>
+			  <attribute name='cr4f9_tipocontrollo' alias='Tipo'/>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaScadenzeCorsiInterni()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildScadenzeCorsiInterniSede();
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_partecipazionecorsoprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var corsiInt = await response.Content.ReadFromJsonAsync<ScadenzaCorsoIntCollection>();
+				scadenzeFormazione.AddRange(corsiInt.value.Select(c => new ScadenzaGenericaLavoratore
+					{
+						NomeCognome = c.nomeCognome,
+						DataEsecuzione = c.dataFineCorso,
+						DataScadenza = c.cr4f9_scadenza,
+						Titolo = c.titolo,
+						TipoScadenza = "Formazione"
+					}));
+			}
+		}
+	}
+
+	private string BuildScadenzeCorsiInterniSede()
+	{
+		return $@"
+		<fetch>
+		  <entity name='new_partecipazionecorsoprv'>
+			<attribute name='cr4f9_scadenza' />
+            <attribute name='new_lavoratore' />
+			<link-entity name='cr4f9_corsoprv' from='cr4f9_corsoprvid' to='new_corso' link-type='inner' alias='Corso'>
+			  <attribute name='cr4f9_datadifine' alias='dataFineCorso' />
+			  <attribute name='cr4f9_titolocorso' alias='titolo' />
+			</link-entity>
+			<link-entity name='new_lavorapressoprv' from='new_lavoratore' to='new_lavoratore' alias='LavoraPresso'>
+			  <filter>
+				<condition attribute='new_sede' operator='eq' value='{id}' />
+			  </filter>
+			</link-entity>
+            <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='new_lavoratore' link-type='inner' alias='Lavoratore'>
+			  <attribute name='cr4f9_nomeecognomecalcolato' alias='nomeCognome'/>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaScadenzeCoretiEsterni()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildScadenzeCorsiEsterniSede();
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}new_partecipazioneesternaprvs?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var corsiEst = await response.Content.ReadFromJsonAsync<ScadenzaCorsoEstCollection>();
+				scadenzeFormazione.AddRange(corsiEst.value.Select(c => new ScadenzaGenericaLavoratore
+					{
+						NomeCognome = c.nomeCognome,
+						DataEsecuzione = c.new_data,
+						DataScadenza = c.new_scadenza,
+						Titolo = c.new_titolocorso,
+						TipoScadenza = "Formazione"
+					}));
+			}
+		}
+	}
+
+	private string BuildScadenzeCorsiEsterniSede()
+	{
+		return $@"
+		<fetch>
+		  <entity name='new_partecipazioneesternaprv'>
+			<attribute name='new_titolocorso' />
+			<attribute name='new_scadenza' />
+			<attribute name='new_data' />
+	        <attribute name='new_lavoratore' />
+			<link-entity name='new_lavorapressoprv' from='new_lavoratore' to='new_lavoratore' link-type='inner' alias='LavoraPresso'>
+			  <filter>
+				<condition attribute='new_sede' operator='eq' value='{id}' />
+			  </filter>
+			</link-entity>
+            <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='new_lavoratore' link-type='inner' alias='Lavoratore'>
+			  <attribute name='cr4f9_nomeecognomecalcolato' alias='nomeCognome'/>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaScadenzeVisiteSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildScadenzaVisiteSede();
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_visitamedicadellavoratores?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var visite = await response.Content.ReadFromJsonAsync<ScadenzaVisitaCollection>();
+				scadenzeVisitaMedica.AddRange(visite.value.Select(v => new ScadenzaGenericaLavoratore
+					{
+						NomeCognome = v.nomeCognome,
+						DataEsecuzione = v.cr4f9_datavisita,
+						DataScadenza = v.cr4f9_dataprossimavisita,
+						Titolo = v.cr4f9_riepilogovisita,
+						TipoScadenza = "Visita Medica"
+					}));
+			}
+		}
+	}
+
+	private string BuildScadenzaVisiteSede()
+	{
+		return $@"
+		<fetch>
+		  <entity name='cr4f9_visitamedicadellavoratore'>
+			<attribute name='cr4f9_riepilogovisita' />
+			<attribute name='cr4f9_dataprossimavisita' />
+			<attribute name='cr4f9_datavisita' />
+            <attribute name='cr4f9_lavoratore' />
+			<link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_lavoratore' link-type='inner' alias='LavoraPresso'>
+			  <filter>
+				<condition attribute='new_sede' operator='eq' value='{id}' />
+			  </filter>
+			</link-entity>
+            <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratore' link-type='inner' alias='Lavoratore'>
+			  <attribute name='cr4f9_nomeecognomecalcolato' alias='nomeCognome'/>
+			</link-entity>
+		  </entity>
+		</fetch>";
+	}
+
+	public async Task CaricaScadenzeDpiSede()
+	{
+		var tokenResult = await TokenProvider.RequestAccessToken();
+		if (tokenResult.TryGetToken(out var token))
+		{
+			var client = ClientFactory.CreateClient("DataverseClient");
+			var fetchXml = BuildScadenzeDpiSede();
+			var request = new HttpRequestMessage(HttpMethod.Get, $"{client.BaseAddress}cr4f9_elencocontrollidpis?fetchXml={Uri.EscapeDataString(fetchXml)}");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+			var response = await client.SendAsync(request);
+			if (response.IsSuccessStatusCode)
+			{
+				var dpis = await response.Content.ReadFromJsonAsync<ScadenzaDpiCollection>();
+				scadenzeControlloDPI.AddRange(dpis.value.Select(d => new ScadenzaGenericaLavoratore
+					{
+						NomeCognome = d.nomeCognome,
+						DataEsecuzione = d.cr4f9_dataesecuzione,
+						DataScadenza = d.cr4f9_datascadenzacontrollo,
+						Titolo = d.Riepilogo,
+						TipoScadenza = "Controllo DPI"
+					}));
+			}
+		}
+	}
+
+	private string BuildScadenzeDpiSede()
+	{
+		return $@"
+		<fetch>
+		  <entity name='cr4f9_elencocontrollidpi'>
+			<attribute name='cr4f9_datascadenzacontrollo' />
+			<attribute name='cr4f9_dataesecuzione' />
+			<link-entity name='cr4f9_associazionedpialavoratore' from='cr4f9_associazionedpialavoratoreid' to='cr4f9_dispositivoconsegnato' link-type='inner' alias='ConsegnaDPI'>
+			  <attribute name='cr4f9_riepilogoconsegnacalculated' alias='Riepilogo'/>
+              <attribute name='cr4f9_lavoratorelookup' alias='LavoratoreId'/>
+			  <link-entity name='new_lavorapressoprv' from='new_lavoratore' to='cr4f9_lavoratorelookup' link-type='inner' alias='LavoraPresso'>
+				<filter>
+				  <condition attribute='new_sede' operator='eq' value='{id}' />
+				</filter>
+			  </link-entity>
+              <link-entity name='cr4f9_contattoprv' from='cr4f9_contattoprvid' to='cr4f9_lavoratorelookup' link-type='inner' alias='Lavoratore'>
+				<attribute name='cr4f9_nomeecognomecalcolato' alias='nomeCognome' />
 			  </link-entity>
 			</link-entity>
 		  </entity>
@@ -762,14 +1276,30 @@
 		if (!editMode)
 		{
 			editMode = true;
+			return;
 		}
-		else
+
+		// SALVATAGGIO
+		isSaving = true;
+		saveError = null;
+
+		try
 		{
 			await SalvaModifiche();
-
 			editMode = false;
 		}
+		catch (Exception ex)
+		{
+			saveError = ex.Message;
+			// opzionale: Snackbar se vuoi feedback immediato
+			Snackbar.Add("Errore durante il salvataggio.", Severity.Error);
+		}
+		finally
+		{
+			isSaving = false;
+		}
 	}
+
 
 	private async Task SalvaModifiche()
 	{
@@ -804,7 +1334,7 @@
 				}
 				else
 				{
-					logger.LogError($"Errore nel salvataggio: {response.ReasonPhrase}");
+					logger.LogError($"Errore durante il salvataggio delle modifiche: {response.ReasonPhrase}");
 				}
 			}
 			else
@@ -827,7 +1357,7 @@
 				scadenzeGeneriche.Add(new ScadenzaGenerica
 					{
 						DataScadenza = controllo.cr4f9_datadiscadenza,
-						Titolo = controllo.Nome,
+						Titolo = controllo.Tipo + " - " + controllo.Matricola,
 						TipoScadenza = "Controllo",
 						Riferimento = controllo.MacchinarioId
 					});
@@ -865,6 +1395,38 @@
 				MaxWidth = MaxWidth.Medium       // Imposta una larghezza massima ragionevole (puoi usare anche Small, Large, ecc.)
 			};
 		return DialogService.ShowAsync<AddLavoratoreSede>("Simple Dialog", parameters, options);
+	}
+
+	private Task OpenDialogAsyncMacchinario()
+	{
+		var parameters = new DialogParameters();
+		parameters.Add("id", id);
+
+		logger.LogInformation($"Parametro id inviato :{id}");
+
+		var options = new DialogOptions
+			{
+				CloseOnEscapeKey = true,
+				FullWidth = false,              // Impedisce al dialog di occupare tutta la larghezza della pagina
+				MaxWidth = MaxWidth.Medium       // Imposta una larghezza massima ragionevole (puoi usare anche Small, Large, ecc.)
+			};
+		return DialogService.ShowAsync<AddMacchinarioSede>("Simple Dialog", parameters, options);
+	}
+
+	private Task OpenDialogAsyncDocumento()
+	{
+		var parameters = new DialogParameters();
+		parameters.Add("id", id);
+
+		logger.LogInformation($"Parametro id inviato :{id}");
+
+		var options = new DialogOptions
+			{
+				CloseOnEscapeKey = true,
+				FullWidth = false,              // Impedisce al dialog di occupare tutta la larghezza della pagina
+				MaxWidth = MaxWidth.Medium       // Imposta una larghezza massima ragionevole (puoi usare anche Small, Large, ecc.)
+			};
+		return DialogService.ShowAsync<AddTestataDettaglioSede>("Simple Dialog", parameters, options);
 	}
 
 	private Task OpenDialogAsyncMansione()
@@ -906,6 +1468,64 @@
 		NavigationManager.NavigateTo("javascript:history.back()");
 	}
 
+	private bool WorkerFilter(ScadenzaGenericaLavoratore item)
+	{
+		bool ok = true;
+
+		// filtro titolo
+		if (!string.IsNullOrWhiteSpace(filterTitolo))
+			ok &= item.Titolo?.Contains(filterTitolo, StringComparison.OrdinalIgnoreCase) == true;
+
+		// filtro tipo
+		if (filterTipoScadenza != "all")
+			ok &= item.TipoScadenza == filterTipoScadenza;
+
+		// filtro data esecuzione
+		if (execDateFrom.HasValue)
+			ok &= item.DataEsecuzione >= execDateFrom.Value;
+		if (execDateTo.HasValue)
+			ok &= item.DataEsecuzione <= execDateTo.Value.AddDays(1);
+
+		// filtro data scadenza
+		if (dueDateFrom.HasValue)
+			ok &= item.DataScadenza >= dueDateFrom.Value;
+		if (dueDateTo.HasValue)
+			ok &= item.DataScadenza <= dueDateTo.Value.AddDays(1);
+
+		return ok;
+	}
+
+	private void ResetWorkerFilters()
+	{
+		filterTitolo = "";
+		filterTipoScadenza = "all";
+		execDateFrom = execDateTo = dueDateFrom = dueDateTo = null;
+	}
+
+	private async Task StampaSelezionati()
+	{
+		var ids = selectedItems.Select(d => d.cr4f9_dpifisicoid);
+		logger.LogInformation("ID selezionati: " + string.Join(", ", ids));
+		await Task.CompletedTask;
+	}
+
+	private async Task ApriDialog()
+	{
+		if (selectedItems == null || !selectedItems.Any())
+		{
+			Snackbar.Add("Seleziona almeno un DPI da consegnare.", Severity.Warning);
+			return;
+		}
+
+		var parameters = new DialogParameters
+	{
+		{ "SelectedDpi", selectedItems.ToList() }
+	};
+		var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+		DialogService.Show<AddTestataConsegneSede>("Nuova Consegna", parameters, options);
+	}
+
+
 	public class Sede
 	{
 		public string new_localita { get; set; }
@@ -937,6 +1557,7 @@
 
 	public class Lavoratore
 	{
+		public bool cr4f9_inforza { get; set; }
 		[JsonPropertyName("Lavoratore.cr4f9_calcolonomeecognome")]
 		public string cr4f9_calcolonomeecognome { get; set; }
 
@@ -990,6 +1611,30 @@
 		public TestataDocumentiSede[] value { get; set; }
 	}
 
+	public class Dpi
+	{
+		public Guid? cr4f9_dpifisicoid { get; set; }
+		public string cr4f9_matricoladispositivo { get; set; }
+		public string cr4f9_nomedeldispositivofisico { get; set; }
+		public string cr4f9_taglia { get; set; }
+		public DateTime createdon { get; set; }
+
+		// Se il JSON usa alias diversi, aggiungi JsonPropertyName; esempio:
+		[JsonPropertyName("_cr4f9_tipologiadpi_value")]
+		public string cr4f9_tipologiadpi { get; set; }
+
+		public string Tipo { get; set; }
+		public int Durata { get; set; }
+		public int Periodicita { get; set; }
+		public string Localita { get; set; }
+		public string IdSede { get; set; }
+	}
+
+
+	public class DpiCollection
+	{
+		public Dpi[] value { get; set; }
+	}
 
 	public class ScadenzaDocumenti()
 	{
@@ -1007,7 +1652,9 @@
 	{
 		public DateTime cr4f9_datadiscadenza { get; set; }
 		public string MacchinarioId { get; set; }
+		public string Matricola { get; set; }
 		public string Nome { get; set; }
+		public string Tipo { get; set; }
 	}
 
 	public class ScadenzeControlliCollection()
@@ -1023,163 +1670,73 @@
 		public string Riferimento { get; set; }
 	}
 
+	public class ScadenzaCorsoInt
+	{
+		public DateTime? cr4f9_scadenza { get; set; }
+		public string new_lavoratore { get; set; }
+		public DateTime? dataFineCorso { get; set; }
+		public string titolo { get; set; }
+		public string nomeCognome { get; set; }
+
+	}
+
+	public class ScadenzaCorsoIntCollection
+	{
+		public ScadenzaCorsoInt[] value { get; set; }
+	}
+
+	public class ScadenzaCorsoEst
+	{
+		public string new_titolocorso { get; set; }
+		public DateTime? new_scadenza { get; set; }
+		public DateTime? new_data { get; set; }
+		public string new_lavoratore { get; set; }
+		public string nomeCognome { get; set; }
+	}
+
+	public class ScadenzaCorsoEstCollection
+	{
+		public ScadenzaCorsoEst[] value { get; set; }
+	}
+
+	public class ScadenzaVisita
+	{
+		public string cr4f9_riepilogovisita { get; set; }
+		public DateTime? cr4f9_dataprossimavisita { get; set; }
+		public DateTime? cr4f9_datavisita { get; set; }
+		public string cr4f9_lavoratore { get; set; }
+		public string nomeCognome { get; set; }
+	}
+
+	public class ScadenzaVisitaCollection
+	{
+		public ScadenzaVisita[] value { get; set; }
+	}
+
+	public class ScadenzaDpi
+	{
+		public DateTime? cr4f9_datascadenzacontrollo { get; set; }
+		public DateTime? cr4f9_dataesecuzione { get; set; }
+		public string Riepilogo { get; set; }
+		public string LavoratoreId { get; set; }
+		public string nomeCognome { get; set; }
+	}
+
+	public class ScadenzaDpiCollection
+	{
+		public ScadenzaDpi[] value { get; set; }
+	}
+
+	public class ScadenzaGenericaLavoratore
+	{
+		public DateTime? DataScadenza { get; set; }
+		public DateTime? DataEsecuzione { get; set; }
+		public string Titolo { get; set; }
+		public string TipoScadenza { get; set; }
+		public string LavoratoreId { get; set; }
+		public string NomeCognome { get; set; }
+	}
+
+
 }
 
-<style>
-
-	/* Contenitore a forma di cartella */
-	.folder-container {
-		position: relative;
-		background-color: #f0f0f0;
-		border: 2px solid #E53935;
-		border-radius: 8px;
-		padding: 16px;
-		margin-top: 50px; /* Per spostare il contenuto sotto la linguetta */
-		box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombra per un effetto elevato */
-		margin-bottom: 100px;
-	}
-
-	/* Linguetta in alto a sinistra */
-	.folder-tab {
-		position: absolute;
-		top: -25px; /* Altezza sopra il contenitore */
-		left: 20px; /* Regola la posizione più verso sinistra */
-		background-color: #E53935;
-		color: white;
-		padding: 6px 16px;
-		border-top-left-radius: 6px;
-		border-top-right-radius: 6px;
-		font-weight: bold;
-		box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Ombra della linguetta */
-	}
-
-	/* Stile per la sezione aggiuntiva */
-	.folder-section {
-		margin-top: 16px;
-		padding-top: 8px;
-		border-top: 1px solid #ccc; /* Separatore tra le sezioni */
-	}
-
-	/* Stile per le informazioni del corso */
-	.course-info {
-		font-size: 1rem;
-		color: #333;
-		margin-bottom: 12px;
-	}
-
-	/* Pulsante di azione */
-	button {
-		font-size: 1rem;
-		background-color: #E53935; /* Stesso colore della linguetta */
-		color: white;
-		border: none;
-		padding: 8px 16px;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: background-color 0.3s ease;
-	}
-
-	button:hover {
-		background-color: #D32F2F; /* Colore più scuro al passaggio del mouse */
-	}
-
-	/* Contenitore delle informazioni del corso */
-	.course-info {
-		display: flex;
-		align-items: center;
-		font-size: 1.2rem;
-		font-weight: bold;
-		margin: 12px 0;
-		padding: 8px;
-		border-radius: 8px;
-		background-color: #f9f9f9;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	}
-
-	/* Stile generale per lo stato */
-	.course-status {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	/* Stile per stato positivo */
-	.course-status.success {
-		color: #2e7d32; /* Verde scuro */
-		background-color: #e8f5e9; /* Verde chiaro */
-		border-left: 4px solid #2e7d32;
-		padding-left: 12px;
-	}
-
-	/* Stile per stato negativo */
-	.course-status.failure {
-		color: #d32f2f; /* Rosso scuro */
-		background-color: #ffebee; /* Rosso chiaro */
-		border-left: 4px solid #d32f2f;
-		padding-left: 12px;
-	}
-
-	/* Icone */
-	.course-status .mud-icon {
-		font-size: 1.5rem;
-	}
-
-	.mud-tab-slider {
-		position: absolute;
-		background: #A9A9A9;
-	}
-
-	.mud-tab.mud-tab-active {
-		color: currentColor;
-	}
-
-	/* Tabella intestazione */
-	.mud-table-header {
-		background-color: #E53935;
-	}
-
-	.mud-table-header .mud-table-cell {
-		color: white !important;
-		font-weight: bold; /* Grassetto per l'intestazione */
-	}
-
-	/* Righe della tabella */
-	.mud-table-row {
-		border-bottom: 1px solid #e0e0e0; /* Bordo tra le righe */
-	}
-
-	/* Celle della tabella (MudTd) */
-	.mud-table .mud-td, .mud-table .mud-th {
-		border-bottom: 1px solid #e0e0e0; /* Bordo tra le celle */
-		padding: 8px; /* Padding per le celle */
-		vertical-align: middle; /* Allinea verticalmente il contenuto */
-		text-align: center; /* Centra il testo */
-	}
-
-	/* Colore dei link nella tabella */
-	.mud-table .mud-link.mud-typography.mud-primary-text {
-		font-size: 0.875rem;
-		color: #757575 !important;
-		font-weight: bold;
-		display: block;
-		text-align: left;
-		vertical-align: central;
-		margin-top: 8px;
-		margin-left: 16px;
-	}
-
-	/* Hover sui link */
-	.mud-table .mud-link.mud-typography.mud-primary-text:hover {
-		color: red !important;
-		cursor: pointer;
-	}
-
-	.row-controllo {
-		background-color: #FFCDD2; /* rosso chiaro */
-	}
-
-	.row-documento {
-		background-color: #C8E6C9; /* verde chiaro */
-	}
-
-</style>
